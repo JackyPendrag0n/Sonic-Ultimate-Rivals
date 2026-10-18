@@ -4,12 +4,22 @@ Built on the rcsm (Ratchet & Clank: Size Matters) recompiler and runtime: the ga
 translated ahead of time into C (`tools/recomp.py`) and runs on a small runtime that re-implements the
 PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP components
 (`runtime/gpu`, `runtime/audio`, `runtime/mpeg`, `runtime/utility`). No game data is included.
-`README.rcsm.md` is the original Size Matters README (controls and settings menu are shared).
+`README.rcsm.md` is the original Size Matters README, kept for the runtime's history.
 
 ## Status
 - Boots, shows the SEGA logo, title, menus and story cutscenes, and plays a race (Blue Coast Act 1).
 - Sound works: music, effects and voices go through the new sceAudio channel mixer (`runtime/audio_ch.c`).
-- The settings menu still lists Size Matters debug options; they do nothing here.
+- Races run at 30 fps on the PSP (menus at 60). Gameplay is timed by the clock, so the race frame rate
+  is a setting: 30 (original), 60 (default), 120, 144, 165 or 240.
+- PC graphics settings are in the game's own Options screen: a fifth item, **Graphics**, turns the list
+  into Resolution, Frame Rate, Fullscreen, V-Sync and Filtering (left/right or CROSS change a row,
+  CIRCLE goes back). F1 / Esc opens the same settings as an overlay, plus window and audio options.
+  Settings are saved to `~/.config/sr2recomp/settings.ini`; saves go to `~/.local/share/sr2recomp`.
+
+## Controls
+Controller: left stick / d-pad move, A jump, B/X/Y the PSP's circle/square/triangle, LB/LT = L,
+RB/RT = R, Start/Back. Keyboard: WASD or arrows move, Space or K jump, L circle, J square, I triangle,
+Q/E = L/R, Enter Start, Backspace Select, F1/Esc PC settings, F11 fullscreen, F12 screenshot.
 
 ## Build and run
 You need your own game files laid out like the UMD (`PSP_GAME/SYSDIR`, `PSP_GAME/USRDIR`), with
@@ -18,7 +28,7 @@ You need your own game files laid out like the UMD (`PSP_GAME/SYSDIR`, `PSP_GAME
 
 ```sh
 ./build.sh /path/to/game     # folder that contains PSP_GAME
-build/rcsm /path/to/game
+build/sr2recomp /path/to/game
 ```
 Dependencies are the same as rcsm (gcc/g++, SDL2, FFmpeg, libpng, zlib dev packages).
 
@@ -34,11 +44,20 @@ Dependencies are the same as rcsm (gcc/g++, SDL2, FFmpeg, libpng, zlib dev packa
   UMD callbacks, scePowerSetClockFrequency.
 - Memory stick size capped at 1 GB (`runtime/utility/shim/Core/Config.h`): the game multiplies free
   clusters by the cluster size in 32 bits, so 16 GB wrapped to 0 and it asked to delete saves.
-- `runtime/audio_ch.c`: sceAudio hardware channels (ChReserve, Output[Panned][Blocking], volumes), mixed on one timeline. `RCSM_AUDIO_DUMP=file` writes the mixed output as raw 44.1 kHz stereo.
-- `runtime/game.c` replaces the Size Matters mods (armour, skins, skyboard, Clank, fly, native menu).
+- `runtime/audio_ch.c`: sceAudio hardware channels (ChReserve, Output[Panned][Blocking], volumes), mixed on one timeline. `SR2_AUDIO_DUMP=file` writes the mixed output as raw 44.1 kHz stereo.
+- `runtime/game.c` replaces the Size Matters mods with this game's layer: the settings file, the race
+  frame rate (an entry hook on the display manager's swap-interval setter, see `data/hooks.json`, plus a
+  faster emulated vblank above 60 fps), and the Graphics entry in the Options screen. The frontend is
+  data-driven (0x420-byte widgets baked into the menu data at fixed addresses, text by index into
+  `STR_EN_NA.TXT`), so the runtime adds a fifth widget to the Options list and appends its strings to the
+  game's text table.
+- The Size Matters debug menu, mods, control schemes and test scripts are gone.
 
 ## Headless testing
-`./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables (from rcsm):
-`RCSM_LOG=2|3`, `RCSM_INPUT="300:CROSS,308:-,..."` (scripted input by vblank),
-`RCSM_WINSHOT_EVERY=N RCSM_SHOT_DIR=dir` (screenshots), `RCSM_LBN_FATAL=1` (stop with a guest backtrace
-when a sector read misses).
+`./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables:
+`SR2_LOG=2|3`, `SR2_INPUT="300:CROSS,308:-,..."` (scripted input by vblank),
+`SR2_WINSHOT_EVERY=N SR2_SHOT_DIR=dir` (screenshots), `SR2_FPS=120`, `SR2_GL_SCALE=N`,
+`SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
+the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
+backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
+`SR2_WATCH=lo-hi` memory watches.

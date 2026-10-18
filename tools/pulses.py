@@ -1,4 +1,4 @@
-"""Build an RCSM_INPUT string.
+"""Build an SR2_INPUT string.
    400:CROSS            tap (held 4 vblanks)
    1000-2000/40:START   tap every 40 vblanks
    3000-3600:SUP        hold for the whole range (stick: SUP/SDOWN/SLEFT/SRIGHT, buttons combine with +)"""

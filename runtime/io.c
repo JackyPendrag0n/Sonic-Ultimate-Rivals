@@ -103,7 +103,6 @@ static PspFile *getf(u32 fd) { return (fd < MAX_FD && fds[fd].used) ? &fds[fd] :
 // the PSP path an open file descriptor was opened with (sceKernelLoadModuleByID), or NULL
 const char *io_fd_path(u32 fd) { PspFile *f = getf(fd); return f && !f->dir ? f->path : NULL; }
 
-bool io_virtual_file(const char *psp, const unsigned char **data, unsigned *size);
 static s32 do_open(const char *psp, u32 flags) {
 	char hp[1024];
 	const char *lb = strstr(psp, "sce_lbn");
@@ -112,7 +111,7 @@ static s32 do_open(const char *psp, u32 flags) {
 		if (sscanf(lb, "sce_lbn%x_size%x", &lbn, &size) != 2) return SCE_ERROR_FILE_NOT_FOUND;
 		const DiscFile *m = disc_by_lbn(lbn);
 		if (!m) {
-			if (getenv("RCSM_LBN_FATAL")) fatal("io: %s: sector %x isn't inside any file of the disc", psp, lbn);
+			if (getenv("SR2_LBN_FATAL")) fatal("io: %s: sector %x isn't inside any file of the disc", psp, lbn);
 			LOGE("io: %s: sector %x isn't inside any file of the disc", psp, lbn);
 			return SCE_ERROR_FILE_NOT_FOUND;
 		}
@@ -150,7 +149,7 @@ static s32 do_open(const char *psp, u32 flags) {
 	if (h < 0) {
 		// Missing FMV clips: serve a 1-second black PSMF so the game's player runs and finishes.
 		size_t pl = strlen(psp);
-		const char *fake = getenv("RCSM_FAKE_MISSING_VIDEOS");
+		const char *fake = getenv("SR2_FAKE_MISSING_VIDEOS");
 		if (pl > 4 && !strcasecmp(psp + pl - 4, ".PMF") && (flags & 3) == 1 && (!fake || atoi(fake))) {
 			int err = errno;
 			if (err == EACCES || err == EPERM)
@@ -178,15 +177,6 @@ static s32 do_open(const char *psp, u32 flags) {
 				LOGI("video %s is missing: substituting a 1 s black clip", psp);
 				faked = true;
 			} else if (h >= 0) { close(h); h = -1; }
-		}
-	}
-	if (h < 0 && (flags & 3) == 1) {
-		// files the mods add (e.g. the Clank skin, skins.c)
-		const unsigned char *vd; unsigned vs;
-		if (io_virtual_file(psp, &vd, &vs)) {
-			h = memfd_create("virtual", 0);
-			if (h >= 0 && write(h, vd, vs) == (ssize_t)vs) { lseek(h, 0, SEEK_SET); LOGI("io: %s served by the runtime", psp); }
-			else if (h >= 0) { close(h); h = -1; }
 		}
 	}
 	if (h < 0) { LOGD("open %s (%s) -> errno %d", psp, hp, errno); return SCE_ERROR_FILE_NOT_FOUND; }

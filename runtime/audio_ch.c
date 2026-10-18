@@ -38,7 +38,7 @@ static void flush_to(u64 upto) {
 		}
 		fe_audio_push(out, n);
 		static FILE *dump; static int dump_init;
-		if (!dump_init) { dump_init = 1; const char *e = getenv("RCSM_AUDIO_DUMP"); if (e) dump = fopen(e, "wb"); }   // raw s16 stereo 44.1 kHz
+		if (!dump_init) { dump_init = 1; const char *e = getenv("SR2_AUDIO_DUMP"); if (e) dump = fopen(e, "wb"); }   // raw s16 stereo 44.1 kHz
 		if (dump) fwrite(out, 4, n, dump);
 		flushed += n;
 	}

@@ -33,7 +33,7 @@ extern u8 *g_mem;
 typedef u32 __attribute__((may_alias, aligned(1))) u32_u;
 typedef u16 __attribute__((may_alias, aligned(1))) u16_u;
 static inline u8 *PTR(u32 a) { return g_mem + (a & MEM_MASK); }
-#ifndef RCSM_WATCH
+#ifndef SR2_WATCH
 #define LW(a)  (*(u32_u *)PTR(a))
 #define LH(a)  ((u32)(s32)*(s16 *)(u16_u *)PTR(a))
 #define LHU(a) ((u32)*(u16_u *)PTR(a))

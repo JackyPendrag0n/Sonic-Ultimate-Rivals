@@ -51,5 +51,5 @@ if [ -n "$fail" ]; then echo "build FAILED (compile errors above)"; exit 1; fi
 [ -f build/libpspaudio.a ] || runtime/audio/build.sh lib
 [ -f build/libpspmpeg.a ] || runtime/mpeg/build.sh lib
 [ -f build/libpsputility.a ] || runtime/utility/build.sh lib
-g++ -o build/rcsm "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) -lSDL2 -lpng -lpthread -lz -lm
-echo "built build/rcsm"
+g++ -o build/sr2recomp "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) -lSDL2 -lpng -lpthread -lz -lm
+echo "built build/sr2recomp"

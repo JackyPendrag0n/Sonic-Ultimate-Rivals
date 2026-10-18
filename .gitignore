@@ -1,4 +1,5 @@
-gen/
+__pycache__/
 build/
 data/modules.txt
+gen/
 runtime/interp_list.h

@@ -1,10 +1,10 @@
 #!/bin/bash
-# watchbuild.sh MOD... : link build/rcsm_watch with the given modules compiled with -DRCSM_WATCH
-# (memory accesses report through rt_watch; use with RCSM_WATCH=lo-hi). Run tools/build.sh first.
+# watchbuild.sh MOD... : link build/sr2recomp_watch with the given modules compiled with -DSR2_WATCH
+# (memory accesses report through rt_watch; use with SR2_WATCH=lo-hi). Run tools/build.sh first.
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p build/watchobj
-CF="-O1 -g -fno-strict-aliasing -fwrapv -foptimize-sibling-calls -Iruntime -w -DRCSM_WATCH"
+CF="-O1 -g -fno-strict-aliasing -fwrapv -foptimize-sibling-calls -Iruntime -w -DSR2_WATCH"
 objs=(); pids=()
 for o in build/obj/*.o; do
   b=$(basename $o .o); use=$o
@@ -20,5 +20,5 @@ for o in build/obj/*.o; do
   objs+=($use)
 done
 wait
-g++ -rdynamic -o build/rcsm_watch "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) -lSDL2 -lpng -lpthread -lz -lm
-echo built build/rcsm_watch
+g++ -rdynamic -o build/sr2recomp_watch "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) -lSDL2 -lpng -lpthread -lz -lm
+echo built build/sr2recomp_watch

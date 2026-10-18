@@ -9,7 +9,7 @@ void vfpu_reset_ctx(Ctx *c);
 
 // ================================================================= time
 static struct timespec t0;
-// RCSM_DETERMINISTIC=1: virtual clock that only advances when every guest thread is waiting (plus a
+// SR2_DETERMINISTIC=1: virtual clock that only advances when every guest thread is waiting (plus a
 // tiny amount per context switch), so runs are reproducible and as fast as the host allows.
 static bool g_virtual;
 static u64 g_vtime = 1000000, g_pause_us;
@@ -131,7 +131,7 @@ static u64 seq_counter;
 bool g_in_intr;
 u64 g_vblank_count;
 static u64 next_vblank;
-#define VBLANK_US 16683
+u32 g_vblank_us = 16683;            // emulated vblank period (the races can ask for more than 60 Hz, see game.c)
 
 static void thread_tramp(void) {
 	Thread *t = g_cur;
@@ -403,14 +403,14 @@ static void do_vblank(void) {
 }
 
 void sched_run(void) {
-	next_vblank = now_us() + VBLANK_US;
+	next_vblank = now_us() + g_vblank_us;
 	u64 idle_since = 0;
 	for (;;) {
 		u64 n = now_us();
 		if (n >= next_vblank) {
 			do_vblank();
-			next_vblank += VBLANK_US;
-			if (next_vblank < n) next_vblank = n + VBLANK_US;
+			next_vblank += g_vblank_us;
+			if (next_vblank < n) next_vblank = n + g_vblank_us;
 		}
 		run_interrupts();
 		process_timers(n);
@@ -446,7 +446,7 @@ u32 cur_module_gp(void) { return g_cur ? g_cur->ctx.r[28] : 0; }
 
 void kernel_init(void) {
 	clock_gettime(CLOCK_MONOTONIC, &t0);
-	g_virtual = getenv("RCSM_DETERMINISTIC") && atoi(getenv("RCSM_DETERMINISTIC"));
+	g_virtual = getenv("SR2_DETERMINISTIC") && atoi(getenv("SR2_DETERMINISTIC"));
 	mem_init();
 	intr_stack = kalloc(0x10000) + 0x10000 - 64;
 	vfpu_reset_ctx(&intr_ctx);
@@ -856,7 +856,7 @@ static void h_CreateFpl(Ctx *c) {
 	f->used = calloc(f->nblocks, 1);
 	f->uid = obj_new(OBJ_FPL, f);
 	LOGD("create fpl '%s' %u x %u at %08x", f->name, f->nblocks, f->blocksize, f->base);
-	if (getenv("RCSM_MEMMAP") && !strcmp(f->name, "HeapFPL1")) {
+	if (getenv("SR2_MEMMAP") && !strcmp(f->name, "HeapFPL1")) {
 		for (Block *b = user_blocks; b; b = b->next)
 			LOGI("memmap %08x-%08x %7x %s %s", b->addr, b->addr + b->size, b->size, b->used ? "USED" : "free", b->name);
 	}

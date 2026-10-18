@@ -2,10 +2,11 @@
 // settings menu (menu.cpp), screenshots, and headless/scripted operation for testing.
 //
 // Environment (testing):
-//   RCSM_HEADLESS=1          hidden window, no audio. Without a display, falls back to the software renderer.
-//   RCSM_SHOT_EVERY=N        write <shot dir>/frame_NNNNNN.png every N vblanks;  RCSM_SHOT_DIR=dir
-//   RCSM_INPUT="f:BTN+BTN,f:-,..."  scripted input from vblank f ('-' = release; SUP/SDOWN/SLEFT/SRIGHT = stick)
-//   RCSM_DUMP_AT="f1,f2"     dump guest RAM 0x08800000-0x0A000000 at those vblanks
+//   SR2_HEADLESS=1          hidden window, no audio. Without a display, falls back to the software renderer.
+//   SR2_SHOT_EVERY=N        write <shot dir>/frame_NNNNNN.png every N vblanks;  SR2_SHOT_DIR=dir
+//   SR2_WINSHOT_EVERY=N     the same, of the whole window as presented (GL)
+//   SR2_INPUT="f:BTN+BTN,f:-,..."  scripted input from vblank f ('-' = release; SUP/SDOWN/SLEFT/SRIGHT = stick)
+//   SR2_DUMP_AT="f1,f2"     dump guest RAM 0x08800000-0x0A000000 at those vblanks
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
@@ -35,16 +36,8 @@ bool menu_quit_requested(void);
 u32 fe_buttons;
 bool g_display_dirty;
 u8 fe_lx = 128, fe_ly = 128;
-bool fe_fly_down, fe_fly_fast;      // debug flying: Left Ctrl = down, Left Shift / left stick click = fast
-float fe_cam_x, fe_cam_y;          // camera stick (right stick, keys R/F/Q/E), -1..1, y > 0 = look up
 static u32 kb_buttons, pad_buttons, script_buttons;
-static int script_ax, script_ay, script_rx, script_ry;
-static bool script_strafe;
-bool fe_strafe;                    // strafe mode active (L2/R2 or Z/C, held or toggled)
-bool fe_aim;                       // modern aiming: aim held (L2, Z/C, right mouse button)
-float fe_mouse_dx, fe_mouse_dy;    // mouse look since the last game frame (pixels), consumed by mods.c
-static bool mouse_aim, mouse_fire, mouse_grabbed;
-static bool kb_strafe, kb_cam_up, kb_cam_down, strafe_btn_prev, strafe_toggled;
+static int script_ax, script_ay;
 static int kb_ax, kb_ay;
 
 static SDL_Window *win;
@@ -54,12 +47,12 @@ static SDL_GameController *pad;
 static bool headless, have_gl;
 static u32 fb_top, fb_stride, fb_fmt;
 static bool fb_set;
-static int shot_every; static u64 shot_from;   // RCSM_SHOT_FROM=vblank: no shots before it
+static int shot_every; static u64 shot_from;   // SR2_SHOT_FROM=vblank: no shots before it
 static char shot_dir[256] = "shots";
 static u32 rgba[480 * 272];
 static u64 flips;   // display buffer changes (game frames)
 
-typedef struct { u64 frame; u32 buttons; int ax, ay, rx, ry; bool strafe; } ScriptEv;
+typedef struct { u64 frame; u32 buttons; int ax, ay; } ScriptEv;
 static ScriptEv *script;
 static int nscript, script_pos;
 
@@ -84,13 +77,6 @@ static void parse_stick(const char *s, int *ax, int *ay) {
 	if (strcasestr(s, "SDOWN")) *ay = 127;
 	if (strcasestr(s, "SLEFT")) *ax = -127;
 	if (strcasestr(s, "SRIGHT")) *ax = 127;
-}
-static void parse_rstick(const char *s, int *rx, int *ry) {   // RUP/RDOWN/RLEFT/RRIGHT = right stick
-	*rx = *ry = 0;
-	if (strcasestr(s, "RUP")) *ry = -127;
-	if (strcasestr(s, "RDOWN")) *ry = 127;
-	if (strcasestr(s, "RLEFT")) *rx = -127;
-	if (strcasestr(s, "RRIGHT")) *rx = 127;
 }
 
 // ---------------------------------------------------------------- frames, screenshots
@@ -180,8 +166,6 @@ static u32 key_to_button(SDL_Keycode k) {
 	case SDLK_i: return B_TRIANGLE;
 	case SDLK_q: return B_L;
 	case SDLK_e: return B_R;
-	case SDLK_z: return (g_cfg.strafe_mode || g_cfg.modern_aim) ? 0 : B_LEFT;    // strafe/aim (or the PSP d-pad strafe when off)
-	case SDLK_c: return (g_cfg.strafe_mode || g_cfg.modern_aim) ? 0 : B_RIGHT;
 	case SDLK_RETURN: return B_START;
 	case SDLK_BACKSPACE: case SDLK_TAB: return B_SELECT;
 	default: return 0;
@@ -189,10 +173,7 @@ static u32 key_to_button(SDL_Keycode k) {
 }
 
 static int kb_w, kb_a, kb_s, kb_d;
-static bool kb_fly_down, kb_fly_fast;
 
-static float pad_cam_x, pad_cam_y;
-static bool pad_strafe_btn;
 static void poll_input(void) {
 	SDL_Event e;
 	while (SDL_PollEvent(&e)) {
@@ -202,34 +183,11 @@ static void poll_input(void) {
 			if (k == SDLK_F1 || k == SDLK_ESCAPE) { menu_set_open(!menu_is_open()); continue; }
 			if (k == SDLK_F11) { g_cfg.fullscreen = !g_cfg.fullscreen; set_fullscreen(g_cfg.fullscreen); config_save(); continue; }
 			if (k == SDLK_F12) { screenshot_hd(); continue; }
-			{	// debug toggles: F5 god mode, F6 noclip, F7 free camera
-				extern bool g_god, g_noclip, g_freecam;
-				extern bool debug_in_level(void);
-				if ((k == SDLK_F5 || k == SDLK_F6 || k == SDLK_F7) && debug_in_level()) {
-					bool *t = k == SDLK_F5 ? &g_god : k == SDLK_F6 ? &g_noclip : &g_freecam;
-					*t = !*t;
-					LOGI("debug: %s %s", k == SDLK_F5 ? "god mode" : k == SDLK_F6 ? "noclip" : "free camera", *t ? "on" : "off");
-					continue;
-				}
-				extern bool g_play_clank;
-				extern bool g_skyboard;
-				if (k == SDLK_F9 && debug_in_level()) { g_skyboard = !g_skyboard; LOGI("skyboard %s", g_skyboard ? "on" : "off"); continue; }
-				if (k == SDLK_F8) { g_play_clank = !g_play_clank; LOGI("play as Clank %s", g_play_clank ? "on" : "off"); continue; }
-			}
 		}
 		if (e.type == SDL_CONTROLLERBUTTONDOWN && e.cbutton.button == SDL_CONTROLLER_BUTTON_GUIDE) { menu_set_open(!menu_is_open()); continue; }
 		if (e.type == SDL_CONTROLLERDEVICEADDED && !pad) { pad = SDL_GameControllerOpen(e.cdevice.which); continue; }
 		if (e.type == SDL_CONTROLLERDEVICEREMOVED && pad && !SDL_GameControllerGetAttached(pad)) { SDL_GameControllerClose(pad); pad = NULL; continue; }
 		if (menu_is_open()) { menu_event(&e); continue; }
-		if (g_cfg.modern_aim && g_cfg.mouse_look) {
-			if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
-				bool down = e.type == SDL_MOUSEBUTTONDOWN;
-				if (e.button.button == SDL_BUTTON_RIGHT) mouse_aim = down;
-				if (e.button.button == SDL_BUTTON_LEFT) mouse_fire = down;
-				continue;
-			}
-			if (e.type == SDL_MOUSEMOTION && mouse_grabbed) { fe_mouse_dx += e.motion.xrel; fe_mouse_dy += e.motion.yrel; continue; }
-		}
 		if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
 			bool down = e.type == SDL_KEYDOWN;
 			SDL_Keycode k = e.key.keysym.sym;
@@ -237,11 +195,6 @@ static void poll_input(void) {
 			if (k == SDLK_a) kb_a = down;
 			if (k == SDLK_s) kb_s = down;
 			if (k == SDLK_d) kb_d = down;
-			if (k == SDLK_z || k == SDLK_c) kb_strafe = down;
-			if (k == SDLK_r) kb_cam_up = down;
-			if (k == SDLK_LCTRL) kb_fly_down = down;
-			if (k == SDLK_LSHIFT) kb_fly_fast = down;
-			if (k == SDLK_f) kb_cam_down = down;
 			u32 b = key_to_button(k);
 			if (down) kb_buttons |= b; else kb_buttons &= ~b;
 		}
@@ -249,11 +202,7 @@ static void poll_input(void) {
 	kb_ax = (kb_d - kb_a) * 127;
 	kb_ay = (kb_s - kb_w) * 127;
 	pad_buttons = 0;
-	static bool pad_fly_fast;
-	if (!pad) pad_fly_fast = false;
 	int ax = kb_ax, ay = kb_ay;
-	float cx = 0, cy = (float)(kb_cam_up - kb_cam_down);
-	bool strafe_btn = kb_strafe;
 	if (pad && !menu_is_open()) {
 		static const struct { int sb; u32 b; } map[] = {
 			{SDL_CONTROLLER_BUTTON_A, B_CROSS}, {SDL_CONTROLLER_BUTTON_B, B_CIRCLE}, {SDL_CONTROLLER_BUTTON_X, B_SQUARE},
@@ -262,64 +211,17 @@ static void poll_input(void) {
 			{SDL_CONTROLLER_BUTTON_DPAD_DOWN, B_DOWN}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, B_LEFT}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, B_RIGHT}};
 		for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
 			if (SDL_GameControllerGetButton(pad, map[i].sb)) pad_buttons |= map[i].b;
-		pad_fly_fast = SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_LEFTSTICK);
 		int dz = g_cfg.stick_deadzone * 32767 / 100;
 		int px = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX), py = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
 		if ((long)px * px + (long)py * py > (long)dz * dz) { ax = px / 256; ay = py / 256; }
 		bool lt = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 12000;
 		bool rt = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 12000;
-		if (g_cfg.modern_aim) {
-			// modern Ratchet: L2 aims (over the shoulder, strafing), R2 fires
-			strafe_btn |= lt;
-			if (rt) pad_buttons |= B_CIRCLE;
-		} else if (g_cfg.strafe_mode) {
-			// Ratchet 3 style: L2/R2 put Ratchet into strafe mode (see HOOK_STRAFE_MOVE)
-			strafe_btn |= lt || rt;
-		} else {
-			if (lt) pad_buttons |= B_L;
-			if (rt) pad_buttons |= B_R;
-		}
-		if (g_cfg.right_stick_camera) {
-			// The PSP turns the camera with L/R. The right stick drives it (proportionally in levels, see
-			// HOOK_CAM_BUTTONS; elsewhere as the L/R buttons).
-			int rx = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX);
-			int ry = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY);
-			if (rx < -16000) pad_buttons |= B_L;
-			if (rx > 16000) pad_buttons |= B_R;
-			float fx = rx / 32767.0f, fy = -ry / 32767.0f, m = sqrtf(fx * fx + fy * fy), d = g_cfg.stick_deadzone / 100.0f;
-			if (m > d && m > 0) {
-				float k = (m - d) / (1 - d) / m;   // rescale so the deadzone edge is 0
-				if (fabsf(fx) > d * 0.5f) cx = fx * k;
-				if (fabsf(fy) > d * 0.5f) cy += fy * k;
-			}
-		}
+		if (lt) pad_buttons |= B_L;
+		if (rt) pad_buttons |= B_R;
 	}
 	if (ax < -128) ax = -128; if (ax > 127) ax = 127;
 	if (ay < -128) ay = -128; if (ay > 127) ay = 127;
 	fe_lx = (u8)(ax + 128); fe_ly = (u8)(ay + 128);
-	if (cx > 1) cx = 1; if (cx < -1) cx = -1; if (cy > 1) cy = 1; if (cy < -1) cy = -1;
-	pad_cam_x = cx; pad_cam_y = cy; pad_strafe_btn = strafe_btn;
-	fe_fly_down = kb_fly_down; fe_fly_fast = kb_fly_fast || pad_fly_fast;
-	{	// mouse look (modern aiming): grab the pointer while playing
-		bool want = g_cfg.modern_aim && g_cfg.mouse_look && !menu_is_open() && (SDL_GetWindowFlags(win) & SDL_WINDOW_INPUT_FOCUS);
-		if (want != mouse_grabbed) { SDL_SetRelativeMouseMode(want ? SDL_TRUE : SDL_FALSE); mouse_grabbed = want; fe_mouse_dx = fe_mouse_dy = 0; }
-		if (!want) mouse_aim = mouse_fire = false;
-		pad_strafe_btn |= mouse_aim;
-		if (mouse_fire) pad_buttons |= B_CIRCLE;
-	}
-}
-
-// strafe trigger -> strafe mode (hold or toggle), camera stick; also fed by scripted input
-static void update_strafe_and_camera(void) {
-	bool btn = pad_strafe_btn || script_strafe;
-	if (g_cfg.modern_aim) { fe_aim = btn; fe_strafe = false; strafe_toggled = false; strafe_btn_prev = btn; goto cam; }
-	fe_aim = false;
-	if (g_cfg.strafe_mode == 2) { if (btn && !strafe_btn_prev) strafe_toggled = !strafe_toggled; fe_strafe = strafe_toggled; }
-	else { strafe_toggled = false; fe_strafe = g_cfg.strafe_mode == 1 && btn; }
-	strafe_btn_prev = btn;
-cam:
-	fe_cam_x = script_rx ? script_rx / 127.0f : pad_cam_x;
-	fe_cam_y = script_ry ? -script_ry / 127.0f : pad_cam_y;
 }
 
 // ---------------------------------------------------------------- presentation
@@ -368,7 +270,7 @@ static void run_menu_pause(void) {
 	while (menu_is_open()) {
 		poll_input();
 		if (menu_test_frames && --menu_test_frames == 1) want_winshot = true;
-		if (menu_test_frames == 0 && getenv("RCSM_MENU_TEST")) { present(); menu_set_open(false); break; }
+		if (menu_test_frames == 0 && getenv("SR2_MENU_TEST")) { present(); menu_set_open(false); break; }
 		present();
 		if (menu_quit_requested()) { config_save(); exit(0); }
 		if (!g_cfg.vsync) SDL_Delay(8);
@@ -376,53 +278,42 @@ static void run_menu_pause(void) {
 	if (audio_dev) SDL_PauseAudioDevice(audio_dev, 0);
 	SDL_GL_SetSwapInterval(g_cfg.vsync ? 1 : 0);
 	kernel_add_pause_time(now_us() - t0);
-	kb_buttons = 0; kb_w = kb_a = kb_s = kb_d = 0; kb_strafe = kb_cam_up = kb_cam_down = false;
-	kb_fly_down = kb_fly_fast = false;
+	kb_buttons = 0; kb_w = kb_a = kb_s = kb_d = 0;
 }
 
 void fe_vblank(void) {
 	ge_soft_vblank();
-	{	// test aid: RCSM_LOG_AT="vblank:level" raises the log level from that vblank on
+	{	// test aid: SR2_LOG_AT="vblank:level" raises the log level from that vblank on
 		static long at = -2; static int lvl;
-		if (at == -2) { const char *e = getenv("RCSM_LOG_AT"); at = e ? atol(e) : -1; if (e && strchr(e, ':')) lvl = atoi(strchr(e, ':') + 1); }
+		if (at == -2) { const char *e = getenv("SR2_LOG_AT"); at = e ? atol(e) : -1; if (e && strchr(e, ':')) lvl = atoi(strchr(e, ':') + 1); }
 		if (at >= 0 && g_vblank_count == (u64)at) g_loglevel = lvl;
 	}
 	while (script && script_pos < nscript && g_vblank_count >= script[script_pos].frame) {
 		script_buttons = script[script_pos].buttons;
 		script_ax = script[script_pos].ax; script_ay = script[script_pos].ay;
-		script_rx = script[script_pos].rx; script_ry = script[script_pos].ry;
-		script_strafe = script[script_pos].strafe;
 		script_pos++;
 	}
 	if (!headless) {
 		poll_input();
 		static long menu_test_at = -2;
-		if (menu_test_at == -2) menu_test_at = getenv("RCSM_MENU_TEST") ? atol(getenv("RCSM_MENU_TEST")) : -1;
+		if (menu_test_at == -2) menu_test_at = getenv("SR2_MENU_TEST") ? atol(getenv("SR2_MENU_TEST")) : -1;
 		if (menu_test_at >= 0 && g_vblank_count == (u64)menu_test_at) { menu_set_open(true); menu_test_frames = 8; }
 		if (menu_is_open()) run_menu_pause();
 	}
 	fe_buttons = kb_buttons | pad_buttons | script_buttons;
-	{ extern void mods_vblank(void); mods_vblank(); }
-	if (g_display_dirty) { g_display_dirty = false; fe_apply_display_settings(); }   // (native menu changes)
-	ge_gl_set_lighting(g_cfg.lighting, g_cfg.specular, g_cfg.shadows, g_cfg.shadow_quality, g_cfg.light_intensity);
-	{	// test aid: RCSM_GE_TRACE=vblank traces one frame of GE commands into <shot dir>/getrace_<vb>.bin
+	{ extern void game_vblank(void); game_vblank(); }
+	if (g_display_dirty) { g_display_dirty = false; fe_apply_display_settings(); }   // changed in the game's Options screen
+	{	// test aid: SR2_GE_TRACE=vblank traces one frame of GE commands into <shot dir>/getrace_<vb>.bin
 		static long tv = -2;
-		if (tv == -2) { const char *e = getenv("RCSM_GE_TRACE"); tv = e ? atol(e) : -1; }
+		if (tv == -2) { const char *e = getenv("SR2_GE_TRACE"); tv = e ? atol(e) : -1; }
 		if (tv >= 0 && g_vblank_count == (u64)tv) { char p[300]; snprintf(p, sizeof p, "%s/getrace_%ld.bin", shot_dir, tv); ge_trace(p); }
 		if (tv >= 0 && g_vblank_count == (u64)tv + 2) ge_trace(NULL);
 	}
-	{	// test aid: RCSM_MOUSE_AT="from-to:dx,dy" adds mouse motion every vblank in the window
-		static const char *m = (const char *)1;
-		if (m == (const char *)1) m = getenv("RCSM_MOUSE_AT");
-		unsigned long a, b; float dx, dy;
-		if (m && sscanf(m, "%lu-%lu:%f,%f", &a, &b, &dx, &dy) == 4 && g_vblank_count >= a && g_vblank_count < b) { fe_mouse_dx += dx; fe_mouse_dy += dy; }
-	}
-	update_strafe_and_camera();
 	if (script_ax || script_ay) { fe_lx = (u8)(script_ax + 128); fe_ly = (u8)(script_ay + 128); }
 	else if (headless) { fe_lx = 128; fe_ly = 128; }
 	{
 		static const char *dump_at = (const char *)-1;
-		if (dump_at == (const char *)-1) dump_at = getenv("RCSM_DUMP_AT");
+		if (dump_at == (const char *)-1) dump_at = getenv("SR2_DUMP_AT");
 		if (dump_at) {
 			char key[32], list[4096];
 			snprintf(key, sizeof key, ",%llu,", (unsigned long long)g_vblank_count);
@@ -437,9 +328,9 @@ void fe_vblank(void) {
 			}
 		}
 	}
-	{	// RCSM_WINSHOT_EVERY=N: window (GL) screenshots every N vblanks
+	{	// SR2_WINSHOT_EVERY=N: window (GL) screenshots every N vblanks
 		static int we = -1;
-		if (we < 0) { const char *e = getenv("RCSM_WINSHOT_EVERY"); we = e ? atoi(e) : 0; }
+		if (we < 0) { const char *e = getenv("SR2_WINSHOT_EVERY"); we = e ? atoi(e) : 0; }
 		if (we > 0 && g_vblank_count % we == 0) want_winshot = true;
 	}
 	if (shot_every && g_vblank_count >= shot_from && g_vblank_count % shot_every == 0) {
@@ -447,7 +338,14 @@ void fe_vblank(void) {
 		snprintf(p, sizeof p, "%s/frame_%06llu.png", shot_dir, (unsigned long long)g_vblank_count);
 		fe_write_png(p);
 	}
-	present();
+	// Present only when the game flipped (or the window may need redrawing): vblanks can tick far faster
+	// than the game draws, and every present costs a full blit plus a swap.
+	static u64 presented_flips, presented_at;
+	u64 t = now_us();
+	if (flips != presented_flips || want_winshot || g_cfg.show_fps || t - presented_at > 100000) {
+		presented_flips = flips; presented_at = t;
+		present();
+	}
 }
 
 void fe_audio_push(const s16 *samples, int frames) {
@@ -464,7 +362,7 @@ void fe_audio_push(const s16 *samples, int frames) {
 void fe_preinit(void) {
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");  // let Ctrl+C / SIGTERM end the process normally
 	config_load();
-	headless = getenv("RCSM_HEADLESS") && atoi(getenv("RCSM_HEADLESS"));
+	headless = getenv("SR2_HEADLESS") && atoi(getenv("SR2_HEADLESS"));
 	if (g_cfg.renderer == 1) {
 		// probe for a display: OpenGL needs a (possibly hidden) window
 		if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -477,11 +375,11 @@ void fe_preinit(void) {
 
 void fe_init(void) {
 	const char *e;
-	if ((e = getenv("RCSM_SHOT_EVERY"))) shot_every = atoi(e);
-	if ((e = getenv("RCSM_SHOT_FROM"))) shot_from = strtoull(e, NULL, 10);
-	if ((e = getenv("RCSM_SHOT_DIR"))) snprintf(shot_dir, sizeof shot_dir, "%s", e);
+	if ((e = getenv("SR2_SHOT_EVERY"))) shot_every = atoi(e);
+	if ((e = getenv("SR2_SHOT_FROM"))) shot_from = strtoull(e, NULL, 10);
+	if ((e = getenv("SR2_SHOT_DIR"))) snprintf(shot_dir, sizeof shot_dir, "%s", e);
 	if (shot_every) mkdir(shot_dir, 0755);
-	if ((e = getenv("RCSM_INPUT"))) {
+	if ((e = getenv("SR2_INPUT"))) {
 		char *tmp = strdup(e);
 		int cap = 1;
 		for (const char *p = e; *p; p++) if (*p == ',') cap++;
@@ -493,8 +391,6 @@ void fe_init(void) {
 			script[nscript].frame = strtoull(t, NULL, 10);
 			script[nscript].buttons = colon[1] == '-' ? 0 : parse_buttons(colon + 1);
 			parse_stick(colon + 1, &script[nscript].ax, &script[nscript].ay);
-			parse_rstick(colon + 1, &script[nscript].rx, &script[nscript].ry);
-			script[nscript].strafe = strcasestr(colon + 1, "STRAFE") != NULL;
 			nscript++;
 		}
 		free(tmp);
@@ -538,16 +434,19 @@ void fe_init(void) {
 		if (audio_dev) SDL_PauseAudioDevice(audio_dev, 0);
 		else LOGI("no audio device (%s)", SDL_GetError());
 		for (int i = 0; i < SDL_NumJoysticks(); i++) if (SDL_IsGameController(i)) { pad = SDL_GameControllerOpen(i); break; }
-		LOGI("%s renderer, %d fps mode. F1/Esc = settings menu. Keys: WASD move, Space/K jump, L fire, J wrench, I quick-select, "
-		     "Q/E/R/F camera, Z/C strafe mode, arrows d-pad, Enter Start, F11 fullscreen, F12 screenshot",
-		     g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
+		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
+		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
 	}
 }
 
 // settings menu callbacks
 void fe_apply_display_settings(void) {
-	set_fullscreen(g_cfg.fullscreen);
-	if (!g_cfg.fullscreen && win) SDL_SetWindowSize(win, 480 * g_cfg.window_scale, 272 * g_cfg.window_scale);
+	static int last_full = -1, last_scale = -1;
+	if (g_cfg.fullscreen != last_full) set_fullscreen(g_cfg.fullscreen);
+	if (!g_cfg.fullscreen && win && (g_cfg.fullscreen != last_full || g_cfg.window_scale != last_scale))
+		SDL_SetWindowSize(win, 480 * g_cfg.window_scale, 272 * g_cfg.window_scale);
+	last_full = g_cfg.fullscreen; last_scale = g_cfg.window_scale;
+	if (have_gl && !headless) SDL_GL_SetSwapInterval(g_cfg.vsync ? 1 : 0);
 	ge_gl_set_internal_scale(g_cfg.internal_scale);
 	ge_gl_set_options(g_cfg.tex_filter, g_cfg.anisotropy, 0);
 }

@@ -140,22 +140,23 @@ static void h_GeGetCmd(Ctx *c) { RET(0); }
 
 void fe_vblank(void);
 void ge_vblank(void) {
-	static u64 last_report, last_flips;
+	static u64 last_report, last_flips, last_vb;
 	fe_vblank();
-	if (g_vblank_count - last_report >= 60 * 5) {
-		LOGI("status: vblank %llu, display flips %llu (+%llu in last 5s)", (unsigned long long)g_vblank_count,
-		     (unsigned long long)frames_flipped, (unsigned long long)(frames_flipped - last_flips));
-		last_report = g_vblank_count; last_flips = frames_flipped;
+	u64 n = now_us();
+	if (!last_report) last_report = n;
+	if (n - last_report >= 5000000) {
+		LOGI("status: vblank %llu, display flips %llu (last 5s: %llu flips, %llu vblanks)", (unsigned long long)g_vblank_count,
+		     (unsigned long long)frames_flipped, (unsigned long long)(frames_flipped - last_flips),
+		     (unsigned long long)(g_vblank_count - last_vb));
+		last_report = n; last_flips = frames_flipped; last_vb = g_vblank_count;
 	}
 }
 
 // ================================================================= controller
 extern u32 fe_buttons;
 extern u8 fe_lx, fe_ly;
-void fly_filter_pad(u32 *buttons, u8 *lx, u8 *ly);
 static void write_ctrl(u32 p, int n) {
 	u32 b = fe_buttons; u8 lx = fe_lx, ly = fe_ly;
-	fly_filter_pad(&b, &lx, &ly);   // debug noclip / free camera take some of the controls
 	for (int i = 0; i < n; i++) {
 		u32 q = p + i * 16;
 		SW(q, (u32)now_us()); SW(q + 4, b); SB(q + 8, lx); SB(q + 9, ly);
@@ -168,8 +169,7 @@ static void h_CtrlReadBufferPositive(Ctx *c) { int n = A(1) ? A(1) : 1; write_ct
 static void h_CtrlPeekBufferPositive(Ctx *c) { int n = A(1) ? A(1) : 1; write_ctrl(A(0), n); RET(n); }
 static void h_CtrlReadLatch(Ctx *c) {
 	static u32 prev;
-	u32 cur = fe_buttons; u8 lx, ly;
-	fly_filter_pad(&cur, &lx, &ly);
+	u32 cur = fe_buttons;
 	SW(A(0), cur & ~prev); SW(A(0) + 4, prev & ~cur); SW(A(0) + 8, cur); SW(A(0) + 12, ~cur);
 	prev = cur;
 	RET(1);

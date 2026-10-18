@@ -4,8 +4,8 @@
 #   ./build.sh /path/to/game        # folder that contains PSP_GAME (SYSDIR + USRDIR)
 #
 # It recompiles every code module it finds (SYSDIR/EBOOT.BIN, USRDIR/BIN/*.PRX, USRDIR/MODULES/*.PRX)
-# into C under gen/, builds the runtime libraries, and links build/rcsm.
-# Then run:   build/rcsm /path/to/game
+# into C under gen/, builds the runtime libraries, and links build/sr2recomp.
+# Then run:   build/sr2recomp /path/to/game
 #
 # Options (environment): JOBS=N (default: nproc), MARCH=... (default: native; use x86-64-v2 for an
 # older-CPU-compatible build), SKIP_MODULES="rtpspnetah rtpspnetin" (default; Sony network libraries
@@ -67,4 +67,4 @@ done
 GENOPT="-O1 -march=$MARCH -foptimize-sibling-calls -fno-strict-aliasing -fwrapv -Iruntime -w" \
 OPT="-O2 -march=$MARCH" tools/build.sh
 echo
-echo "Done. Run:  build/rcsm \"$GAME\""
+echo "Done. Run:  build/sr2recomp \"$GAME\""

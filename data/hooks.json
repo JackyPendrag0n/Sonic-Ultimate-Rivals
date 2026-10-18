@@ -1,0 +1,12 @@
+{
+ "_doc": "Code hooks: located in the EBOOT by masked instruction pattern ('word/mask'), index = which instruction in the pattern is hooked. kind 'value': after the instruction runs, rt = rt_hookval(c, id, rt). kind 'call': the jal at that instruction calls rt_hookcall(c, id, original_target) instead. kind 'entry': the function starting at that instruction becomes a thunk that calls rt_hookcall(c, id, original_body). Handlers are in runtime/game.c.",
+ "hooks": [
+  {
+   "id": 1,
+   "name": "SET_SWAP_INTERVAL",
+   "kind": "entry",
+   "index": 0,
+   "pattern": ["18a00003", "ac850018", "24030001", "ac830008", "03e00008"]
+  }
+ ]
+}

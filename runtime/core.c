@@ -114,10 +114,10 @@ void rt_watch(u32 a, int size, int write, u32 val, const char *fn) {
 	static struct { const char *fn; u32 a; int w; u32 n; } seen[4096];
 	static int nseen;
 	static int all = -1;
-	if (all < 0) all = getenv("RCSM_WATCH_ALL") != NULL;
+	if (all < 0) all = getenv("SR2_WATCH_ALL") != NULL;
 	if (all) {
 		if (write) LOGI("watchall: vb %llu %s WRITE %08x = %08x", (unsigned long long)g_vblank_count, fn, a, val);
-		if (!write || !getenv("RCSM_WATCH_BT")) return;
+		if (!write || !getenv("SR2_WATCH_BT")) return;
 		void *frames[32];
 		int n = backtrace(frames, 32);
 		char **sy = backtrace_symbols(frames, n);
@@ -137,7 +137,7 @@ void rt_watch(u32 a, int size, int write, u32 val, const char *fn) {
 		}
 	if (nseen < 4096) seen[nseen++] = (typeof(seen[0])){fn, a, write, 1};
 	static int bt = -1;
-	if (bt < 0) bt = getenv("RCSM_WATCH_BT") != NULL;
+	if (bt < 0) bt = getenv("SR2_WATCH_BT") != NULL;
 	if (bt && write) {
 		void *frames[24];
 		int n = backtrace(frames, 24);
@@ -248,8 +248,7 @@ static u32 g_next_mod_uid = 1;
 // Data patches applied right after a module is loaded and relocated.
 // Spec: "glob@offset=value;..."  glob matches the lower-case file name without extension (e.g. level_*),
 // offset is module-relative hex, value is an integer (dec/0x) or a float written as f1.5.
-// Sources: RCSM_PATCH env var plus mods registered by mods.c (mod_patch_spec()).
-const char *mod_patch_spec(void) __attribute__((weak));
+// Source: the SR2_PATCH env var (testing).
 static void apply_patch_spec(LoadedModule *m, const char *key, const char *spec) {
 	if (!spec) return;
 	char *dup = strdup(spec), *save = NULL;
@@ -274,10 +273,7 @@ void module_apply_patches(LoadedModule *m) {
 	for (char *p = key; *p; p++) *p = tolower(*p);
 	char *dot = strrchr(key, '.');
 	if (dot) *dot = 0;
-	apply_patch_spec(m, key, getenv("RCSM_PATCH"));
-	if (mod_patch_spec) apply_patch_spec(m, key, mod_patch_spec());
-	extern void mods_on_module_load(LoadedModule *m, const char *key) __attribute__((weak));
-	if (mods_on_module_load) mods_on_module_load(m, key);
+	apply_patch_spec(m, key, getenv("SR2_PATCH"));
 }
 
 LoadedModule *module_load(const char *psp_path, s32 *err) {
@@ -420,9 +416,9 @@ LoadedModule *module_load(const char *psp_path, s32 *err) {
 }
 
 static void usage(void) {
-	fprintf(stderr, "usage: rcsm [folder containing PSP_GAME] [--log N]\n"
-	                "  (no folder: the current directory, or the one rcsm is in)\n"
-	                "  env: RCSM_HEADLESS=1, RCSM_SCALE=N, RCSM_SAVE_DIR=dir, PSPGPU_THREADS=N, RCSM_LOG=N\n");
+	fprintf(stderr, "usage: sr2recomp [folder containing PSP_GAME] [--log N]\n"
+	                "  (no folder: the current directory, or the one sr2recomp is in)\n"
+	                "  env: SR2_HEADLESS=1, SR2_SCALE=N, SR2_SAVE_DIR=dir, PSPGPU_THREADS=N, SR2_LOG=N\n");
 	exit(2);
 }
 
@@ -460,10 +456,10 @@ int main(int argc, char **argv) {
 		if (npath++) strncat(given, " ", sizeof given - strlen(given) - 1);
 		strncat(given, argv[i], sizeof given - strlen(given) - 1);
 	}
-	const char *w = getenv("RCSM_WATCH");  // "lo-hi" hex guest addresses (needs a watch build of the module)
+	const char *w = getenv("SR2_WATCH");  // "lo-hi" hex guest addresses (needs a watch build of the module)
 	if (w) { g_watch_lo = strtoul(w, NULL, 16) & MEM_MASK; const char *d = strchr(w, '-'); g_watch_hi = d ? strtoul(d + 1, NULL, 16) & MEM_MASK : g_watch_lo + 4; }
-	g_trace_fn = getenv("RCSM_TRACE_FN");
-	const char *e = getenv("RCSM_LOG");
+	g_trace_fn = getenv("SR2_TRACE_FN");
+	const char *e = getenv("SR2_LOG");
 	if (e) g_loglevel = atoi(e);
 	{
 		bool ok = false;
@@ -482,12 +478,12 @@ int main(int argc, char **argv) {
 		}
 		if (!ok)
 			fatal("'%s' doesn't contain PSP_GAME/SYSDIR. Pass the folder that holds PSP_GAME (put the path in quotes "
-			      "if it has spaces), or run rcsm from that folder with no arguments.", given);
+			      "if it has spaces), or run sr2recomp from that folder with no arguments.", given);
 		{ char rp[PATH_MAX]; if (realpath(g_game_root, rp)) snprintf(g_game_root, sizeof g_game_root, "%s", rp); }
 		LOGI("game folder: %s", g_game_root);
 	}
-	// Saves: $RCSM_SAVE_DIR, else $XDG_DATA_HOME/sr2recomp, else ~/.local/share/sr2recomp  (memory stick root)
-	const char *sd = getenv("RCSM_SAVE_DIR");
+	// Saves: $SR2_SAVE_DIR, else $XDG_DATA_HOME/sr2recomp, else ~/.local/share/sr2recomp  (memory stick root)
+	const char *sd = getenv("SR2_SAVE_DIR");
 	if (sd) snprintf(g_save_root, sizeof g_save_root, "%s", sd);
 	else if (getenv("XDG_DATA_HOME")) snprintf(g_save_root, sizeof g_save_root, "%s/sr2recomp", getenv("XDG_DATA_HOME"));
 	else snprintf(g_save_root, sizeof g_save_root, "%s/.local/share/sr2recomp", getenv("HOME") ? getenv("HOME") : ".");
