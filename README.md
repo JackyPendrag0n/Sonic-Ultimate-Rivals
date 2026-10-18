@@ -8,8 +8,7 @@ PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP
 
 ## Status
 - Boots, shows the SEGA logo, title, menus and story cutscenes, and plays a race (Blue Coast Act 1).
-- No sound yet: the game's own mixer outputs through sceAudioChReserve / sceAudioOutputPannedBlocking,
-  which the runtime doesn't implement yet.
+- Sound works: music, effects and voices go through the new sceAudio channel mixer (`runtime/audio_ch.c`).
 - The settings menu still lists Size Matters debug options; they do nothing here.
 
 ## Build and run
@@ -35,6 +34,7 @@ Dependencies are the same as rcsm (gcc/g++, SDL2, FFmpeg, libpng, zlib dev packa
   UMD callbacks, scePowerSetClockFrequency.
 - Memory stick size capped at 1 GB (`runtime/utility/shim/Core/Config.h`): the game multiplies free
   clusters by the cluster size in 32 bits, so 16 GB wrapped to 0 and it asked to delete saves.
+- `runtime/audio_ch.c`: sceAudio hardware channels (ChReserve, Output[Panned][Blocking], volumes), mixed on one timeline. `RCSM_AUDIO_DUMP=file` writes the mixed output as raw 44.1 kHz stereo.
 - `runtime/game.c` replaces the Size Matters mods (armour, skins, skyboard, Clank, fly, native menu).
 
 ## Headless testing

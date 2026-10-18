@@ -380,6 +380,12 @@ void hle_misc_init(void) {
 		{0xBD2BDE07, "sceUmdUnRegisterUMDCallBack", h_Zero},
 		{0xEBD177D6, "scePowerSetClockFrequency350", h_Zero},
 		{0x737486F2, "scePowerSetClockFrequency", h_Zero},
+		{0x3B84732D, "sceKernelCpuResumeIntrWithSync", h_Zero},   // interrupts are not modelled
+		{0x37FB5C42, "sceKernelGetGPI", h_Zero},
+		// used around SAS setup to pause the SAS thread for a moment; threads here only run when they
+		// would anyway, so these are no-ops for now
+		{0x9944F31F, "sceKernelSuspendThread", h_Zero},
+		{0x75156E8F, "sceKernelResumeThread", h_Zero},
 	};
 	hle_register(more, sizeof more / sizeof more[0]);
 }

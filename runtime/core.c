@@ -516,6 +516,8 @@ int main(int argc, char **argv) {
 	mpeg_hle_init();
 	extern void utility_hle_init(void);
 	utility_hle_init();
+	extern void audio_ch_init(void);
+	audio_ch_init();
 	extern void net_init(void);
 	net_init();
 	fe_init();
