@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Sonic Rivals 2 (recomp)
+Exec=sr2recomp
+Icon=sr2recomp
+Categories=Game;
+Terminal=false

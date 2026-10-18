@@ -486,11 +486,11 @@ int main(int argc, char **argv) {
 		{ char rp[PATH_MAX]; if (realpath(g_game_root, rp)) snprintf(g_game_root, sizeof g_game_root, "%s", rp); }
 		LOGI("game folder: %s", g_game_root);
 	}
-	// Saves: $RCSM_SAVE_DIR, else $XDG_DATA_HOME/rcsm, else ~/.local/share/rcsm  (memory stick root)
+	// Saves: $RCSM_SAVE_DIR, else $XDG_DATA_HOME/sr2recomp, else ~/.local/share/sr2recomp  (memory stick root)
 	const char *sd = getenv("RCSM_SAVE_DIR");
 	if (sd) snprintf(g_save_root, sizeof g_save_root, "%s", sd);
-	else if (getenv("XDG_DATA_HOME")) snprintf(g_save_root, sizeof g_save_root, "%s/rcsm", getenv("XDG_DATA_HOME"));
-	else snprintf(g_save_root, sizeof g_save_root, "%s/.local/share/rcsm", getenv("HOME") ? getenv("HOME") : ".");
+	else if (getenv("XDG_DATA_HOME")) snprintf(g_save_root, sizeof g_save_root, "%s/sr2recomp", getenv("XDG_DATA_HOME"));
+	else snprintf(g_save_root, sizeof g_save_root, "%s/.local/share/sr2recomp", getenv("HOME") ? getenv("HOME") : ".");
 	{
 		char d[600];
 		snprintf(d, sizeof d, "%s", g_save_root);

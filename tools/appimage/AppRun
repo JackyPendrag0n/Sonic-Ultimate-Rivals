@@ -1,0 +1,12 @@
+#!/bin/bash
+# Sonic Rivals 2 recomp (personal test build). Usage: SonicRivals2.AppImage [/path/to/game]
+# The game folder holds PSP_GAME with the decrypted EBOOT.BIN in PSP_GAME/SYSDIR.
+# With no argument it looks next to the AppImage, then in the current folder.
+HERE="$(dirname "$(readlink -f "$0")")"
+export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+if [ $# -eq 0 ]; then
+  for d in "$(dirname "${APPIMAGE:-$0}")" "$PWD"; do
+    if [ -d "$d/PSP_GAME" ] || [ -d "$d/psp_game" ]; then set -- "$d"; break; fi
+  done
+fi
+exec "$HERE/usr/bin/sr2recomp" "$@"
