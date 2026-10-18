@@ -1,0 +1,10556 @@
+{
+"C69BEBCE": {
+"name": "sceOpenPSIDGetOpenPSID",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"B29330DE": {
+"name": "sceOpenPSIDGetProductCode",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"19D579F0": {
+"name": "sceOpenPSIDGetPSID",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"F013F8BF": {
+"name": "sceDdrdb_F013F8BF",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"F7AA47F6": {
+"name": "scePauth_F7AA47F6",
+"ret": "i",
+"args": "xixx",
+"impl": true
+},
+"98B83B5D": {
+"name": "scePauth_98B83B5D",
+"ret": "i",
+"args": "xixx",
+"impl": true
+},
+"70A703F8": {
+"name": "sceAudiocodecDecode",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"5B37EB1D": {
+"name": "sceAudiocodecInit",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"8ACA11D5": {
+"name": "sceAudiocodecGetInfo",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"3A20A200": {
+"name": "sceAudiocodecGetEDRAM",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"29681260": {
+"name": "sceAudiocodecReleaseEDRAM",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"9D3F790C": {
+"name": "sceAudiocodecCheckNeedMem",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"59176A0F": {
+"name": "sceAudiocodecGetOutputBytes",
+"ret": "i",
+"args": "xxp",
+"impl": true
+},
+"3DD7EE1A": {
+"name": "sceAudiocodecInitMono",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"3E65A0EA": {
+"name": "sceCtrlInit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1F4011E6": {
+"name": "sceCtrlSetSamplingMode",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"6A2774F3": {
+"name": "sceCtrlSetSamplingCycle",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"02BAAD91": {
+"name": "sceCtrlGetSamplingCycle",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"DA6B76A1": {
+"name": "sceCtrlGetSamplingMode",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"1F803938": {
+"name": "sceCtrlReadBufferPositive",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"3A622550": {
+"name": "sceCtrlPeekBufferPositive",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"C152080A": {
+"name": "sceCtrlPeekBufferNegative",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"60B81F86": {
+"name": "sceCtrlReadBufferNegative",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"B1D0E5CD": {
+"name": "sceCtrlPeekLatch",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0B588501": {
+"name": "sceCtrlReadLatch",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"348D99D4": {
+"name": "sceCtrlSetSuspendingExtraSamples",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AF5960F3": {
+"name": "sceCtrlGetSuspendingExtraSamples",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A68FD260": {
+"name": "sceCtrlClearRapidFire",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6841BE1A": {
+"name": "sceCtrlSetRapidFire",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A7144800": {
+"name": "sceCtrlSetIdleCancelThreshold",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"687660FA": {
+"name": "sceCtrlGetIdleCancelThreshold",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"5A36B1C2": {
+"name": "sceCtrlPeekBufferPositive2",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"239A6BA7": {
+"name": "sceCtrlPeekBufferNegative2",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1098030B": {
+"name": "sceCtrlReadBufferPositive2",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7C3675AB": {
+"name": "sceCtrlReadBufferNegative2",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C4AAD55F": {
+"name": "sceCtrlPeekBufferPositive",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"454455AC": {
+"name": "sceCtrlReadBufferPositive",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"36AA6E91": {
+"name": "sceImposeSetLanguageMode",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"381BD9E7": {
+"name": "sceImposeHomeButton",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0F341BE4": {
+"name": "sceImposeGetHomePopup",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5595A71A": {
+"name": "sceImposeSetHomePopup",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"24FD7BCF": {
+"name": "sceImposeGetLanguageMode",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"8C943191": {
+"name": "sceImposeGetBatteryIconStatus",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"72189C48": {
+"name": "sceImposeSetUMDPopup",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"E0887BC8": {
+"name": "sceImposeGetUMDPopup",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"8F6E3518": {
+"name": "sceImposeGetBacklightOffTime",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"967F6D4A": {
+"name": "sceImposeSetBacklightOffTime",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"FCD44963": {
+"name": "sceImpose_FCD44963",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A9884B00": {
+"name": "sceImpose_A9884B00",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BB3F5DEC": {
+"name": "sceImpose_BB3F5DEC",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9BA61B49": {
+"name": "sceImpose_9BA61B49",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FF1A2F07": {
+"name": "sceImpose_FF1A2F07",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B497314D": {
+"name": "sceImpose_driver_B497314D",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"DC3BECFF": {
+"name": "sceImposeGetParam",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3C318569": {
+"name": "sceImposeSetParam",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"0F067E16": {
+"name": "sceImposeChanges",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"BB12F974": {
+"name": "sceImposeSetStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"5557F4E2": {
+"name": "sceImposeGetBatteryIconStatus",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"531C9778": {
+"name": "sceImposeGetParam",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B415FC59": {
+"name": "sceImposeChanges",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"C860DB52": {
+"name": "sceImposeSetStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"4B02F047": {
+"name": "sceImposeGetParam",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"D1E9019F": {
+"name": "sceImposeSetParam",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"0BBCA0BF": {
+"name": "sceImposeChanges",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"8434B075": {
+"name": "sceImposeSetStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"01EF0650": {
+"name": "sceImposeSetStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"2462EFE4": {
+"name": "sceImposeSetStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C10C3D39": {
+"name": "sceImposeSetStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"977DE386": {
+"name": "sceKernelLoadModule",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"B7F46618": {
+"name": "sceKernelLoadModuleByID",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"50F0C1EC": {
+"name": "sceKernelStartModule",
+"ret": "v",
+"args": "xxxxx",
+"impl": true
+},
+"D675EBB8": {
+"name": "sceKernelSelfStopUnloadModule",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"D1FF982A": {
+"name": "sceKernelStopModule",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"2E0911AA": {
+"name": "sceKernelUnloadModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"710F61B5": {
+"name": "sceKernelLoadModuleMs",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F9275D98": {
+"name": "sceKernelLoadModuleBufferUsbWlan",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"CC1D3699": {
+"name": "sceKernelStopUnloadSelfModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"748CBED9": {
+"name": "sceKernelQueryModuleInfo",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"D8B73127": {
+"name": "sceKernelGetModuleIdByAddress",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"F0A26395": {
+"name": "sceKernelGetModuleId",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"8F2DF740": {
+"name": "sceKernelStopUnloadSelfModuleWithStatus",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"FEF27DC1": {
+"name": "sceKernelLoadModuleDNAS",
+"ret": "x",
+"args": "sx",
+"impl": true
+},
+"644395E2": {
+"name": "sceKernelGetModuleIdList",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"F2D8D1B4": {
+"name": "sceKernelLoadModuleNpDrm",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"E4C4211C": {
+"name": "sceKernelLoadModuleWithBlockOffset",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FBE27467": {
+"name": "sceKernelLoadModuleByIDWithBlockOffset",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D2FBC957": {
+"name": "sceKernelGetModuleGPByAddress",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"A1A78C58": {
+"name": "sceKernelLoadModuleForLoadExecVSHDisc",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"D5DDAB1F": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"D86DD11B": {
+"name": "sceKernelSearchModuleByName",
+"ret": "x",
+"args": "s",
+"impl": true
+},
+"A4370E7C": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"CCDE84A8": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"FE586962": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"329C89DB": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"8909A807": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"BDFEEC4F": {
+"name": "sceKernelLoadModuleVSH",
+"ret": "x",
+"args": "sxx",
+"impl": true
+},
+"1C90BECB": {
+"name": "sctrlHENSetStartModuleHandler",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"78E46415": {
+"name": "sctrlHENFindDriver",
+"ret": "x",
+"args": "s",
+"impl": true
+},
+"0E20F177": {
+"name": "sceDisplaySetMode",
+"ret": "x",
+"args": "iii",
+"impl": true
+},
+"289D82FE": {
+"name": "sceDisplaySetFrameBuf",
+"ret": "i",
+"args": "xiii",
+"impl": true
+},
+"EEDA2E54": {
+"name": "sceDisplayGetFrameBuf",
+"ret": "x",
+"args": "pppi",
+"impl": true
+},
+"36CDFADE": {
+"name": "sceDisplayWaitVblank",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"984C27E7": {
+"name": "sceDisplayWaitVblankStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"40F1469C": {
+"name": "sceDisplayWaitVblankStartMulti",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"8EB9EC49": {
+"name": "sceDisplayWaitVblankCB",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"46F186C3": {
+"name": "sceDisplayWaitVblankStartCB",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"77ED8B3A": {
+"name": "sceDisplayWaitVblankStartMultiCB",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"DBA6C4C4": {
+"name": "sceDisplayGetFramePerSec",
+"ret": "f",
+"args": "",
+"impl": true
+},
+"773DD3A3": {
+"name": "sceDisplayGetCurrentHcount",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"210EAB3A": {
+"name": "sceDisplayGetAccumulatedHcount",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A83EF139": {
+"name": "sceDisplayAdjustAccumulatedHcount",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9C6EAAD7": {
+"name": "sceDisplayGetVcount",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"DEA197D4": {
+"name": "sceDisplayGetMode",
+"ret": "x",
+"args": "ppp",
+"impl": true
+},
+"7ED59BC4": {
+"name": "sceDisplaySetHoldMode",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"A544C486": {
+"name": "sceDisplaySetResumeMode",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"BF79F646": {
+"name": "sceDisplayGetResumeMode",
+"ret": "x",
+"args": "p",
+"impl": true
+},
+"B4F378FA": {
+"name": "sceDisplayIsForeground",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"31C4BAA8": {
+"name": "sceDisplayGetBrightness",
+"ret": "x",
+"args": "pp",
+"impl": true
+},
+"9E3C6DC6": {
+"name": "sceDisplaySetBrightness",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"4D4E10EC": {
+"name": "sceDisplayIsVblank",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"21038913": {
+"name": "sceDisplayIsVsync",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"1579A159": {
+"name": "sceUtilityLoadNetModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"64D50C56": {
+"name": "sceUtilityUnloadNetModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"F88155F6": {
+"name": "sceUtilityNetconfShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"4DB1E739": {
+"name": "sceUtilityNetconfInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"91E70E35": {
+"name": "sceUtilityNetconfUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"6332AA39": {
+"name": "sceUtilityNetconfGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5EEE6548": {
+"name": "sceUtilityCheckNetParam",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"434D4B3A": {
+"name": "sceUtilityGetNetParam",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"4FED24D8": {
+"name": "sceUtilityGetNetParamLatestID",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"67AF3428": {
+"name": "sceUtilityMsgDialogShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"2AD8E239": {
+"name": "sceUtilityMsgDialogInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"95FC253B": {
+"name": "sceUtilityMsgDialogUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9A1C91D7": {
+"name": "sceUtilityMsgDialogGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"4928BD96": {
+"name": "sceUtilityMsgDialogAbort",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"9790B33C": {
+"name": "sceUtilitySavedataShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"50C4CD57": {
+"name": "sceUtilitySavedataInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"D4B95FFB": {
+"name": "sceUtilitySavedataUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"8874DBE0": {
+"name": "sceUtilitySavedataGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"3DFAEBA9": {
+"name": "sceUtilityOskShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F6269B82": {
+"name": "sceUtilityOskInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"4B85C861": {
+"name": "sceUtilityOskUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"F3F76017": {
+"name": "sceUtilityOskGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"41E30674": {
+"name": "sceUtilitySetSystemParamString",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"45C18506": {
+"name": "sceUtilitySetSystemParamInt",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"34B78343": {
+"name": "sceUtilityGetSystemParamString",
+"ret": "x",
+"args": "xxi",
+"impl": true
+},
+"A5DA2406": {
+"name": "sceUtilityGetSystemParamInt",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"C492F751": {
+"name": "sceUtilityGameSharingInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"EFC6F80F": {
+"name": "sceUtilityGameSharingShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"7853182D": {
+"name": "sceUtilityGameSharingUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"946963F3": {
+"name": "sceUtilityGameSharingGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"2995D020": {
+"name": "sceUtilitySavedataErrInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B62A4061": {
+"name": "sceUtilitySavedataErrShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"ED0FAD38": {
+"name": "sceUtilitySavedataErrUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"88BC7406": {
+"name": "sceUtilitySavedataErrGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BDA7D894": {
+"name": "sceUtilityHtmlViewerGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"CDC3AA41": {
+"name": "sceUtilityHtmlViewerInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"F5CE1134": {
+"name": "sceUtilityHtmlViewerShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"05AFB9E4": {
+"name": "sceUtilityHtmlViewerUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"16A1A8D8": {
+"name": "sceUtilityAuthDialogGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"943CBA46": {
+"name": "sceUtilityAuthDialogInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0F3EEAAC": {
+"name": "sceUtilityAuthDialogShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"147F7C85": {
+"name": "sceUtilityAuthDialogUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C629AF26": {
+"name": "sceUtilityLoadAvModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"F7D8D092": {
+"name": "sceUtilityUnloadAvModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"2A2B3DE0": {
+"name": "sceUtilityLoadModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"E49BFE92": {
+"name": "sceUtilityUnloadModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"0251B134": {
+"name": "sceUtilityScreenshotInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"F9E0008C": {
+"name": "sceUtilityScreenshotShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"AB083EA9": {
+"name": "sceUtilityScreenshotUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"D81957B7": {
+"name": "sceUtilityScreenshotGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"86A03A27": {
+"name": "sceUtilityScreenshotContStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0D5BC6D2": {
+"name": "sceUtilityLoadUsbModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"F64910F0": {
+"name": "sceUtilityUnloadUsbModule",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"24AC31EB": {
+"name": "sceUtilityGamedataInstallInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"32E32DCB": {
+"name": "sceUtilityGamedataInstallShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"4AECD179": {
+"name": "sceUtilityGamedataInstallUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B57E95D9": {
+"name": "sceUtilityGamedataInstallGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"180F7B62": {
+"name": "sceUtilityGamedataInstallAbort",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"16D02AF0": {
+"name": "sceUtilityNpSigninInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"E19C97D6": {
+"name": "sceUtilityNpSigninShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F3FBC572": {
+"name": "sceUtilityNpSigninUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"86ABDB1B": {
+"name": "sceUtilityNpSigninGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"1281DA8E": {
+"name": "sceUtilityInstallInitStart",
+"ret": "v",
+"args": "x",
+"impl": true
+},
+"5EF1C24A": {
+"name": "sceUtilityInstallShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A03D29BA": {
+"name": "sceUtilityInstallUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C4700FA3": {
+"name": "sceUtilityInstallGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"54A5C62F": {
+"name": "sceUtilityStoreCheckoutShutdownStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"DA97F1AA": {
+"name": "sceUtilityStoreCheckoutInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"B8592D5F": {
+"name": "sceUtilityStoreCheckoutUpdate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3AAD51DC": {
+"name": "sceUtilityStoreCheckoutGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"D17A0573": {
+"name": "sceUtilityPS3ScanShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"42071A83": {
+"name": "sceUtilityPS3ScanInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D852CDCE": {
+"name": "sceUtilityPS3ScanUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"89317C8F": {
+"name": "sceUtilityPS3ScanGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E1BC175E": {
+"name": "sceUtility_E1BC175E",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"43E521B7": {
+"name": "sceUtility_43E521B7",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DB4149EE": {
+"name": "sceUtility_DB4149EE",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CFE7C460": {
+"name": "sceUtility_CFE7C460",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C130D441": {
+"name": "sceUtilityPsnShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A7BB7C67": {
+"name": "sceUtilityPsnInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0940A1B9": {
+"name": "sceUtilityPsnUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"094198B8": {
+"name": "sceUtilityPsnGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9F313D14": {
+"name": "sceUtilityAutoConnectShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3A15CD0A": {
+"name": "sceUtilityAutoConnectInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D23665F4": {
+"name": "sceUtilityAutoConnectUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D4C2BD73": {
+"name": "sceUtilityAutoConnectGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0E0C27AF": {
+"name": "sceUtilityAutoConnectAbort",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"06A48659": {
+"name": "sceUtilityRssSubscriberShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4B0A8FE5": {
+"name": "sceUtilityRssSubscriberInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A084E056": {
+"name": "sceUtilityRssSubscriberUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2B96173B": {
+"name": "sceUtilityRssSubscriberGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"149A7895": {
+"name": "sceUtilityDNASShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DDE5389D": {
+"name": "sceUtilityDNASInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4A833BA4": {
+"name": "sceUtilityDNASUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A50E5B30": {
+"name": "sceUtilityDNASGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E7B778D8": {
+"name": "sceUtilityRssReaderShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"81C44706": {
+"name": "sceUtilityRssReaderInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6F56F9CF": {
+"name": "sceUtilityRssReaderUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"8326AB05": {
+"name": "sceUtilityRssReaderGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B0FB7FF5": {
+"name": "sceUtilityRssReaderContStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BC6B6296": {
+"name": "sceNetplayDialogShutdownStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3AD50AE7": {
+"name": "sceNetplayDialogInitStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"417BED54": {
+"name": "sceNetplayDialogUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B6CEE597": {
+"name": "sceNetplayDialogGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"28D35634": {
+"name": "sceUtility_28D35634",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"70267ADF": {
+"name": "sceUtility_70267ADF",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"ECE1D3E5": {
+"name": "sceUtility_ECE1D3E5",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"EF3582B2": {
+"name": "sceUtility_EF3582B2",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"05E242A1": {
+"name": "sceUtility_05e242a1",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"644B513B": {
+"name": "sceUtility_644b513b",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"043EBE3E": {
+"name": "sceUtility_043ebe3e",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C0DE0001": {
+"name": "__UtilityFinishDialog",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C0DE0002": {
+"name": "__UtilityWorkUs",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C0DE0003": {
+"name": "__UtilityInitDialog",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"67F17ED7": {
+"name": "sceFontNewLib",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"574B6FBC": {
+"name": "sceFontDoneLib",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"48293280": {
+"name": "sceFontSetResolution",
+"ret": "i",
+"args": "xff",
+"impl": true
+},
+"27F6E642": {
+"name": "sceFontGetNumFontList",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"BC75D85B": {
+"name": "sceFontGetFontList",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"099EF33C": {
+"name": "sceFontFindOptimumFont",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"681E61A7": {
+"name": "sceFontFindFont",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"2F67356A": {
+"name": "sceFontCalcMemorySize",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5333322D": {
+"name": "sceFontGetFontInfoByIndexNumber",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"A834319D": {
+"name": "sceFontOpen",
+"ret": "x",
+"args": "xxxp",
+"impl": true
+},
+"57FCB733": {
+"name": "sceFontOpenUserFile",
+"ret": "x",
+"args": "xsxp",
+"impl": true
+},
+"BB8E7FE6": {
+"name": "sceFontOpenUserMemory",
+"ret": "x",
+"args": "xxxp",
+"impl": true
+},
+"3AEA8CB6": {
+"name": "sceFontClose",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0DA7535E": {
+"name": "sceFontGetFontInfo",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"DCC80C2F": {
+"name": "sceFontGetCharInfo",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"AA3DE7B5": {
+"name": "sceFontGetShadowInfo",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"5C3E4A9E": {
+"name": "sceFontGetCharImageRect",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"48B06520": {
+"name": "sceFontGetShadowImageRect",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"980F4895": {
+"name": "sceFontGetCharGlyphImage",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"CA1E6945": {
+"name": "sceFontGetCharGlyphImage_Clip",
+"ret": "i",
+"args": "xxxiiii",
+"impl": true
+},
+"74B21701": {
+"name": "sceFontPixelToPointH",
+"ret": "f",
+"args": "ifx",
+"impl": true
+},
+"F8F0752E": {
+"name": "sceFontPixelToPointV",
+"ret": "f",
+"args": "ifx",
+"impl": true
+},
+"472694CD": {
+"name": "sceFontPointToPixelH",
+"ret": "f",
+"args": "ifx",
+"impl": true
+},
+"3C4B7E82": {
+"name": "sceFontPointToPixelV",
+"ret": "f",
+"args": "ifx",
+"impl": true
+},
+"EE232411": {
+"name": "sceFontSetAltCharacterCode",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"568BE516": {
+"name": "sceFontGetShadowGlyphImage",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"5DCF6858": {
+"name": "sceFontGetShadowGlyphImage_Clip",
+"ret": "i",
+"args": "xxxiiii",
+"impl": true
+},
+"02D7F94B": {
+"name": "sceFontFlush",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0BA3B9CC": {
+"name": "sceGzipGetCompressedData",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"106A3552": {
+"name": "sceGzipGetName",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1B5B82BC": {
+"name": "sceGzipIsValid",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2EE39A64": {
+"name": "sceZlibAdler32",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"44054E03": {
+"name": "sceDeflateDecompress",
+"ret": "i",
+"args": "xixp",
+"impl": true
+},
+"6A548477": {
+"name": "sceZlibGetCompressedData",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6DBCF897": {
+"name": "sceGzipDecompress",
+"ret": "i",
+"args": "xixp",
+"impl": true
+},
+"8AA82C92": {
+"name": "sceGzipGetInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A9E4FB28": {
+"name": "sceZlibDecompress",
+"ret": "i",
+"args": "xixp",
+"impl": true
+},
+"AFE01FD3": {
+"name": "sceZlibGetInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B767F9A0": {
+"name": "sceGzipGetComment",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E46EB986": {
+"name": "sceZlibIsValid",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BEA18F91": {
+"name": "sceMpegBasePESpacketCopy",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"492B5E4B": {
+"name": "sceMpegBaseCscInit",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"0530BE4E": {
+"name": "sceMpegbase_0530BE4E",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"91929A21": {
+"name": "sceMpegBaseCscAvc",
+"ret": "i",
+"args": "xxix",
+"impl": true
+},
+"304882E1": {
+"name": "sceMpegBaseCscAvcRange",
+"ret": "x",
+"args": "xxxix",
+"impl": true
+},
+"7AC0321A": {
+"name": "sceMpegBaseYCrCbCopy",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"03ED7A82": {
+"name": "sceUsbCamSetupMic",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"2E930264": {
+"name": "sceUsbCamSetupMicEx",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"82A64030": {
+"name": "sceUsbCamStartMic",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5145868A": {
+"name": "sceUsbCamStopMic",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"36636925": {
+"name": "sceUsbCamReadMicBlocking",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"3DC0088E": {
+"name": "sceUsbCamReadMic",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"B048A67D": {
+"name": "sceUsbCamWaitReadMicEnd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F8847F60": {
+"name": "sceUsbCamPollReadMicEnd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5778B452": {
+"name": "sceUsbCamGetMicDataLength",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"08AEE98A": {
+"name": "sceUsbCamSetMicGain",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"17F7B2FB": {
+"name": "sceUsbCamSetupVideo",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"CFE9E999": {
+"name": "sceUsbCamSetupVideoEx",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"574A8C3F": {
+"name": "sceUsbCamStartVideo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"6CF32CB9": {
+"name": "sceUsbCamStopVideo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"7DAC0C71": {
+"name": "sceUsbCamReadVideoFrameBlocking",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"99D86281": {
+"name": "sceUsbCamReadVideoFrame",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"F90B2293": {
+"name": "sceUsbCamWaitReadVideoFrameEnd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"41E73E95": {
+"name": "sceUsbCamPollReadVideoFrameEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"DF9D0C92": {
+"name": "sceUsbCamGetReadVideoFrameSize",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3F0CF289": {
+"name": "sceUsbCamSetupStill",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0A41A298": {
+"name": "sceUsbCamSetupStillEx",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"61BE5CAC": {
+"name": "sceUsbCamStillInputBlocking",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FB0A6C5D": {
+"name": "sceUsbCamStillInput",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7563AFA1": {
+"name": "sceUsbCamStillWaitInputEnd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1A46CFE7": {
+"name": "sceUsbCamStillPollInputEnd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A720937C": {
+"name": "sceUsbCamStillCancelInput",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E5959C36": {
+"name": "sceUsbCamStillGetInputLength",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F93C4669": {
+"name": "sceUsbCamAutoImageReverseSW",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"11A1F128": {
+"name": "sceUsbCamGetAutoImageReverseState",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4C34F553": {
+"name": "sceUsbCamGetLensDirection",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"383E9FA8": {
+"name": "sceUsbCamGetSaturation",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6E205974": {
+"name": "sceUsbCamSetSaturation",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"70F522C5": {
+"name": "sceUsbCamGetBrightness",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4F3D84D5": {
+"name": "sceUsbCamSetBrightness",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A063A957": {
+"name": "sceUsbCamGetContrast",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"09C26C7E": {
+"name": "sceUsbCamSetContrast",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FDB68C23": {
+"name": "sceUsbCamGetSharpness",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"622F83CC": {
+"name": "sceUsbCamSetSharpness",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"994471E0": {
+"name": "sceUsbCamGetImageEffectMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D4876173": {
+"name": "sceUsbCamSetImageEffectMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2BCD50C0": {
+"name": "sceUsbCamGetEvLevel",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1D686870": {
+"name": "sceUsbCamSetEvLevel",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D5279339": {
+"name": "sceUsbCamGetReverseMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"951BEDF5": {
+"name": "sceUsbCamSetReverseMode",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9E8AAF8D": {
+"name": "sceUsbCamGetZoom",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C484901F": {
+"name": "sceUsbCamSetZoom",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AA7D94BA": {
+"name": "sceUsbCamGetAntiFlicker",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6784E6A8": {
+"name": "sceUsbCamSetAntiFlicker",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D293A100": {
+"name": "sceUsbCamRegisterLensRotationCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"41EE8797": {
+"name": "sceUsbCamUnregisterLensRotationCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E7833020": {
+"name": "sceSdSetIndex",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"F21A1FCA": {
+"name": "sceSdRemoveValue",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"C4C494F8": {
+"name": "sceSdGetLastIndex",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"ABFDFC8B": {
+"name": "sceSdCreateList",
+"ret": "i",
+"args": "xiixx",
+"impl": true
+},
+"850A7FA1": {
+"name": "sceSdSetMember",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"21BE78B4": {
+"name": "sceSdCleanList",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"4C537C72": {
+"name": "sceUtilsBufferCopyWithRange",
+"ret": "x",
+"args": "xixii",
+"impl": true
+},
+"77E97079": {
+"name": "sceUtilsBufferCopyByPollingWithRange",
+"ret": "i",
+"args": "xixii",
+"impl": true
+},
+"06128E42": {
+"name": "sceUsbMicPollInputEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"2E6DCDCD": {
+"name": "sceUsbMicInputBlocking",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"45310F07": {
+"name": "sceUsbMicInputInitEx",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"5F7F368D": {
+"name": "sceUsbMicInput",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"63400E20": {
+"name": "sceUsbMicGetInputLength",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"B8E536EB": {
+"name": "sceUsbMicInputInit",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"F899001C": {
+"name": "sceUsbMicWaitInputEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"268F95CA": {
+"name": "sceUsbGpsSetInitDataLocation",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"31F95CDE": {
+"name": "sceUsbGpsGetPowerSaveMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"54D26AA4": {
+"name": "sceUsbGpsGetInitDataLocation",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"5881C826": {
+"name": "sceUsbGpsGetStaticNavMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"63D1F89D": {
+"name": "sceUsbGpsResetInitialPosition",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"69E4AAA8": {
+"name": "sceUsbGpsSaveInitData",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6EED4811": {
+"name": "sceUsbGpsClose",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"7C16AC3A": {
+"name": "sceUsbGpsGetState",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"934EC2B2": {
+"name": "sceUsbGpsGetData",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"9D8F99E8": {
+"name": "sceUsbGpsSetPowerSaveMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9F267D34": {
+"name": "sceUsbGpsOpen",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A259CD67": {
+"name": "sceUsbGpsReset",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A8ED0BC2": {
+"name": "sceUsbGpsSetStaticNavMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"19884A15": {
+"name": "sceMd5BlockInit",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A30206C2": {
+"name": "sceMd5BlockUpdate",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"4876AFFF": {
+"name": "sceMd5BlockResult",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"98E31A9E": {
+"name": "sceMd5Digest",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"2A2A1E07": {
+"name": "sceNetAdhocMatchingInit",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"7945ECDA": {
+"name": "sceNetAdhocMatchingTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"CA5EDA6F": {
+"name": "sceNetAdhocMatchingCreate",
+"ret": "i",
+"args": "iiiiiiiix",
+"impl": true
+},
+"93EF3843": {
+"name": "sceNetAdhocMatchingStart",
+"ret": "i",
+"args": "iiiiiix",
+"impl": true
+},
+"E8454C65": {
+"name": "sceNetAdhocMatchingStart2",
+"ret": "i",
+"args": "iiiiiiiix",
+"impl": true
+},
+"32B156B3": {
+"name": "sceNetAdhocMatchingStop",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"F16EAF4F": {
+"name": "sceNetAdhocMatchingDelete",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"5E3D4B79": {
+"name": "sceNetAdhocMatchingSelectTarget",
+"ret": "i",
+"args": "isix",
+"impl": true
+},
+"EA3C6108": {
+"name": "sceNetAdhocMatchingCancelTarget",
+"ret": "i",
+"args": "is",
+"impl": true
+},
+"8F58BEDF": {
+"name": "sceNetAdhocMatchingCancelTargetWithOpt",
+"ret": "i",
+"args": "isix",
+"impl": true
+},
+"B5D96C2A": {
+"name": "sceNetAdhocMatchingGetHelloOpt",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"B58E61B7": {
+"name": "sceNetAdhocMatchingSetHelloOpt",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"C58BCD9E": {
+"name": "sceNetAdhocMatchingGetMembers",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"F79472D7": {
+"name": "sceNetAdhocMatchingSendData",
+"ret": "i",
+"args": "isix",
+"impl": true
+},
+"EC19337D": {
+"name": "sceNetAdhocMatchingAbortSendData",
+"ret": "i",
+"args": "is",
+"impl": true
+},
+"40F8F435": {
+"name": "sceNetAdhocMatchingGetPoolMaxAlloc",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"9C5CFB7D": {
+"name": "sceNetAdhocMatchingGetPoolStat",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"756E6F00": {
+"name": "__NetMatchingCallbacks",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"E47E40E4": {
+"name": "sceGeEdramGetAddr",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"AB49E76A": {
+"name": "sceGeListEnQueue",
+"ret": "x",
+"args": "xxip",
+"impl": true
+},
+"1C0D95A6": {
+"name": "sceGeListEnQueueHead",
+"ret": "x",
+"args": "xxip",
+"impl": true
+},
+"E0D68148": {
+"name": "sceGeListUpdateStallAddr",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"03444EB4": {
+"name": "sceGeListSync",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"B287BD61": {
+"name": "sceGeDrawSync",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"B448EC0D": {
+"name": "sceGeBreak",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"4C06E472": {
+"name": "sceGeContinue",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A4FC06A4": {
+"name": "sceGeSetCallback",
+"ret": "i",
+"args": "p",
+"impl": true
+},
+"05DB22CE": {
+"name": "sceGeUnsetCallback",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"1F6752AD": {
+"name": "sceGeEdramGetSize",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"B77905EA": {
+"name": "sceGeEdramSetAddrTranslation",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"DC93CFEF": {
+"name": "sceGeGetCmd",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"57C8945B": {
+"name": "sceGeGetMtx",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"438A385A": {
+"name": "sceGeSaveContext",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"0BF608FB": {
+"name": "sceGeRestoreContext",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"5FB86AB0": {
+"name": "sceGeListDeQueue",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"E66CB92E": {
+"name": "sceGeGetStack",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"CBE69FB3": {
+"name": "sceGameUpdateInit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"BB4B68DE": {
+"name": "sceGameUpdateTerm",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"596AD78C": {
+"name": "sceGameUpdateRun",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"5F5D98A6": {
+"name": "sceGameUpdateAbort",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"8077A433": {
+"name": "sceParseHttpStatusLine",
+"ret": "i",
+"args": "xxxxxxx",
+"impl": true
+},
+"AD7BFDEF": {
+"name": "sceParseHttpResponseHeader",
+"ret": "i",
+"args": "xisxx",
+"impl": true
+},
+"79A1C743": {
+"name": "sceUsbAccGetAuthStat",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"0CD7D4AA": {
+"name": "sceUsbAccGetInfo",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"55C20A00": {
+"name": "sceKernelCreateEventFlag",
+"ret": "i",
+"args": "sxxx",
+"impl": true
+},
+"812346E4": {
+"name": "sceKernelClearEventFlag",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"EF9E4C70": {
+"name": "sceKernelDeleteEventFlag",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"1FB15A32": {
+"name": "sceKernelSetEventFlag",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"402FCF22": {
+"name": "sceKernelWaitEventFlag",
+"ret": "i",
+"args": "ixxpp",
+"impl": true
+},
+"328C546A": {
+"name": "sceKernelWaitEventFlagCB",
+"ret": "i",
+"args": "ixxpp",
+"impl": true
+},
+"30FD48F0": {
+"name": "sceKernelPollEventFlag",
+"ret": "i",
+"args": "ixxp",
+"impl": true
+},
+"CD203292": {
+"name": "sceKernelCancelEventFlag",
+"ret": "x",
+"args": "ixp",
+"impl": true
+},
+"A66B0120": {
+"name": "sceKernelReferEventFlagStatus",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"8FFDF9A2": {
+"name": "sceKernelCancelSema",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"D6DA4BA1": {
+"name": "sceKernelCreateSema",
+"ret": "i",
+"args": "sxiip",
+"impl": true
+},
+"28B6489C": {
+"name": "sceKernelDeleteSema",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"58B1F937": {
+"name": "sceKernelPollSema",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"BC6FEBC5": {
+"name": "sceKernelReferSemaStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"3F53E640": {
+"name": "sceKernelSignalSema",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"4E3A1105": {
+"name": "sceKernelWaitSema",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"6D212BAC": {
+"name": "sceKernelWaitSemaCB",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"60107536": {
+"name": "sceKernelDeleteLwMutex",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"19CFF145": {
+"name": "sceKernelCreateLwMutex",
+"ret": "i",
+"args": "xsxix",
+"impl": true
+},
+"4C145944": {
+"name": "sceKernelReferLwMutexStatusByID",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"71040D5C": {
+"name": "_sceKernelTryLockLwMutex",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7CFF8CF3": {
+"name": "_sceKernelLockLwMutex",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"31327F19": {
+"name": "_sceKernelLockLwMutexCB",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BEED3A47": {
+"name": "_sceKernelUnlockLwMutex",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F8170FBE": {
+"name": "sceKernelDeleteMutex",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B011B11F": {
+"name": "sceKernelLockMutex",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"5BF4DD27": {
+"name": "sceKernelLockMutexCB",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"6B30100F": {
+"name": "sceKernelUnlockMutex",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"B7D098C6": {
+"name": "sceKernelCreateMutex",
+"ret": "i",
+"args": "sxip",
+"impl": true
+},
+"0DDCD2C9": {
+"name": "sceKernelTryLockMutex",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"A9C2CB9A": {
+"name": "sceKernelReferMutexStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"87D9223C": {
+"name": "sceKernelCancelMutex",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"FCCFAD26": {
+"name": "sceKernelCancelWakeupThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"1AF94D03": {
+"name": "sceKernelDonateWakeupThread",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"EA748E31": {
+"name": "sceKernelChangeCurrentThreadAttr",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"71BC9871": {
+"name": "sceKernelChangeThreadPriority",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"446D8DE6": {
+"name": "sceKernelCreateThread",
+"ret": "i",
+"args": "sxxixx",
+"impl": true
+},
+"9FA03CD3": {
+"name": "sceKernelDeleteThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"BD123D9E": {
+"name": "sceKernelDelaySysClockThread",
+"ret": "i",
+"args": "P",
+"impl": true
+},
+"1181E963": {
+"name": "sceKernelDelaySysClockThreadCB",
+"ret": "i",
+"args": "P",
+"impl": true
+},
+"CEADEB47": {
+"name": "sceKernelDelayThread",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"68DA9E36": {
+"name": "sceKernelDelayThreadCB",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"AA73C935": {
+"name": "sceKernelExitThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"809CE29B": {
+"name": "sceKernelExitDeleteThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"94AA61EE": {
+"name": "sceKernelGetThreadCurrentPriority",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"293B45B8": {
+"name": "sceKernelGetThreadId",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"3B183E26": {
+"name": "sceKernelGetThreadExitStatus",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"52089CA1": {
+"name": "sceKernelGetThreadStackFreeSize",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"FFC36A14": {
+"name": "sceKernelReferThreadRunStatus",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"17C1684E": {
+"name": "sceKernelReferThreadStatus",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"2C34E053": {
+"name": "sceKernelReleaseWaitThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"75156E8F": {
+"name": "sceKernelResumeThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3AD58B8C": {
+"name": "sceKernelSuspendDispatchThread",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"27E22EC2": {
+"name": "sceKernelResumeDispatchThread",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"912354A7": {
+"name": "sceKernelRotateThreadReadyQueue",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9ACE131E": {
+"name": "sceKernelSleepThread",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"82826F70": {
+"name": "sceKernelSleepThreadCB",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F475845D": {
+"name": "sceKernelStartThread",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"9944F31F": {
+"name": "sceKernelSuspendThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"616403BA": {
+"name": "sceKernelTerminateThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"383F7BCC": {
+"name": "sceKernelTerminateDeleteThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"840E8133": {
+"name": "sceKernelWaitThreadEndCB",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"D13BDE95": {
+"name": "sceKernelCheckThreadStack",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"94416130": {
+"name": "sceKernelGetThreadmanIdList",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"57CF62DD": {
+"name": "sceKernelGetThreadmanIdType",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"BC80EC7C": {
+"name": "sceKernelExtendThreadStack",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"28BFD974": {
+"name": "ThreadManForUser_28BFD974",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"82BC5777": {
+"name": "sceKernelGetSystemTimeWide",
+"ret": "X",
+"args": "",
+"impl": true
+},
+"DB738F35": {
+"name": "sceKernelGetSystemTime",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"369ED59D": {
+"name": "sceKernelGetSystemTimeLow",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"8218B4DD": {
+"name": "sceKernelReferGlobalProfiler",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"627E6F3A": {
+"name": "sceKernelReferSystemStatus",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"64D4540E": {
+"name": "sceKernelReferThreadProfiler",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"6652B8CA": {
+"name": "sceKernelSetAlarm",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"B2C25152": {
+"name": "sceKernelSetSysClockAlarm",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"7E65B999": {
+"name": "sceKernelCancelAlarm",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"DAA3F564": {
+"name": "sceKernelReferAlarmStatus",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"BA6B92E2": {
+"name": "sceKernelSysClock2USec",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"110DEC9A": {
+"name": "sceKernelUSec2SysClock",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"C8CD158C": {
+"name": "sceKernelUSec2SysClockWide",
+"ret": "X",
+"args": "x",
+"impl": true
+},
+"E1619D7C": {
+"name": "sceKernelSysClock2USecWide",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"278C0DF5": {
+"name": "sceKernelWaitThreadEnd",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"D59EAD2F": {
+"name": "sceKernelWakeupThread",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"0C106E53": {
+"name": "sceKernelRegisterThreadEventHandler",
+"ret": "i",
+"args": "sixxx",
+"impl": true
+},
+"72F3C145": {
+"name": "sceKernelReleaseThreadEventHandler",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"369EEB6B": {
+"name": "sceKernelReferThreadEventHandlerStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"349D6D6C": {
+"name": "sceKernelCheckCallback",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E81CAF8F": {
+"name": "sceKernelCreateCallback",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"EDBA5844": {
+"name": "sceKernelDeleteCallback",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C11BA8C4": {
+"name": "sceKernelNotifyCallback",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"BA4051D6": {
+"name": "sceKernelCancelCallback",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"2A3D44FF": {
+"name": "sceKernelGetCallbackCount",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"730ED8BC": {
+"name": "sceKernelReferCallbackStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"8125221D": {
+"name": "sceKernelCreateMbx",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"86255ADA": {
+"name": "sceKernelDeleteMbx",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"E9B3061E": {
+"name": "sceKernelSendMbx",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"18260574": {
+"name": "sceKernelReceiveMbx",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"F3986382": {
+"name": "sceKernelReceiveMbxCB",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"0D81716A": {
+"name": "sceKernelPollMbx",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"87D4DD36": {
+"name": "sceKernelCancelReceiveMbx",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"A8E8C846": {
+"name": "sceKernelReferMbxStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"7C0DC2A0": {
+"name": "sceKernelCreateMsgPipe",
+"ret": "i",
+"args": "sixxp",
+"impl": true
+},
+"F0B7DA1C": {
+"name": "sceKernelDeleteMsgPipe",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"876DBFAD": {
+"name": "sceKernelSendMsgPipe",
+"ret": "i",
+"args": "ixxxxx",
+"impl": true
+},
+"7C41F2C2": {
+"name": "sceKernelSendMsgPipeCB",
+"ret": "i",
+"args": "ixxxxx",
+"impl": true
+},
+"884C9F90": {
+"name": "sceKernelTrySendMsgPipe",
+"ret": "i",
+"args": "ixxxx",
+"impl": true
+},
+"74829B76": {
+"name": "sceKernelReceiveMsgPipe",
+"ret": "i",
+"args": "ixxxxx",
+"impl": true
+},
+"FBFA697D": {
+"name": "sceKernelReceiveMsgPipeCB",
+"ret": "i",
+"args": "ixxxxx",
+"impl": true
+},
+"DF52098F": {
+"name": "sceKernelTryReceiveMsgPipe",
+"ret": "i",
+"args": "ixxxx",
+"impl": true
+},
+"349B864D": {
+"name": "sceKernelCancelMsgPipe",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"33BE4024": {
+"name": "sceKernelReferMsgPipeStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"56C039B5": {
+"name": "sceKernelCreateVpl",
+"ret": "i",
+"args": "sixxp",
+"impl": true
+},
+"89B3D48C": {
+"name": "sceKernelDeleteVpl",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"BED27435": {
+"name": "sceKernelAllocateVpl",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"EC0A693F": {
+"name": "sceKernelAllocateVplCB",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"AF36D708": {
+"name": "sceKernelTryAllocateVpl",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"B736E9FF": {
+"name": "sceKernelFreeVpl",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"1D371B8A": {
+"name": "sceKernelCancelVpl",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"39810265": {
+"name": "sceKernelReferVplStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"C07BB470": {
+"name": "sceKernelCreateFpl",
+"ret": "i",
+"args": "sixxxp",
+"impl": true
+},
+"ED1410E0": {
+"name": "sceKernelDeleteFpl",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"D979E9BF": {
+"name": "sceKernelAllocateFpl",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"E7282CB6": {
+"name": "sceKernelAllocateFplCB",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"623AE665": {
+"name": "sceKernelTryAllocateFpl",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"F6414A71": {
+"name": "sceKernelFreeFpl",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"A8AA591F": {
+"name": "sceKernelCancelFpl",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"D8199E4C": {
+"name": "sceKernelReferFplStatus",
+"ret": "i",
+"args": "ip",
+"impl": true
+},
+"20FFF560": {
+"name": "sceKernelCreateVTimer",
+"ret": "x",
+"args": "sx",
+"impl": true
+},
+"328F9E52": {
+"name": "sceKernelDeleteVTimer",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"C68D9437": {
+"name": "sceKernelStartVTimer",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"D0AEEE87": {
+"name": "sceKernelStopVTimer",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"D2D615EF": {
+"name": "sceKernelCancelVTimerHandler",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"B3A59970": {
+"name": "sceKernelGetVTimerBase",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"B7C18B77": {
+"name": "sceKernelGetVTimerBaseWide",
+"ret": "X",
+"args": "i",
+"impl": true
+},
+"034A921F": {
+"name": "sceKernelGetVTimerTime",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"C0B3FFD2": {
+"name": "sceKernelGetVTimerTimeWide",
+"ret": "X",
+"args": "i",
+"impl": true
+},
+"5F32BEAA": {
+"name": "sceKernelReferVTimerStatus",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"542AD630": {
+"name": "sceKernelSetVTimerTime",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"FB6425C3": {
+"name": "sceKernelSetVTimerTimeWide",
+"ret": "X",
+"args": "iX",
+"impl": true
+},
+"D8B299AE": {
+"name": "sceKernelSetVTimerHandler",
+"ret": "x",
+"args": "ixxx",
+"impl": true
+},
+"53B00E9A": {
+"name": "sceKernelSetVTimerHandlerWide",
+"ret": "x",
+"args": "iXxx",
+"impl": true
+},
+"8DAFF657": {
+"name": "sceKernelCreateTlspl",
+"ret": "i",
+"args": "sixxxp",
+"impl": true
+},
+"32BF938E": {
+"name": "sceKernelDeleteTlspl",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"721067F3": {
+"name": "sceKernelReferTlsplStatus",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"4A719FB2": {
+"name": "sceKernelFreeTlspl",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"0E927AED": {
+"name": "_sceKernelReturnFromTimerHandler",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"532A522E": {
+"name": "_sceKernelExitThread",
+"ret": "v",
+"args": "i",
+"impl": true
+},
+"6E9EA350": {
+"name": "_sceKernelReturnFromCallback",
+"ret": "",
+"args": "",
+"impl": true
+},
+"71EC4271": {
+"name": "sceKernelLibcGettimeofday",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"79D1C3FA": {
+"name": "sceKernelDcacheWritebackAll",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"91E4F6A7": {
+"name": "sceKernelLibcClock",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"B435DEC5": {
+"name": "sceKernelDcacheWritebackInvalidateAll",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"65F54FFB": {
+"name": "_sceKernelAllocateTlspl",
+"ret": "i",
+"args": "ixp",
+"impl": true
+},
+"BC31C1B9": {
+"name": "sceKernelExtendKernelStack",
+"ret": "",
+"args": "",
+"impl": false
+},
+"F6427665": {
+"name": "sceKernelGetUserLevel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"85A2A5BF": {
+"name": "sceKernelIsUserModeThread",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"05572A5F": {
+"name": "sceKernelExitGame",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"4AC57943": {
+"name": "sceKernelRegisterExitCallback",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"BD2F1094": {
+"name": "sceKernelLoadExec",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"2AC9954B": {
+"name": "sceKernelExitGameWithStatus",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"362A956B": {
+"name": "LoadExecForUser_362A956B",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"8ADA38D3": {
+"name": "sceKernelLoadExecNpDrm",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A3D5E142": {
+"name": "sceKernelExitVSHVSH",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"28D0D249": {
+"name": "sceKernelLoadExecVSHMs2",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"6D302D3D": {
+"name": "sceKernelExitVSHKernel",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"08F7166C": {
+"name": "sceKernelExitVSHVSH",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"D940C83C": {
+"name": "sceKernelLoadExecVSHMs2",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"F9CFCF2F": {
+"name": "sceKernelLoadExec_F9CFCF2F",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"D8320A28": {
+"name": "sceKernelLoadExecVSHDisc",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"C3474C2A": {
+"name": "sceKernelExitVSHKernel",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"BEF585EC": {
+"name": "sceKernelLoadExecBufferVSHUsbWlan",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"11412288": {
+"name": "sceKernelLoadExec_11412288",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A5ECA6E3": {
+"name": "sceKernelLoadExec_11412288",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"00745486": {
+"name": "sceKernelLoadExecVSHMs4",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4FB44D27": {
+"name": "sceKernelLoadExecVSHMs1",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CC6A47D2": {
+"name": "sceKernelLoadExecVSHMs3",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7CABED9B": {
+"name": "sceKernelLoadExecVSHMs5",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1B305B09": {
+"name": "sceKernelLoadExecVSHDiscDebug",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D4B49C4B": {
+"name": "sceKernelLoadExecVSHDiscUpdater",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2B8813AF": {
+"name": "sceKernelLoadExecBufferVSHUsbWlanDebug",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1F08547A": {
+"name": "sceKernelInvokeExitCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1F88A490": {
+"name": "sceKernelRegisterExitCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"24114598": {
+"name": "sceKernelUnregisterExitCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B57D0DEC": {
+"name": "sceKernelCheckExitCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"032A7938": {
+"name": "LoadExecForKernel_032A7938",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"077BA314": {
+"name": "LoadExecForKernel_077BA314",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"16A68007": {
+"name": "LoadExecForKernel_16A68007",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1B8AB02E": {
+"name": "LoadExecForKernel_1B8AB02E",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"40564748": {
+"name": "LoadExecForKernel_40564748",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"47A5A49C": {
+"name": "LoadExecForKernel_47A5A49C",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7CAFE77F": {
+"name": "LoadExecForKernel_7CAFE77F",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"87C3589C": {
+"name": "LoadExecForKernel_87C3589C",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"8C4679D3": {
+"name": "LoadExecForKernel_8C4679D3",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9BD32619": {
+"name": "LoadExecForKernel_9BD32619",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A6658F10": {
+"name": "LoadExecForKernel_A6658F10",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B343FDAB": {
+"name": "LoadExecForKernel_B343FDAB",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BC26BEEF": {
+"name": "LoadExecForKernel_BC26BEEF",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C11E6DF1": {
+"name": "LoadExecForKernel_C11E6DF1",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C540E3B3": {
+"name": "LoadExecForKernel_C540E3B3",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C7C83B1E": {
+"name": "LoadExecForKernel_C7C83B1E",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DBD0CF1B": {
+"name": "LoadExecForKernel_DBD0CF1B",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E1972A24": {
+"name": "LoadExecForKernel_E1972A24",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E704ECC3": {
+"name": "LoadExecForKernel_E704ECC3",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AE9EFC0D": {
+"name": "LoadExecForKernel_AE9EFC0D",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3FB264FC": {
+"name": "sceKernelRegisterExceptionHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5A837AD4": {
+"name": "sceKernelRegisterPriorityExceptionHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"565C0B0E": {
+"name": "sceKernelRegisterDefaultExceptionHandler",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"1AA6CFFA": {
+"name": "sceKernelReleaseExceptionHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DF83875E": {
+"name": "sceKernelGetActiveDefaultExceptionHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"291FF031": {
+"name": "sceKernelReleaseDefaultExceptionHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"15ADC862": {
+"name": "sceKernelRegisterNmiHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B15357C9": {
+"name": "sceKernelReleaseNmiHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C2DF770E": {
+"name": "sceKernelIcacheInvalidateRange",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"78934841": {
+"name": "sceKernelGzipDecompress",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E8DB3CE6": {
+"name": "sceKernelDeflateDecompress",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"840259F1": {
+"name": "sceKernelUtilsSha1Digest",
+"ret": "?",
+"args": "",
+"impl": true
+},
+"9E5C5086": {
+"name": "sceKernelUtilsMd5BlockInit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"61E1E525": {
+"name": "sceKernelUtilsMd5BlockUpdate",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B8D24E78": {
+"name": "sceKernelUtilsMd5BlockResult",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C8186A58": {
+"name": "sceKernelUtilsMd5Digest",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6C6887EE": {
+"name": "UtilsForKernel_6C6887EE",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"27CC57F0": {
+"name": "sceKernelLibcTime",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3EE30821": {
+"name": "sceKernelDcacheWritebackRange",
+"ret": "?",
+"args": "",
+"impl": true
+},
+"34B9FA9E": {
+"name": "sceKernelDcacheWritebackInvalidateRange",
+"ret": "?",
+"args": "",
+"impl": true
+},
+"BFA98062": {
+"name": "sceKernelDcacheInvalidateRange",
+"ret": "?",
+"args": "",
+"impl": true
+},
+"920F104A": {
+"name": "sceKernelIcacheInvalidateAll",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"E860E75E": {
+"name": "sceKernelUtilsMt19937Init",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"06FB8A63": {
+"name": "sceKernelUtilsMt19937UInt",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0425B986": {
+"name": "sceJpegDecompressAllImage",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"04B5AE02": {
+"name": "sceJpegMJpegCsc",
+"ret": "i",
+"args": "xxxi",
+"impl": true
+},
+"04B93CEF": {
+"name": "sceJpegDecodeMJpeg",
+"ret": "x",
+"args": "xixi",
+"impl": true
+},
+"227662D7": {
+"name": "sceJpegDecodeMJpegYCbCrSuccessively",
+"ret": "x",
+"args": "xixii",
+"impl": true
+},
+"48B602B7": {
+"name": "sceJpegDeleteMJpeg",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"64B6F978": {
+"name": "sceJpegDecodeMJpegSuccessively",
+"ret": "x",
+"args": "xixi",
+"impl": true
+},
+"67F0ED84": {
+"name": "sceJpegCsc",
+"ret": "i",
+"args": "xxxix",
+"impl": true
+},
+"7D2F3D7F": {
+"name": "sceJpegFinishMJpeg",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"8F2BB012": {
+"name": "sceJpegGetOutputInfo",
+"ret": "x",
+"args": "xipi",
+"impl": true
+},
+"91EED83C": {
+"name": "sceJpegDecodeMJpegYCbCr",
+"ret": "x",
+"args": "xixii",
+"impl": true
+},
+"9B36444C": {
+"name": "sceJpeg_9B36444C",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"9D47469C": {
+"name": "sceJpegCreateMJpeg",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"AC9E70E6": {
+"name": "sceJpegInitMJpeg",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A06A75C4": {
+"name": "sceJpegMJpegCscWithColorOption",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"957ECBE2": {
+"name": "sceSslInit",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"191CDEFF": {
+"name": "sceSslEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5BFB6B61": {
+"name": "sceSslGetNotAfter",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"17A10DCC": {
+"name": "sceSslGetNotBefore",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3DD5E023": {
+"name": "sceSslGetSubjectName",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1B7C8191": {
+"name": "sceSslGetIssuerName",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CC0919B0": {
+"name": "sceSslGetSerialNumber",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"058D21C0": {
+"name": "sceSslGetNameEntryCount",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D6D097B4": {
+"name": "sceSslGetNameEntryInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B99EDE6A": {
+"name": "sceSslGetUsedMemoryMax",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0EB43B06": {
+"name": "sceSslGetUsedMemoryCurrent",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"F57765D3": {
+"name": "sceSslGetKeyUsage",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"8BFC3DE8": {
+"name": "sceUsb_8BFC3DE8",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"AE5DE6AF": {
+"name": "sceUsbStart",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"C2464FA0": {
+"name": "sceUsbStop",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"C21645A4": {
+"name": "sceUsbGetState",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"4E537366": {
+"name": "sceUsbGetDrvList",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"112CC951": {
+"name": "sceUsbGetDrvState",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"586DB82C": {
+"name": "sceUsbActivate",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"C572A9C8": {
+"name": "sceUsbDeactivate",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"5BE0E002": {
+"name": "sceUsbWaitState",
+"ret": "x",
+"args": "xip",
+"impl": true
+},
+"616F2B61": {
+"name": "sceUsbWaitStateCB",
+"ret": "x",
+"args": "xip",
+"impl": true
+},
+"1C360735": {
+"name": "sceUsbWaitCancel",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"60066CFE": {
+"name": "sceUsbstorGetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E58818A8": {
+"name": "sceUsbstorBootSetCapacity",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"594BBF95": {
+"name": "sceUsbstorBootSetLoadAddr",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6D865ECD": {
+"name": "sceUsbstorBootGetDataSize",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A1119F0D": {
+"name": "sceUsbstorBootSetStatus",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1F080078": {
+"name": "sceUsbstorBootRegisterNotify",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A55C9E16": {
+"name": "sceUsbstorBootUnregisterNotify",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AB1ABE07": {
+"name": "sceHttpInit",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"D1C8945E": {
+"name": "sceHttpEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A6800C34": {
+"name": "sceHttpInitCache",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"78B54C09": {
+"name": "sceHttpEndCache",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"59E6D16F": {
+"name": "sceHttpEnableCache",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"CCBD167A": {
+"name": "sceHttpDisableCache",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"D70D4847": {
+"name": "sceHttpGetProxy",
+"ret": "x",
+"args": "xxxxxx",
+"impl": true
+},
+"4CC7D78F": {
+"name": "sceHttpGetStatusCode",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"EDEEB999": {
+"name": "sceHttpReadData",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"BB70706F": {
+"name": "sceHttpSendRequest",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"A5512E01": {
+"name": "sceHttpDeleteRequest",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"15540184": {
+"name": "sceHttpDeleteHeader",
+"ret": "i",
+"args": "is",
+"impl": true
+},
+"5152773B": {
+"name": "sceHttpDeleteConnection",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"8ACD1F73": {
+"name": "sceHttpSetConnectTimeOut",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"9988172D": {
+"name": "sceHttpSetSendTimeOut",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"F0F46C62": {
+"name": "sceHttpSetProxy",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"0DAFA58F": {
+"name": "sceHttpEnableCookie",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"78A0D3EC": {
+"name": "sceHttpEnableKeepAlive",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"0B12ABFB": {
+"name": "sceHttpDisableCookie",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C7EF2559": {
+"name": "sceHttpDisableKeepAlive",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"E4D21302": {
+"name": "sceHttpsInit",
+"ret": "i",
+"args": "iiii",
+"impl": true
+},
+"F9D8EB63": {
+"name": "sceHttpsEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"47347B50": {
+"name": "sceHttpCreateRequest",
+"ret": "i",
+"args": "iisX",
+"impl": true
+},
+"8EEFD953": {
+"name": "sceHttpCreateConnection",
+"ret": "i",
+"args": "issxi",
+"impl": true
+},
+"D081EC8F": {
+"name": "sceHttpGetNetworkErrno",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"3EABA285": {
+"name": "sceHttpAddExtraHeader",
+"ret": "i",
+"args": "issi",
+"impl": true
+},
+"C10B6BD9": {
+"name": "sceHttpAbortRequest",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"FCF8C055": {
+"name": "sceHttpDeleteTemplate",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"F49934F6": {
+"name": "sceHttpSetMallocFunction",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"03D9526F": {
+"name": "sceHttpSetResolveRetry",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"47940436": {
+"name": "sceHttpSetResolveTimeOut",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"2A6C3296": {
+"name": "sceHttpSetAuthInfoCB",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"0809C831": {
+"name": "sceHttpEnableRedirect",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9FC5F10D": {
+"name": "sceHttpEnableAuth",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"1A0EBB69": {
+"name": "sceHttpDisableRedirect",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"AE948FEE": {
+"name": "sceHttpDisableAuth",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"76D1363B": {
+"name": "sceHttpSaveSystemCookie",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"87797BDD": {
+"name": "sceHttpsLoadDefaultCert",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"F1657B22": {
+"name": "sceHttpLoadSystemCookie",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"9B1F1F36": {
+"name": "sceHttpCreateTemplate",
+"ret": "i",
+"args": "sii",
+"impl": true
+},
+"B509B09E": {
+"name": "sceHttpCreateRequestWithURL",
+"ret": "i",
+"args": "iisX",
+"impl": true
+},
+"CDF8ECB9": {
+"name": "sceHttpCreateConnectionWithURL",
+"ret": "i",
+"args": "isi",
+"impl": true
+},
+"1F0FC3E3": {
+"name": "sceHttpSetRecvTimeOut",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"DB266CCF": {
+"name": "sceHttpGetAllHeader",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"0282A3BD": {
+"name": "sceHttpGetContentLength",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"7774BF4C": {
+"name": "sceHttpAddCookie",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"68AB0F86": {
+"name": "sceHttpsInitWithPath",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"B3FAF831": {
+"name": "sceHttpsDisableOption",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"2255551E": {
+"name": "sceHttpGetNetworkPspError",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AB1540D5": {
+"name": "sceHttpsGetSslError",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A4496DE5": {
+"name": "sceHttpSetRedirectCallback",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"267618F4": {
+"name": "sceHttpSetAuthInfoCallback",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"569A1481": {
+"name": "sceHttpsSetSslCallback",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"BAC31BF1": {
+"name": "sceHttpsEnableOption",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CC920C12": {
+"name": "sceHttpEnableNagle",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D29163DA": {
+"name": "sceHttpDisableNagle",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"089FDFA4": {
+"name": "sceHprm_089fdfa4",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1910B327": {
+"name": "sceHprmPeekCurrentKey",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"208DB1BD": {
+"name": "sceHprmIsRemoteExist",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"7E69EDA4": {
+"name": "sceHprmIsHeadphoneExist",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"219C58F1": {
+"name": "sceHprmIsMicrophoneExist",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"C7154136": {
+"name": "sceHprmRegisterCallback",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"FD7DE6CD": {
+"name": "sceHprmUnregisterCallback",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"444ED0B7": {
+"name": "sceHprmUnregitserCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2BCEC83E": {
+"name": "sceHprmPeekLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"40D2F9F0": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"E9B776BE": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"DC895B2B": {
+"name": "sceHprm_driver_DC895B2B",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"A3A87975": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"5FC5E53B": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"748FC3C8": {
+"name": "sceHprm_driver_DC895B2B",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"605DEA7A": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"A6E8D4F0": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"8C728076": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"F0AA1FB9": {
+"name": "sceHprmReadLatch",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"17943399": {
+"name": "sceNetInetInit",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"4CFE4E56": {
+"name": "sceNetInetShutdown",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"A9ED66B9": {
+"name": "sceNetInetTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"8B7B220F": {
+"name": "sceNetInetSocket",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"2FE71FE7": {
+"name": "sceNetInetSetsockopt",
+"ret": "i",
+"args": "iiixi",
+"impl": true
+},
+"4A114C7C": {
+"name": "sceNetInetGetsockopt",
+"ret": "i",
+"args": "iiixx",
+"impl": true
+},
+"410B34AA": {
+"name": "sceNetInetConnect",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"805502DD": {
+"name": "sceNetInetCloseWithRST",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"D10A1A7A": {
+"name": "sceNetInetListen",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"DB094E1B": {
+"name": "sceNetInetAccept",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"FAABB1DD": {
+"name": "sceNetInetPoll",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"5BE8D595": {
+"name": "sceNetInetSelect",
+"ret": "i",
+"args": "ixxxx",
+"impl": true
+},
+"8D7284EA": {
+"name": "sceNetInetClose",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"CDA85C99": {
+"name": "sceNetInetRecv",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"C91142E4": {
+"name": "sceNetInetRecvfrom",
+"ret": "i",
+"args": "ixiixx",
+"impl": true
+},
+"EECE61D2": {
+"name": "sceNetInetRecvmsg",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"7AA671BC": {
+"name": "sceNetInetSend",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"05038FC7": {
+"name": "sceNetInetSendto",
+"ret": "i",
+"args": "ixiixi",
+"impl": true
+},
+"774E36F4": {
+"name": "sceNetInetSendmsg",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"FBABE411": {
+"name": "sceNetInetGetErrno",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"1A33F9AE": {
+"name": "sceNetInetBind",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"B75D5B0A": {
+"name": "sceNetInetInetAddr",
+"ret": "x",
+"args": "s",
+"impl": true
+},
+"1BDF5D13": {
+"name": "sceNetInetInetAton",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"D0792666": {
+"name": "sceNetInetInetNtop",
+"ret": "x",
+"args": "ixxx",
+"impl": true
+},
+"E30B8C19": {
+"name": "sceNetInetInetPton",
+"ret": "i",
+"args": "isx",
+"impl": true
+},
+"8CA3A97E": {
+"name": "sceNetInetGetPspError",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E247B6D6": {
+"name": "sceNetInetGetpeername",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"162E6FD5": {
+"name": "sceNetInetGetsockname",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"80A21ABD": {
+"name": "sceNetInetSocketAbort",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"39B0C7D3": {
+"name": "sceNetInetGetUdpcbstat",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B3888AD4": {
+"name": "sceNetInetGetTcpcbstat",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2D5868C0": {
+"name": "sceNetInetDelArp",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CCC18C45": {
+"name": "sceNetInetAddArp",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"374500A5": {
+"name": "sceP3daBridgeInit",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"43F756A2": {
+"name": "sceP3daBridgeExit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"013016F3": {
+"name": "sceP3daBridgeCore",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"161ACEB2": {
+"name": "sceSfmt19937InitGenRand",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"DD5A5D6C": {
+"name": "sceSfmt19937InitByArray",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"B33FE749": {
+"name": "sceSfmt19937GenRand32",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"D5AC9F99": {
+"name": "sceSfmt19937GenRand64",
+"ret": "X",
+"args": "x",
+"impl": true
+},
+"DB025BFA": {
+"name": "sceSfmt19937FillArray32",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"EE2938C4": {
+"name": "sceSfmt19937FillArray64",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"39AF39A6": {
+"name": "sceNetInit",
+"ret": "i",
+"args": "xxxxx",
+"impl": true
+},
+"281928A9": {
+"name": "sceNetTerm",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"89360950": {
+"name": "sceNetEtherNtostr",
+"ret": "v",
+"args": "xx",
+"impl": true
+},
+"D27961C9": {
+"name": "sceNetEtherStrton",
+"ret": "v",
+"args": "xx",
+"impl": true
+},
+"0BF0A3AE": {
+"name": "sceNetGetLocalEtherAddr",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"50647530": {
+"name": "sceNetFreeThreadinfo",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"CC393E48": {
+"name": "sceNetGetMallocStat",
+"ret": "i",
+"args": "p",
+"impl": true
+},
+"AD6844C6": {
+"name": "sceNetThreadAbort",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"CFB957C6": {
+"name": "sceNetApctlConnect",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"24FE91A1": {
+"name": "sceNetApctlDisconnect",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5DEAC81B": {
+"name": "sceNetApctlGetState",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"8ABADD51": {
+"name": "sceNetApctlAddHandler",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"E2F91F9B": {
+"name": "sceNetApctlInit",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"5963991B": {
+"name": "sceNetApctlDelHandler",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"B3EDD0EC": {
+"name": "sceNetApctlTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"2BEFDF23": {
+"name": "sceNetApctlGetInfo",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"A3E77E13": {
+"name": "sceNetApctlScanSSID2",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E9B2E5E6": {
+"name": "sceNetApctlScanUser",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F25A5006": {
+"name": "sceNetApctlGetBSSDescIDList2",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"2935C45B": {
+"name": "sceNetApctlGetBSSDescEntry2",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"04776994": {
+"name": "sceNetApctlGetBSSDescEntryUser",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"6BDDCB8C": {
+"name": "sceNetApctlGetBSSDescIDListUser",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"7CFAB990": {
+"name": "sceNetApctlAddInternalHandler",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"E11BAFAB": {
+"name": "sceNetApctlDelInternalHandler",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A7BB73DF": {
+"name": "sceNetApctlAddInternal03Handler",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"6F5D2981": {
+"name": "sceNetApctlDelInternal03Handler",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"69745F0A": {
+"name": "sceNetApctl_lib2_69745F0A",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"4C19731F": {
+"name": "sceNetApctl_lib2_4C19731F",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"B3CF6849": {
+"name": "sceNetApctlScan",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"0C7FFA5C": {
+"name": "sceNetApctlGetBSSDescIDList",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"96BEB231": {
+"name": "sceNetApctlGetBSSDescEntry",
+"ret": "i",
+"args": "iix",
+"impl": true
+},
+"C20A144C": {
+"name": "sceNetApctl_lib2_C20A144C",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"756E6F10": {
+"name": "__NetApctlCallbacks",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"D7763699": {
+"name": "sceWlanGetSwitchState",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"0C622081": {
+"name": "sceWlanGetEtherAddr",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"93440B11": {
+"name": "sceWlanDevIsPowerOn",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"27045362": {
+"name": "sceNetUpnpGetNatInfo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"3432B2E5": {
+"name": "sceNetUpnpStart",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"3E32ED9E": {
+"name": "sceNetUpnpStop",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"540491EF": {
+"name": "sceNetUpnpTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E24220B5": {
+"name": "sceNetUpnpInit",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"C80181A2": {
+"name": "sceNetGetDropRate",
+"ret": "i",
+"args": "pp",
+"impl": true
+},
+"FD8585E1": {
+"name": "sceNetSetDropRate",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"617F3FE6": {
+"name": "sceDmacMemcpy",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"D97F94D8": {
+"name": "sceDmacTryMemcpy",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"4C25EA72": {
+"name": "kuKernelLoadModule",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"24331850": {
+"name": "kuKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"49E950EC": {
+"name": "sceUriEscape",
+"ret": "i",
+"args": "xxis",
+"impl": true
+},
+"062BB07E": {
+"name": "sceUriUnescape",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"568518C9": {
+"name": "sceUriParse",
+"ret": "i",
+"args": "xsxxi",
+"impl": true
+},
+"7EE318AF": {
+"name": "sceUriBuild",
+"ret": "i",
+"args": "xxxxi",
+"impl": true
+},
+"E1D621D7": {
+"name": "sceNetAdhocInit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"A62C6F57": {
+"name": "sceNetAdhocTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"0AD043ED": {
+"name": "sceNetAdhocctlConnect",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"6F92741B": {
+"name": "sceNetAdhocPdpCreate",
+"ret": "i",
+"args": "siix",
+"impl": true
+},
+"ABED3790": {
+"name": "sceNetAdhocPdpSend",
+"ret": "i",
+"args": "isxpiii",
+"impl": true
+},
+"DFE53E03": {
+"name": "sceNetAdhocPdpRecv",
+"ret": "i",
+"args": "ippppxi",
+"impl": true
+},
+"7F27BB5E": {
+"name": "sceNetAdhocPdpDelete",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"C7C1FC57": {
+"name": "sceNetAdhocGetPdpStat",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"157E6225": {
+"name": "sceNetAdhocPtpClose",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"4DA4C788": {
+"name": "sceNetAdhocPtpSend",
+"ret": "i",
+"args": "ixxii",
+"impl": true
+},
+"877F6D66": {
+"name": "sceNetAdhocPtpOpen",
+"ret": "i",
+"args": "sisiiiii",
+"impl": true
+},
+"8BEA2B3E": {
+"name": "sceNetAdhocPtpRecv",
+"ret": "i",
+"args": "ixxii",
+"impl": true
+},
+"9DF81198": {
+"name": "sceNetAdhocPtpAccept",
+"ret": "i",
+"args": "ixxii",
+"impl": true
+},
+"E08BDAC1": {
+"name": "sceNetAdhocPtpListen",
+"ret": "i",
+"args": "siiiiii",
+"impl": true
+},
+"FC6FC07B": {
+"name": "sceNetAdhocPtpConnect",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"9AC2EEAC": {
+"name": "sceNetAdhocPtpFlush",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"B9685118": {
+"name": "sceNetAdhocGetPtpStat",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"3278AB0C": {
+"name": "sceNetAdhocGameModeCreateReplica",
+"ret": "i",
+"args": "sxi",
+"impl": true
+},
+"98C204C8": {
+"name": "sceNetAdhocGameModeUpdateMaster",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"FA324B4E": {
+"name": "sceNetAdhocGameModeUpdateReplica",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"A0229362": {
+"name": "sceNetAdhocGameModeDeleteMaster",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"0B2228E9": {
+"name": "sceNetAdhocGameModeDeleteReplica",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"7F75C338": {
+"name": "sceNetAdhocGameModeCreateMaster",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"73BFD52D": {
+"name": "sceNetAdhocSetSocketAlert",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"4D2CE199": {
+"name": "sceNetAdhocGetSocketAlert",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"7A662D6B": {
+"name": "sceNetAdhocPollSocket",
+"ret": "i",
+"args": "xiii",
+"impl": true
+},
+"756E6E6F": {
+"name": "__NetTriggerCallbacks",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"E26F226E": {
+"name": "sceNetAdhocctlInit",
+"ret": "x",
+"args": "iix",
+"impl": true
+},
+"9D689E13": {
+"name": "sceNetAdhocctlTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"20B317A0": {
+"name": "sceNetAdhocctlAddHandler",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"6402490B": {
+"name": "sceNetAdhocctlDelHandler",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"34401D65": {
+"name": "sceNetAdhocctlDisconnect",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"08FFF7A0": {
+"name": "sceNetAdhocctlScan",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"75ECD386": {
+"name": "sceNetAdhocctlGetState",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"8916C003": {
+"name": "sceNetAdhocctlGetNameByAddr",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"DED9D28E": {
+"name": "sceNetAdhocctlGetParameter",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"81AEE1BE": {
+"name": "sceNetAdhocctlGetScanInfo",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"5E7F79C9": {
+"name": "sceNetAdhocctlJoin",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"8DB83FDC": {
+"name": "sceNetAdhocctlGetPeerInfo",
+"ret": "i",
+"args": "six",
+"impl": true
+},
+"EC0635C1": {
+"name": "sceNetAdhocctlCreate",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"A5C055CE": {
+"name": "sceNetAdhocctlCreateEnterGameMode",
+"ret": "i",
+"args": "siixii",
+"impl": true
+},
+"1FF89745": {
+"name": "sceNetAdhocctlJoinEnterGameMode",
+"ret": "i",
+"args": "ssii",
+"impl": true
+},
+"CF8E084D": {
+"name": "sceNetAdhocctlExitGameMode",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E162CB14": {
+"name": "sceNetAdhocctlGetPeerList",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"362CBE8F": {
+"name": "sceNetAdhocctlGetAdhocId",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"5A014CE0": {
+"name": "sceNetAdhocctlGetGameModeInfo",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"99560ABE": {
+"name": "sceNetAdhocctlGetAddrByName",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"B0B80E80": {
+"name": "sceNetAdhocctlCreateEnterGameModeMin",
+"ret": "i",
+"args": "siiixxi",
+"impl": true
+},
+"941B3877": {
+"name": "sceNetAdhocDiscoverInitStart",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"52DE1B97": {
+"name": "sceNetAdhocDiscoverUpdate",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"944DDBC6": {
+"name": "sceNetAdhocDiscoverGetStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A2246614": {
+"name": "sceNetAdhocDiscoverTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F7D13214": {
+"name": "sceNetAdhocDiscoverStop",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A423A21B": {
+"name": "sceNetAdhocDiscoverRequestSuspend",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"62411801": {
+"name": "sceSircsInit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"19155A2F": {
+"name": "sceSircsEnd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"71EEF62D": {
+"name": "sceSircsSend",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"83381633": {
+"name": "sceSircsReceive",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A1336091": {
+"name": "sceNpDrmSetLicenseeKey",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"9B745542": {
+"name": "sceNpDrmClearLicenseeKey",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"275987D1": {
+"name": "sceNpDrmRenameCheck",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"08D98894": {
+"name": "sceNpDrmEdataSetupKey",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"219EF5CC": {
+"name": "sceNpDrmEdataGetDataSize",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"2BAA4294": {
+"name": "sceNpDrmOpen",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"13F1028A": {
+"name": "sceG729DecodeExit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"17C11696": {
+"name": "sceG729DecodeInitResource",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3489D1F3": {
+"name": "sceG729DecodeCore",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"55E14F75": {
+"name": "sceG729DecodeInit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5A409D1B": {
+"name": "sceG729EncodeExit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"74804D93": {
+"name": "sceG729DecodeReset",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"890B86AE": {
+"name": "sceG729DecodeTermResource",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"8C87A2CA": {
+"name": "sceG729EncodeReset",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"94714D50": {
+"name": "sceG729EncodeTermResource",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AA1E5462": {
+"name": "sceG729EncodeInitResource",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CFCD367C": {
+"name": "sceG729EncodeInit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DB7259D5": {
+"name": "sceG729EncodeCore",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"04B7766E": {
+"name": "scePowerRegisterCallback",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"2B51FE2F": {
+"name": "scePower_2B51FE2F",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"442BFBAC": {
+"name": "scePowerGetBacklightMaximum",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"EFD3C963": {
+"name": "scePowerTick",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"EDC13FE5": {
+"name": "scePowerGetIdleTimer",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7F30B3B1": {
+"name": "scePowerIdleTimerEnable",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"972CE941": {
+"name": "scePowerIdleTimerDisable",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"27F3292C": {
+"name": "scePowerBatteryUpdateInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E8E4E204": {
+"name": "scePowerGetForceSuspendCapacity",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B999184C": {
+"name": "scePowerGetLowBatteryCapacity",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"87440F5E": {
+"name": "scePowerIsPowerOnline",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"0AFD0D8B": {
+"name": "scePowerIsBatteryExist",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"1E490401": {
+"name": "scePowerIsBatteryCharging",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"B4432BC8": {
+"name": "scePowerGetBatteryChargingStatus",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"D3075926": {
+"name": "scePowerIsLowBattery",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"78A1A796": {
+"name": "scePowerIsSuspendRequired",
+"ret": "?",
+"args": "",
+"impl": true
+},
+"94F5A53F": {
+"name": "scePowerGetBatteryRemainCapacity",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FD18A0FF": {
+"name": "scePowerGetBatteryFullCapacity",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2085D15D": {
+"name": "scePowerGetBatteryLifePercent",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"8EFB3FA2": {
+"name": "scePowerGetBatteryLifeTime",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"28E12023": {
+"name": "scePowerGetBatteryTemp",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"862AE1A6": {
+"name": "scePowerGetBatteryElec",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"483CE86B": {
+"name": "scePowerGetBatteryVolt",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CB49F5CE": {
+"name": "scePowerGetBatteryChargeCycle",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"23436A4A": {
+"name": "scePowerGetInnerTemp",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0CD21B1F": {
+"name": "scePowerSetPowerSwMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"165CE085": {
+"name": "scePowerGetPowerSwMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D6D016EF": {
+"name": "scePowerLock",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CA3D34C1": {
+"name": "scePowerUnlock",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DB62C9CF": {
+"name": "scePowerCancelRequest",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"7FA406DD": {
+"name": "scePowerIsRequest",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2B7C7CF4": {
+"name": "scePowerRequestStandby",
+"ret": "I",
+"args": "",
+"impl": true
+},
+"AC32C9CC": {
+"name": "scePowerRequestSuspend",
+"ret": "I",
+"args": "",
+"impl": true
+},
+"2875994B": {
+"name": "scePower_2875994B",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0074EF9B": {
+"name": "scePowerGetResumeCount",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DFA8BAF8": {
+"name": "scePowerUnregisterCallback",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"DB9D28DD": {
+"name": "scePowerUnregitserCallback",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"843FBF43": {
+"name": "scePowerSetCpuClockFrequency",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"B8D7B3FB": {
+"name": "scePowerSetBusClockFrequency",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"FEE03A2F": {
+"name": "scePowerGetCpuClockFrequency",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"478FE6F5": {
+"name": "scePowerGetBusClockFrequency",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"FDB5BFE9": {
+"name": "scePowerGetCpuClockFrequencyInt",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"BD681969": {
+"name": "scePowerGetBusClockFrequencyInt",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"B1A52C83": {
+"name": "scePowerGetCpuClockFrequencyFloat",
+"ret": "f",
+"args": "",
+"impl": true
+},
+"9BADB3EB": {
+"name": "scePowerGetBusClockFrequencyFloat",
+"ret": "f",
+"args": "",
+"impl": true
+},
+"737486F2": {
+"name": "scePowerSetClockFrequency",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"34F9C463": {
+"name": "scePowerGetPllClockFrequencyInt",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"EA382A27": {
+"name": "scePowerGetPllClockFrequencyFloat",
+"ret": "f",
+"args": "",
+"impl": true
+},
+"EBD177D6": {
+"name": "scePowerSetClockFrequency350",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"469989AD": {
+"name": "scePowerSetClockFrequency630",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"545A7F3C": {
+"name": "scePower_545A7F3C",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A4E93389": {
+"name": "scePower_A4E93389",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A85880D0": {
+"name": "scePowerCheckWlanCoexistenceClock",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"3951AF53": {
+"name": "scePowerWaitRequestCompletion",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0442D852": {
+"name": "scePowerRequestColdReset",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BAFA3DF0": {
+"name": "scePowerGetCallbackMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A9D22232": {
+"name": "scePowerSetCallbackMode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"23C31FFE": {
+"name": "scePowerVolatileMemLock",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"FA97A599": {
+"name": "scePowerVolatileMemTryLock",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"B3EDD801": {
+"name": "scePowerVolatileMemUnlock",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"EADB1BD7": {
+"name": "sceKernelPowerLock",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3AEE7261": {
+"name": "sceKernelPowerUnlock",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"090CCB3F": {
+"name": "sceKernelPowerTick",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"A14F40B2": {
+"name": "sceKernelVolatileMemTryLock",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"A569E425": {
+"name": "sceKernelVolatileMemUnlock",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3E0271D3": {
+"name": "sceKernelVolatileMemLock",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"5F5006D2": {
+"name": "scePower_driver_5F5006D2",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"BA566CD0": {
+"name": "scePowerSetWakeupCondition",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"05B2C420": {
+"name": "sceMePowerControlAvcPower",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B37562AA": {
+"name": "sceMePowerControlAvcPower",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9702EF11": {
+"name": "sceAdler32",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"7DB31251": {
+"name": "sceAtracAddStreamData",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"6A8C3CD5": {
+"name": "sceAtracDecodeData",
+"ret": "x",
+"args": "ixppp",
+"impl": true
+},
+"D5C28CC0": {
+"name": "sceAtracReleaseResources",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"780F88D1": {
+"name": "sceAtracGetAtracID",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"CA3CA3D2": {
+"name": "sceAtracGetBufferInfoForReseting",
+"ret": "x",
+"args": "iix",
+"impl": true
+},
+"A554A158": {
+"name": "sceAtracGetBitrate",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"31668BAA": {
+"name": "sceAtracGetChannel",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"FAA4F89B": {
+"name": "sceAtracGetLoopStatus",
+"ret": "x",
+"args": "ipp",
+"impl": true
+},
+"E88F759B": {
+"name": "sceAtracGetInternalErrorInfo",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"D6A5F2F7": {
+"name": "sceAtracGetMaxSample",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"E23E3A35": {
+"name": "sceAtracGetNextDecodePosition",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"36FAABFB": {
+"name": "sceAtracGetNextSample",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"9AE849A7": {
+"name": "sceAtracGetRemainFrame",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"83E85EA0": {
+"name": "sceAtracGetSecondBufferInfo",
+"ret": "x",
+"args": "ipp",
+"impl": true
+},
+"A2BBA8BE": {
+"name": "sceAtracGetSoundSample",
+"ret": "x",
+"args": "ippp",
+"impl": true
+},
+"5D268707": {
+"name": "sceAtracGetStreamDataInfo",
+"ret": "x",
+"args": "ippp",
+"impl": true
+},
+"61EB33F5": {
+"name": "sceAtracReleaseAtracID",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"644E5607": {
+"name": "sceAtracResetPlayPosition",
+"ret": "x",
+"args": "iiii",
+"impl": true
+},
+"3F6E26B5": {
+"name": "sceAtracSetHalfwayBuffer",
+"ret": "x",
+"args": "ixxx",
+"impl": true
+},
+"83BF7AFD": {
+"name": "sceAtracSetSecondBuffer",
+"ret": "x",
+"args": "ixx",
+"impl": true
+},
+"0E2A73AB": {
+"name": "sceAtracSetData",
+"ret": "x",
+"args": "ixx",
+"impl": true
+},
+"7A20E7AF": {
+"name": "sceAtracSetDataAndGetID",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"D1F59FDB": {
+"name": "sceAtracStartEntry",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"868120B5": {
+"name": "sceAtracSetLoopNum",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"132F1ECA": {
+"name": "sceAtracReinit",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"ECA32A99": {
+"name": "sceAtracIsSecondBufferNeeded",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"0FAE370E": {
+"name": "sceAtracSetHalfwayBufferAndGetID",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"2DD3E298": {
+"name": "sceAtracGetBufferInfoForResetting",
+"ret": "x",
+"args": "iix",
+"impl": true
+},
+"5CF9D852": {
+"name": "sceAtracSetMOutHalfwayBuffer",
+"ret": "x",
+"args": "ixxx",
+"impl": true
+},
+"F6837A1A": {
+"name": "sceAtracSetMOutData",
+"ret": "x",
+"args": "ixx",
+"impl": true
+},
+"472E3825": {
+"name": "sceAtracSetMOutDataAndGetID",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"9CD7DE03": {
+"name": "sceAtracSetMOutHalfwayBufferAndGetID",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"B3B5D042": {
+"name": "sceAtracGetOutputChannel",
+"ret": "x",
+"args": "ip",
+"impl": true
+},
+"5622B7C1": {
+"name": "sceAtracSetAA3DataAndGetID",
+"ret": "i",
+"args": "xxxp",
+"impl": true
+},
+"5DD66588": {
+"name": "sceAtracSetAA3HalfwayBufferAndGetID",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"231FC6B7": {
+"name": "_sceAtracGetContextAddress",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"1575D64B": {
+"name": "sceAtracLowLevelInitDecoder",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"0C116E1B": {
+"name": "sceAtracLowLevelDecode",
+"ret": "x",
+"args": "ixpxp",
+"impl": true
+},
+"B29DDF9C": {
+"name": "sceIoDopen",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"E3EB004C": {
+"name": "sceIoDread",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"EB092469": {
+"name": "sceIoDclose",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"E95A012B": {
+"name": "sceIoIoctlAsync",
+"ret": "i",
+"args": "ixpipi",
+"impl": true
+},
+"63632449": {
+"name": "sceIoIoctl",
+"ret": "i",
+"args": "ixpipi",
+"impl": true
+},
+"ACE946E8": {
+"name": "sceIoGetstat",
+"ret": "i",
+"args": "sx",
+"impl": true
+},
+"B8A740F4": {
+"name": "sceIoChstat",
+"ret": "i",
+"args": "sxx",
+"impl": true
+},
+"55F4717D": {
+"name": "sceIoChdir",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"08BD7374": {
+"name": "sceIoGetDevType",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"B2A628C1": {
+"name": "sceIoAssign",
+"ret": "i",
+"args": "sssixi",
+"impl": true
+},
+"E8BC6571": {
+"name": "sceIoCancel",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B293727F": {
+"name": "sceIoChangeAsyncPriority",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"810C4BC3": {
+"name": "sceIoClose",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"FF5940B6": {
+"name": "sceIoCloseAsync",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"54F5FB11": {
+"name": "sceIoDevctl",
+"ret": "i",
+"args": "sxpipi",
+"impl": true
+},
+"CB05F8D6": {
+"name": "sceIoGetAsyncStat",
+"ret": "i",
+"args": "iiP",
+"impl": true
+},
+"27EB27B8": {
+"name": "sceIoLseek",
+"ret": "I",
+"args": "iIi",
+"impl": true
+},
+"68963324": {
+"name": "sceIoLseek32",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"1B385D8F": {
+"name": "sceIoLseek32Async",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"71B19E77": {
+"name": "sceIoLseekAsync",
+"ret": "i",
+"args": "iIi",
+"impl": true
+},
+"109F50BC": {
+"name": "sceIoOpen",
+"ret": "i",
+"args": "sii",
+"impl": true
+},
+"89AA9906": {
+"name": "sceIoOpenAsync",
+"ret": "i",
+"args": "sii",
+"impl": true
+},
+"06A70004": {
+"name": "sceIoMkdir",
+"ret": "i",
+"args": "si",
+"impl": true
+},
+"3251EA56": {
+"name": "sceIoPollAsync",
+"ret": "i",
+"args": "iP",
+"impl": true
+},
+"6A638D83": {
+"name": "sceIoRead",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"A0B5A7C2": {
+"name": "sceIoReadAsync",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"F27A9C51": {
+"name": "sceIoRemove",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"779103A0": {
+"name": "sceIoRename",
+"ret": "i",
+"args": "ss",
+"impl": true
+},
+"1117C65F": {
+"name": "sceIoRmdir",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"A12A0514": {
+"name": "sceIoSetAsyncCallback",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"AB96437F": {
+"name": "sceIoSync",
+"ret": "i",
+"args": "si",
+"impl": true
+},
+"6D08A871": {
+"name": "sceIoUnassign",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"42EC03AC": {
+"name": "sceIoWrite",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"0FACAB19": {
+"name": "sceIoWriteAsync",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"35DBD746": {
+"name": "sceIoWaitAsyncCB",
+"ret": "i",
+"args": "iP",
+"impl": true
+},
+"E23EEC33": {
+"name": "sceIoWaitAsync",
+"ret": "i",
+"args": "iP",
+"impl": true
+},
+"5C2BE2CC": {
+"name": "sceIoGetFdList",
+"ret": "i",
+"args": "xip",
+"impl": true
+},
+"13370001": {
+"name": "__IoAsyncFinish",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"A905B705": {
+"name": "sceIoCloseAll",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"411106BA": {
+"name": "sceIoGetThreadCwd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CB0A151F": {
+"name": "sceIoChangeThreadCwd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"8E982A74": {
+"name": "sceIoAddDrv",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C7F35804": {
+"name": "sceIoDelDrv",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3C54E908": {
+"name": "sceIoReopen",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BD17474F": {
+"name": "sceIoGetIobUserLevel",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"76DA16E3": {
+"name": "sceIoTerminateFd",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"172D316E": {
+"name": "sceKernelStdin",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A6BAB2E9": {
+"name": "sceKernelStdout",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F78BA90A": {
+"name": "sceKernelStderr",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"432D8F5C": {
+"name": "sceKernelRegisterStdoutPipe",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"6F797E03": {
+"name": "sceKernelRegisterStderrPipe",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A46785C9": {
+"name": "sceKernelStdioSendChar",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0CBB0571": {
+"name": "sceKernelStdioLseek",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3054D478": {
+"name": "sceKernelStdioRead",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A3B931DB": {
+"name": "sceKernelStdioWrite",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"924ABA61": {
+"name": "sceKernelStdioOpen",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9D061C19": {
+"name": "sceKernelStdioClose",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"98220F3E": {
+"name": "sceKernelStdoutReopen",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FB5380C5": {
+"name": "sceKernelStderrReopen",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CAB439DF": {
+"name": "printf",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2CCF071A": {
+"name": "fdprintf",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D97C8CB9": {
+"name": "puts",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C22C8327": {
+"name": "scePsmfSetPsmf",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"C7DB3A5B": {
+"name": "scePsmfGetCurrentStreamType",
+"ret": "i",
+"args": "xpp",
+"impl": true
+},
+"28240568": {
+"name": "scePsmfGetCurrentStreamNumber",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"1E6D9013": {
+"name": "scePsmfSpecifyStreamWithStreamType",
+"ret": "i",
+"args": "xii",
+"impl": true
+},
+"0C120E1D": {
+"name": "scePsmfSpecifyStreamWithStreamTypeNumber",
+"ret": "i",
+"args": "xii",
+"impl": true
+},
+"4BC9BDE0": {
+"name": "scePsmfSpecifyStream",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"76D3AEBA": {
+"name": "scePsmfGetPresentationStartTime",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"BD8AE0D8": {
+"name": "scePsmfGetPresentationEndTime",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"EAED89CD": {
+"name": "scePsmfGetNumberOfStreams",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"7491C438": {
+"name": "scePsmfGetNumberOfEPentries",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"0BA514E5": {
+"name": "scePsmfGetVideoInfo",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"A83F7113": {
+"name": "scePsmfGetAudioInfo",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"971A3A90": {
+"name": "scePsmfCheckEPmap",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"68D42328": {
+"name": "scePsmfGetNumberOfSpecificStreams",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"5B70FCC1": {
+"name": "scePsmfQueryStreamOffset",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"9553CC91": {
+"name": "scePsmfQueryStreamSize",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"B78EB9E9": {
+"name": "scePsmfGetHeaderSize",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"A5EBFE81": {
+"name": "scePsmfGetStreamSize",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"E1283895": {
+"name": "scePsmfGetPsmfVersion",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"2673646B": {
+"name": "scePsmfVerifyPsmf",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"4E624A34": {
+"name": "scePsmfGetEPWithId",
+"ret": "x",
+"args": "xix",
+"impl": true
+},
+"7C0E7AC3": {
+"name": "scePsmfGetEPWithTimestamp",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"5F457515": {
+"name": "scePsmfGetEPidWithTimestamp",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"43AC7DBB": {
+"name": "scePsmfGetPsmfMark",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DE78E9FC": {
+"name": "scePsmfGetNumberOfPsmfMarks",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"235D8787": {
+"name": "scePsmfPlayerCreate",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"1078C008": {
+"name": "scePsmfPlayerStop",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"1E57A8E7": {
+"name": "scePsmfPlayerConfigPlayer",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"2BEB1569": {
+"name": "scePsmfPlayerBreak",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"3D6D25A9": {
+"name": "scePsmfPlayerSetPsmf",
+"ret": "i",
+"args": "xs",
+"impl": true
+},
+"58B83577": {
+"name": "scePsmfPlayerSetPsmfCB",
+"ret": "i",
+"args": "xs",
+"impl": true
+},
+"3EA82A4B": {
+"name": "scePsmfPlayerGetAudioOutSize",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"3ED62233": {
+"name": "scePsmfPlayerGetCurrentPts",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"46F61F8B": {
+"name": "scePsmfPlayerGetVideoData",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"68F07175": {
+"name": "scePsmfPlayerGetCurrentAudioStream",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"75F03FA2": {
+"name": "scePsmfPlayerSelectSpecificVideo",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"85461EFF": {
+"name": "scePsmfPlayerSelectSpecificAudio",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"8A9EBDCD": {
+"name": "scePsmfPlayerSelectVideo",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"95A84EE5": {
+"name": "scePsmfPlayerStart",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"9B71A274": {
+"name": "scePsmfPlayerDelete",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"9FF2B2E7": {
+"name": "scePsmfPlayerGetCurrentVideoStream",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"A0B8CA55": {
+"name": "scePsmfPlayerUpdate",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A3D81169": {
+"name": "scePsmfPlayerChangePlayMode",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"B8D10C56": {
+"name": "scePsmfPlayerSelectAudio",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"B9848A74": {
+"name": "scePsmfPlayerGetAudioData",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"DF089680": {
+"name": "scePsmfPlayerGetPsmfInfo",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"E792CD94": {
+"name": "scePsmfPlayerReleasePsmf",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"F3EFAA91": {
+"name": "scePsmfPlayerGetCurrentPlayMode",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"F8EF08A6": {
+"name": "scePsmfPlayerGetCurrentStatus",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"2D0E4E0A": {
+"name": "scePsmfPlayerSetTempBuf",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"76C0F4AE": {
+"name": "scePsmfPlayerSetPsmfOffset",
+"ret": "i",
+"args": "xsi",
+"impl": true
+},
+"A72DB4F9": {
+"name": "scePsmfPlayerSetPsmfOffsetCB",
+"ret": "i",
+"args": "xsi",
+"impl": true
+},
+"340C12CB": {
+"name": "scePsmfPlayer_340C12CB",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"05B193B7": {
+"name": "__PsmfPlayerFinish",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"2E61F6E1": {
+"name": "sceNpMatching2Init",
+"ret": "i",
+"args": "iiii",
+"impl": true
+},
+"8BF37D8C": {
+"name": "sceNpMatching2Term",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5030CC53": {
+"name": "sceNpMatching2CreateContext",
+"ret": "i",
+"args": "xxxi",
+"impl": true
+},
+"190FF903": {
+"name": "sceNpMatching2ContextStart",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"2B3892FC": {
+"name": "sceNpMatching2ContextStop",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3DE70241": {
+"name": "sceNpMatching2DestroyContext",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"22F38DAF": {
+"name": "sceNpMatching2GetMemoryStat",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A3C298D1": {
+"name": "sceNpMatching2RegisterSignalingCallback",
+"ret": "i",
+"args": "ixx",
+"impl": true
+},
+"F47342FC": {
+"name": "sceNpMatching2GetServerIdListLocal",
+"ret": "i",
+"args": "ixi",
+"impl": true
+},
+"4EE3A8EC": {
+"name": "sceNpMatching2GetServerInfo",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"C870535A": {
+"name": "sceNpMatching2LeaveRoom",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"AAD0946A": {
+"name": "sceNpMatching2CreateJoinRoom",
+"ret": "i",
+"args": "ixxxxx",
+"impl": true
+},
+"81C13E6D": {
+"name": "sceNpMatching2SearchRoom",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"55F7837F": {
+"name": "sceNpMatching2SendRoomChatMessage",
+"ret": "i",
+"args": "ixxx",
+"impl": true
+},
+"12C5A111": {
+"name": "sceNpMatching2GetRoomDataExternalList",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"6D6D0C75": {
+"name": "sceNpMatching2SignalingGetConnectionStatus",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"7BBFC427": {
+"name": "sceNpMatching2JoinRoom",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"97529ECC": {
+"name": "sceNpMatching2KickoutRoomMember",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"A53E7C69": {
+"name": "sceNpMatching2GetWorldInfoList",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"E6C93DBD": {
+"name": "sceNpMatching2SetRoomDataInternal",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"FADBA9DB": {
+"name": "sceNpMatching2AbortRequest",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"C6183D47": {
+"name": "sceUmdActivate",
+"ret": "i",
+"args": "is",
+"impl": true
+},
+"6B4A146C": {
+"name": "sceUmdGetDriveStat",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"46EBB729": {
+"name": "sceUmdCheckMedium",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E83742BA": {
+"name": "sceUmdDeactivate",
+"ret": "i",
+"args": "xs",
+"impl": true
+},
+"8EF08FCE": {
+"name": "sceUmdWaitDriveStat",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"56202973": {
+"name": "sceUmdWaitDriveStatWithTimer",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"4A9E5E29": {
+"name": "sceUmdWaitDriveStatCB",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"6AF9B50A": {
+"name": "sceUmdCancelWaitDriveStat",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"20628E6F": {
+"name": "sceUmdGetErrorStat",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"340B7686": {
+"name": "sceUmdGetDiscInfo",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"AEE7404D": {
+"name": "sceUmdRegisterUMDCallBack",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"BD2BDE07": {
+"name": "sceUmdUnRegisterUMDCallBack",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"87533940": {
+"name": "sceUmdReplaceProhibit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"CBE9F02A": {
+"name": "sceUmdReplacePermit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"14C6C45C": {
+"name": "sceUmdUnuseUMDInMsUsbWlan",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B103FA38": {
+"name": "sceUmdUseUMDInMsUsbWlan",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1A2485D2": {
+"name": "sceUmdUseUMDDetectIntr",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3BA4EC53": {
+"name": "sceUmdUnuseUMDDetectIntr",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9DC14891": {
+"name": "sceResmgr_9DC14891",
+"ret": "i",
+"args": "xix",
+"impl": true
+},
+"42778A9F": {
+"name": "__sceSasInit",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"A3589D81": {
+"name": "__sceSasCore",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"50A14DFC": {
+"name": "__sceSasCoreWithMix",
+"ret": "x",
+"args": "xxii",
+"impl": true
+},
+"68A46B95": {
+"name": "__sceSasGetEndFlag",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"440CA7D8": {
+"name": "__sceSasSetVolume",
+"ret": "x",
+"args": "xiiiii",
+"impl": true
+},
+"AD84D37F": {
+"name": "__sceSasSetPitch",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"99944089": {
+"name": "__sceSasSetVoice",
+"ret": "x",
+"args": "xixii",
+"impl": true
+},
+"B7660A23": {
+"name": "__sceSasSetNoise",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"019B25EB": {
+"name": "__sceSasSetADSR",
+"ret": "x",
+"args": "xiiiiii",
+"impl": true
+},
+"9EC3676A": {
+"name": "__sceSasSetADSRmode",
+"ret": "x",
+"args": "xiiiiii",
+"impl": true
+},
+"5F9529F6": {
+"name": "__sceSasSetSL",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"74AE582A": {
+"name": "__sceSasGetEnvelopeHeight",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"CBCD4F79": {
+"name": "__sceSasSetSimpleADSR",
+"ret": "x",
+"args": "xixx",
+"impl": true
+},
+"A0CF2FA4": {
+"name": "__sceSasSetKeyOff",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"76F01ACA": {
+"name": "__sceSasSetKeyOn",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"F983B186": {
+"name": "__sceSasRevVON",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"D5A229C9": {
+"name": "__sceSasRevEVOL",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"33D4AB37": {
+"name": "__sceSasRevType",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"267A6DD2": {
+"name": "__sceSasRevParam",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"2C8E6AB3": {
+"name": "__sceSasGetPauseFlag",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"787D04D5": {
+"name": "__sceSasSetPause",
+"ret": "x",
+"args": "xxi",
+"impl": true
+},
+"A232CBE6": {
+"name": "__sceSasSetTrianglarWave",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"D5EBBBCD": {
+"name": "__sceSasSetSteepWave",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"BD11B7C2": {
+"name": "__sceSasGetGrain",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"D1E0A01E": {
+"name": "__sceSasSetGrain",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"E175EF66": {
+"name": "__sceSasGetOutputmode",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"E855BF76": {
+"name": "__sceSasSetOutputmode",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"07F58C24": {
+"name": "__sceSasGetAllEnvelopeHeights",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"E1CD9561": {
+"name": "__sceSasSetVoicePCM",
+"ret": "x",
+"args": "xixii",
+"impl": true
+},
+"4AA9EAD6": {
+"name": "__sceSasSetVoiceATRAC3",
+"ret": "x",
+"args": "xix",
+"impl": true
+},
+"7497EA85": {
+"name": "__sceSasConcatenateATRAC3",
+"ret": "x",
+"args": "xixi",
+"impl": true
+},
+"F6107F00": {
+"name": "__sceSasUnsetATRAC3",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"96A3CE2C": {
+"name": "sceKernelSetRebootKernel",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"1404C1AA": {
+"name": "sceKernelSetUmdCacheOn",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"636C953B": {
+"name": "sceKernelAllocHeapMemory",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"C9805775": {
+"name": "sceKernelDeleteHeap",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"1C1FBFE7": {
+"name": "sceKernelCreateHeap",
+"ret": "i",
+"args": "iixs",
+"impl": true
+},
+"237DBD4F": {
+"name": "sceKernelAllocPartitionMemory",
+"ret": "i",
+"args": "isixx",
+"impl": true
+},
+"B6D61D02": {
+"name": "sceKernelFreePartitionMemory",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"9D9A5BA1": {
+"name": "sceKernelGetBlockHeadAddr",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"9697CD32": {
+"name": "sceKernelPartitionTotalFreeMemSize",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"E6581468": {
+"name": "sceKernelPartitionMaxFreeMemSize",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"3FC9AE6A": {
+"name": "sceKernelDevkitVersion",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"536AD5E1": {
+"name": "sceKernelGetUidmanCB",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"7B749390": {
+"name": "sceKernelFreeHeapMemory",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"EB7A74DB": {
+"name": "sceKernelAllocHeapMemoryWithOption",
+"ret": "i",
+"args": "ixp",
+"impl": true
+},
+"6373995D": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"07C586A1": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"DA07DC6E": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"4823B9D9": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"864EBFD7": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"458A70B5": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A3B0B6BC": {
+"name": "sceKernelGetModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F91FE6AA": {
+"name": "sceKernelSetParamSfo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"C2460DD5": {
+"name": "sceKernelSetParamSfo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"807179E7": {
+"name": "sceKernelSetParamSfo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"39240E7D": {
+"name": "sceAudioRoutingGetMode",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"28235C56": {
+"name": "sceAudioRoutingGetVolumeMode",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"36FD8AA9": {
+"name": "sceAudioRoutingSetMode",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"BB548475": {
+"name": "sceAudioRoutingSetVolumeMode",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C01EC829": {
+"name": "sceVideocodecOpen",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"2D31F5B1": {
+"name": "sceVideocodecGetEDRAM",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"17099F0A": {
+"name": "sceVideocodecInit",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"DBA273FA": {
+"name": "sceVideocodecDecode",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"4F160BF4": {
+"name": "sceVideocodecReleaseEDRAM",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"745A7B7A": {
+"name": "sceVideocodecSetMemory",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"2F385E7F": {
+"name": "sceVideocodecScanHeader",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"307E6E1C": {
+"name": "sceVideocodecDelete",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"A2F0564E": {
+"name": "sceVideocodecStop",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"17CF7D2C": {
+"name": "sceVideocodecGetFrameCrop",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"26927D19": {
+"name": "sceVideocodecGetVersion",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"627B7D42": {
+"name": "sceVideocodecGetSEI",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"893B32B1": {
+"name": "sceVideocodecSetMode",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"D95C24D5": {
+"name": "sceVideocodecCopyYCbCr",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"092968F4": {
+"name": "sceKernelCpuSuspendIntr",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"5F10D406": {
+"name": "sceKernelCpuResumeIntr",
+"ret": "v",
+"args": "x",
+"impl": true
+},
+"3B84732D": {
+"name": "sceKernelCpuResumeIntrWithSync",
+"ret": "v",
+"args": "x",
+"impl": true
+},
+"47A0B729": {
+"name": "sceKernelIsCpuIntrSuspended",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B55249D2": {
+"name": "sceKernelIsCpuIntrEnable",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A089ECA4": {
+"name": "sceKernelMemset",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"DC692EE3": {
+"name": "sceKernelTryLockLwMutex",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"37431849": {
+"name": "sceKernelTryLockLwMutex_600",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"BEA46419": {
+"name": "sceKernelLockLwMutex",
+"ret": "i",
+"args": "xix",
+"impl": true
+},
+"1FC64E09": {
+"name": "sceKernelLockLwMutexCB",
+"ret": "i",
+"args": "xix",
+"impl": true
+},
+"15B6446B": {
+"name": "sceKernelUnlockLwMutex",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"C1734599": {
+"name": "sceKernelReferLwMutexStatus",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"1839852A": {
+"name": "sceKernelMemcpy",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"FA835CDE": {
+"name": "sceKernelGetTlsAddr",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"AB7592FF": {
+"name": "memcpy",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"476FD94A": {
+"name": "strcat",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"C0AB8932": {
+"name": "strcmp",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"EC6F1CF2": {
+"name": "strcpy",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"52DF196C": {
+"name": "strlen",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"81D0D1F7": {
+"name": "memcmp",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"7661E728": {
+"name": "sprintf",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"10F3BB61": {
+"name": "memset",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"0D188658": {
+"name": "strstr",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"7AB35214": {
+"name": "strncmp",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"A48D2592": {
+"name": "memmove",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"B49A7697": {
+"name": "strncpy",
+"ret": "x",
+"args": "xxi",
+"impl": true
+},
+"47DD934D": {
+"name": "strtol",
+"ret": "x",
+"args": "xxi",
+"impl": true
+},
+"B1DC2AE8": {
+"name": "strchr",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"4C0E0274": {
+"name": "strrchr",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"CE2F7487": {
+"name": "toupper",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"C2145E80": {
+"name": "snprintf",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"CA04A2B9": {
+"name": "sceKernelRegisterSubIntrHandler",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"D61E6961": {
+"name": "sceKernelReleaseSubIntrHandler",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"FB8E22EC": {
+"name": "sceKernelEnableSubIntr",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"8A389411": {
+"name": "sceKernelDisableSubIntr",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"5CB5A78B": {
+"name": "sceKernelSuspendSubIntr",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7860E0DC": {
+"name": "sceKernelResumeSubIntr",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FC4374B8": {
+"name": "sceKernelIsSubInterruptOccurred",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D2E8363F": {
+"name": "QueryIntrHandlerInfo",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"EEE43F47": {
+"name": "sceKernelRegisterUserSpaceIntrStack",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FE28C6D9": {
+"name": "sceKernelIsIntrContext",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"E1CE83A7": {
+"name": "sceMpegGetAtracAu",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"FE246728": {
+"name": "sceMpegGetAvcAu",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"D8C5F121": {
+"name": "sceMpegCreate",
+"ret": "x",
+"args": "xxxxxxx",
+"impl": true
+},
+"F8DCB679": {
+"name": "sceMpegQueryAtracEsSize",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"C132E22F": {
+"name": "sceMpegQueryMemSize",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"21FF80E4": {
+"name": "sceMpegQueryStreamOffset",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"611E9E11": {
+"name": "sceMpegQueryStreamSize",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"42560F23": {
+"name": "sceMpegRegistStream",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"591A4AA2": {
+"name": "sceMpegUnRegistStream",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"707B7629": {
+"name": "sceMpegFlushAllStream",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"500F0429": {
+"name": "sceMpegFlushStream",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"A780CF7E": {
+"name": "sceMpegMallocAvcEsBuf",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"CEB870B1": {
+"name": "sceMpegFreeAvcEsBuf",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"167AFD9E": {
+"name": "sceMpegInitAu",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"682A619B": {
+"name": "sceMpegInit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"606A4649": {
+"name": "sceMpegDelete",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"874624D6": {
+"name": "sceMpegFinish",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"800C44DF": {
+"name": "sceMpegAtracDecode",
+"ret": "x",
+"args": "xxxi",
+"impl": true
+},
+"0E3C2E9D": {
+"name": "sceMpegAvcDecode",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"740FCCD1": {
+"name": "sceMpegAvcDecodeStop",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"4571CC64": {
+"name": "sceMpegAvcDecodeFlush",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"0F6C18D7": {
+"name": "sceMpegAvcDecodeDetail",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"A11C7026": {
+"name": "sceMpegAvcDecodeMode",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"37295ED8": {
+"name": "sceMpegRingbufferConstruct",
+"ret": "x",
+"args": "xxxxxx",
+"impl": true
+},
+"13407F13": {
+"name": "sceMpegRingbufferDestruct",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"B240A59E": {
+"name": "sceMpegRingbufferPut",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"B5F6DC87": {
+"name": "sceMpegRingbufferAvailableSize",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"D7A29F46": {
+"name": "sceMpegRingbufferQueryMemSize",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"769BEBB6": {
+"name": "sceMpegRingbufferQueryPackNum",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"211A057C": {
+"name": "sceMpegAvcQueryYCbCrSize",
+"ret": "i",
+"args": "xxxxx",
+"impl": true
+},
+"F0EB1125": {
+"name": "sceMpegAvcDecodeYCbCr",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"F2930C9C": {
+"name": "sceMpegAvcDecodeStopYCbCr",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"67179B1B": {
+"name": "sceMpegAvcInitYCbCr",
+"ret": "x",
+"args": "xiiix",
+"impl": true
+},
+"0558B075": {
+"name": "sceMpegAvcCopyYCbCr",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"31BD0272": {
+"name": "sceMpegAvcCsc",
+"ret": "x",
+"args": "xxxix",
+"impl": true
+},
+"9DCFB7EA": {
+"name": "sceMpegChangeGetAuMode",
+"ret": "x",
+"args": "xii",
+"impl": true
+},
+"8C1E027D": {
+"name": "sceMpegGetPcmAu",
+"ret": "x",
+"args": "xixx",
+"impl": true
+},
+"C02CF6B5": {
+"name": "sceMpegQueryPcmEsSize",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"C45C99CC": {
+"name": "sceMpegQueryUserdataEsSize",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"234586AE": {
+"name": "sceMpegChangeGetAvcAuMode",
+"ret": "x",
+"args": "xxi",
+"impl": true
+},
+"63B9536A": {
+"name": "sceMpegAvcResourceGetAvcDecTopAddr",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"8160A2FE": {
+"name": "sceMpegAvcResourceFinish",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"AF26BB01": {
+"name": "sceMpegAvcResourceGetAvcEsBuf",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"FCBDB5AD": {
+"name": "sceMpegAvcResourceInit",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"F5E7EA31": {
+"name": "sceMpegAvcConvertToYuv420",
+"ret": "x",
+"args": "xxxi",
+"impl": true
+},
+"01977054": {
+"name": "sceMpegGetUserdataAu",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"3C37A7A6": {
+"name": "sceMpegNextAvcRpAu",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"11F95CF1": {
+"name": "sceMpegGetAvcNalAu",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"AB0E9556": {
+"name": "sceMpegAvcDecodeDetailIndex",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"CF3547A2": {
+"name": "sceMpegAvcDecodeDetail2",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"921FCCCF": {
+"name": "sceMpegGetAvcEsAu",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"E95838F6": {
+"name": "sceMpegAvcCscInfo",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"D1CE4950": {
+"name": "sceMpegAvcCscMode",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"DBB60658": {
+"name": "sceMpegFlushAu",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"D4DD6E75": {
+"name": "sceMpeg_D4DD6E75",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"11CAB459": {
+"name": "sceMpeg_11CAB459",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C345DED2": {
+"name": "sceMpeg_C345DED2",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B27711A8": {
+"name": "sceMpeg_B27711A8",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"988E9E12": {
+"name": "sceMpeg_988E9E12",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E0C89ACA": {
+"name": "sceAacInit",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"33B8C009": {
+"name": "sceAacExit",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"5CFFC57C": {
+"name": "sceAacInitResource",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"23D35CAE": {
+"name": "sceAacTermResource",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"7E4CFEE4": {
+"name": "sceAacDecode",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"523347D9": {
+"name": "sceAacGetLoopNum",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"BBDD6403": {
+"name": "sceAacSetLoopNum",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"D7C51541": {
+"name": "sceAacCheckStreamDataNeeded",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"AC6DCBE3": {
+"name": "sceAacNotifyAddStreamData",
+"ret": "x",
+"args": "xi",
+"impl": true
+},
+"02098C69": {
+"name": "sceAacGetInfoToAddStreamData",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"6DC7758A": {
+"name": "sceAacGetMaxOutputSample",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"506BF66C": {
+"name": "sceAacGetSumDecodedSample",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"D2DA2BBA": {
+"name": "sceAacResetPlayPosition",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"E955E83A": {
+"name": "sceAacLowLevelInit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FA01FCB6": {
+"name": "sceAacLowLevelDecode",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B4D1CBBF": {
+"name": "sceCccSetTable",
+"ret": "v",
+"args": "xx",
+"impl": true
+},
+"00D1378F": {
+"name": "sceCccUTF8toUTF16",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"6F82EE03": {
+"name": "sceCccUTF8toSJIS",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"41B724A5": {
+"name": "sceCccUTF16toUTF8",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"F1B73D12": {
+"name": "sceCccUTF16toSJIS",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"A62E6E80": {
+"name": "sceCccSJIStoUTF8",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"BEB47224": {
+"name": "sceCccSJIStoUTF16",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"B7D3C112": {
+"name": "sceCccStrlenUTF8",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"4BDEB2A8": {
+"name": "sceCccStrlenUTF16",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"D9392CCB": {
+"name": "sceCccStrlenSJIS",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"92C05851": {
+"name": "sceCccEncodeUTF8",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"8406F469": {
+"name": "sceCccEncodeUTF16",
+"ret": "v",
+"args": "xx",
+"impl": true
+},
+"068C4320": {
+"name": "sceCccEncodeSJIS",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"C6A8BEE2": {
+"name": "sceCccDecodeUTF8",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"E0CF8091": {
+"name": "sceCccDecodeUTF16",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"953E6C10": {
+"name": "sceCccDecodeSJIS",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"90521AC5": {
+"name": "sceCccIsValidUTF8",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"CC0A8BDA": {
+"name": "sceCccIsValidUTF16",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"67BF0D19": {
+"name": "sceCccIsValidSJIS",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"76E33E9C": {
+"name": "sceCccIsValidUCS2",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"D2B18485": {
+"name": "sceCccIsValidUCS4",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A2D5D209": {
+"name": "sceCccIsValidJIS",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"BD11EEF3": {
+"name": "sceCccIsValidUnicode",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"17E1D813": {
+"name": "sceCccSetErrorCharUTF8",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"B8476CF4": {
+"name": "sceCccSetErrorCharUTF16",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"C56949AD": {
+"name": "sceCccSetErrorCharSJIS",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"70ECAA10": {
+"name": "sceCccUCStoJIS",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"FB7846E2": {
+"name": "sceCccJIStoUCS",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"8986295E": {
+"name": "sceVaudioOutputBlocking",
+"ret": "x",
+"args": "ix",
+"impl": true
+},
+"03B6807D": {
+"name": "sceVaudioChReserve",
+"ret": "x",
+"args": "iii",
+"impl": true
+},
+"67585DFD": {
+"name": "sceVaudioChRelease",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"346FBE94": {
+"name": "sceVaudioSetEffectType",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"CBD4AC51": {
+"name": "sceVaudioSetAlcMode",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"504E4745": {
+"name": "sceVaudio_504E4745",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"27ACC20B": {
+"name": "sceVaudioChReserveBuffering",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E8E78DC8": {
+"name": "sceVaudio_E8E78DC8",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"857B47D3": {
+"name": "sceNpInit",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"37E1E274": {
+"name": "sceNpTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"BB069A87": {
+"name": "sceNpGetContentRatingFlag",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"1D60AE4B": {
+"name": "sceNpGetChatRestrictionFlag",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"4B5C71C8": {
+"name": "sceNpGetOnlineId",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"633B5F71": {
+"name": "sceNpGetNpId",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"7E0864DF": {
+"name": "sceNpGetUserProfile",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A0BE3C4B": {
+"name": "sceNpGetAccountRegion",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"CDCC21D3": {
+"name": "sceNpGetMyLanguages",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"4EC1F667": {
+"name": "sceNpAuthTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A1DE86F8": {
+"name": "sceNpAuthInit",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"F4531ADC": {
+"name": "sceNpAuthGetMemoryStat",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"CD86A656": {
+"name": "sceNpAuthCreateStartRequest",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"3F1C1F70": {
+"name": "sceNpAuthGetTicket",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"6900F084": {
+"name": "sceNpAuthGetEntitlementById",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"D99455DD": {
+"name": "sceNpAuthAbortRequest",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"72BB0467": {
+"name": "sceNpAuthDestroyRequest",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"5A3CB57A": {
+"name": "sceNpAuthGetTicketParam",
+"ret": "i",
+"args": "xiix",
+"impl": true
+},
+"75FB0AE3": {
+"name": "sceNpAuthGetEntitlementIdList",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"00ACFAC3": {
+"name": "sceNpServiceTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"0F8F5821": {
+"name": "sceNpServiceInit",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"5494274B": {
+"name": "sceNpLookupCreateTransactionCtx",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A670D3A3": {
+"name": "sceNpLookupDestroyTransactionCtx",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"C76F55ED": {
+"name": "sceNpLookupTitleSmallStorage",
+"ret": "i",
+"args": "ixxxx",
+"impl": true
+},
+"BE22EEA3": {
+"name": "sceNpRosterCreateRequest",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"4E851B10": {
+"name": "sceNpRosterGetFriendListEntry",
+"ret": "i",
+"args": "ixxxxxx",
+"impl": true
+},
+"5F5E32AF": {
+"name": "sceNpRosterAbort",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"66C64821": {
+"name": "sceNpRosterDeleteRequest",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"506C318D": {
+"name": "sceNpRosterGetBlockListEntry",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"58251346": {
+"name": "sceNpRosterGetFriendListEntryCount",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"788F2B5E": {
+"name": "sceNpRosterAddFriendListEntry",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"A01443AA": {
+"name": "sceNpRosterGetBlockListEntryCount",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"250488F9": {
+"name": "sceNpServiceGetMemoryStat",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"005B5F20": {
+"name": "sceNpCommerce2GetProductInfoStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0E9956E3": {
+"name": "sceNpCommerce2Init",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1888A9FE": {
+"name": "sceNpCommerce2DestroyReq",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1C952DCB": {
+"name": "sceNpCommerce2GetGameProductInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2B25F6E9": {
+"name": "sceNpCommerce2CreateSessionStart",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3371D5F1": {
+"name": "sceNpCommerce2GetProductInfoCreateReq",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4ECD4503": {
+"name": "sceNpCommerce2CreateSessionCreateReq",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"590A3229": {
+"name": "sceNpCommerce2GetSessionInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6F1FE37F": {
+"name": "sceNpCommerce2CreateCtx",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A5A34EA4": {
+"name": "sceNpCommerce2Term",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AA4A1E3D": {
+"name": "sceNpCommerce2GetProductInfoGetResult",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BC61FFC8": {
+"name": "sceNpCommerce2CreateSessionGetResult",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C7F32242": {
+"name": "sceNpCommerce2AbortReq",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F2278B90": {
+"name": "sceNpCommerce2GetGameSkuInfoFromGameProductInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F297AB9C": {
+"name": "sceNpCommerce2DestroyCtx",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FC30C19E": {
+"name": "sceNpCommerce2InitGetProductInfoResult",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"54495B19": {
+"name": "sceChkregCheckRegion",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"59F8491D": {
+"name": "sceChkregGetPsCode",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"6894A027": {
+"name": "sceChkregGetPsFlags",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"7939C851": {
+"name": "sceChkregGetPspModel",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"68651CBC": {
+"name": "sceMp4Init",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"9042B257": {
+"name": "sceMp4Finish",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"B1221EE7": {
+"name": "sceMp4Create",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"538C2057": {
+"name": "sceMp4Delete",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"113E9E7B": {
+"name": "sceMp4GetNumberOfMetaData",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"7443AF1D": {
+"name": "sceMp4GetMovieInfo",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"5EB65F26": {
+"name": "sceMp4GetNumberOfSpecificTrack",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"7ADFD01C": {
+"name": "sceMp4RegistTrack",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"BCA9389C": {
+"name": "sceMp4TrackSampleBufQueryMemSize",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"9C8F4FC1": {
+"name": "sceMp4TrackSampleBufConstruct",
+"ret": "x",
+"args": "xxxxxxx",
+"impl": true
+},
+"0F0187D2": {
+"name": "sceMp4GetAvcTrackInfoData",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"9CE6F5CF": {
+"name": "sceMp4GetAacTrackInfoData",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"4ED4AB1E": {
+"name": "sceMp4AacDecodeInitResource",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"10EE0D2C": {
+"name": "sceMp4AacDecodeInit",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"496E8A65": {
+"name": "sceMp4TrackSampleBufFlush",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"B4B400D1": {
+"name": "sceMp4GetSampleNumWithTimeStamp",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"F7C51EC1": {
+"name": "sceMp4GetSampleInfo",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"74A1CA3E": {
+"name": "sceMp4SearchSyncSampleNum",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"D8250B75": {
+"name": "sceMp4PutSampleNum",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"8754ECB8": {
+"name": "sceMp4TrackSampleBufAvailableSize",
+"ret": "x",
+"args": "xppp",
+"impl": true
+},
+"31BCD7E0": {
+"name": "sceMp4TrackSampleBufPut",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5601A6F0": {
+"name": "sceMp4GetAacAu",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"7663CB5C": {
+"name": "sceMp4AacDecode",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"503A3CBA": {
+"name": "sceMp4GetAvcAu",
+"ret": "x",
+"args": "xxxx",
+"impl": true
+},
+"01C76489": {
+"name": "sceMp4TrackSampleBufDestruct",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6710FE77": {
+"name": "sceMp4UnregistTrack",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5D72B333": {
+"name": "sceMp4AacDecodeExit",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7D332394": {
+"name": "sceMp4AacDecodeTermResource",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"131BDE57": {
+"name": "sceMp4InitAu",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"17EAA97D": {
+"name": "sceMp4GetAvcAuWithoutSampleBuf",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"28CCB940": {
+"name": "sceMp4GetTrackEditList",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3069C2B5": {
+"name": "sceMp4GetAvcParamSet",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D2AC9A7E": {
+"name": "sceMp4GetMetaData",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4FB5B756": {
+"name": "sceMp4GetMetaDataInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"427BEF7F": {
+"name": "sceMp4GetTrackNumOfEditList",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"532029B8": {
+"name": "sceMp4GetAacAuWithoutSampleBuf",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"A6C724DC": {
+"name": "sceMp4GetSampleNum",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"3C2183C7": {
+"name": "mp4msv_3C2183C7",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9CA13D1A": {
+"name": "mp4msv_9CA13D1A",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"318A350C": {
+"name": "sceSha256Digest",
+"ret": "i",
+"args": "xix",
+"impl": true
+},
+"A291F107": {
+"name": "sceKernelMaxFreeMemSize",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"F919F628": {
+"name": "sceKernelTotalFreeMemSize",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"13A5ABEF": {
+"name": "sceKernelPrintf",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"7591C7DB": {
+"name": "sceKernelSetCompiledSdkVersion",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"342061E5": {
+"name": "sceKernelSetCompiledSdkVersion370",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"315AD3A0": {
+"name": "sceKernelSetCompiledSdkVersion380_390",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"EBD5C3E6": {
+"name": "sceKernelSetCompiledSdkVersion395",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"057E7380": {
+"name": "sceKernelSetCompiledSdkVersion401_402",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"F77D77CB": {
+"name": "sceKernelSetCompilerVersion",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"91DE343C": {
+"name": "sceKernelSetCompiledSdkVersion500_505",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"7893F79A": {
+"name": "sceKernelSetCompiledSdkVersion507",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"35669D4C": {
+"name": "sceKernelSetCompiledSdkVersion600_602",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"1B4217BC": {
+"name": "sceKernelSetCompiledSdkVersion603_605",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"358CA1BB": {
+"name": "sceKernelSetCompiledSdkVersion606",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"FC114573": {
+"name": "sceKernelGetCompiledSdkVersion",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"2A3E5280": {
+"name": "sceKernelQueryMemoryInfo",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"ACBD88CA": {
+"name": "sceKernelTotalMemSize",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"945E45DA": {
+"name": "SysMemUserForUser_945E45DA",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"A6848DF8": {
+"name": "sceKernelSetUsersystemLibWork",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6231A71D": {
+"name": "sceKernelSetPTRIG",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"39F49610": {
+"name": "sceKernelGetPTRIG",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DB83A952": {
+"name": "sceKernelGetMemoryBlockAddr",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"50F61D8A": {
+"name": "sceKernelFreeMemoryBlock",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"FE707FDF": {
+"name": "sceKernelAllocMemoryBlock",
+"ret": "x",
+"args": "sxxx",
+"impl": true
+},
+"D8DE5C1E": {
+"name": "SysMemUserForUser_D8DE5C1E",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"C41C2853": {
+"name": "sceRtcGetTickResolution",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"3F7AD767": {
+"name": "sceRtcGetCurrentTick",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"011F03C1": {
+"name": "sceRtcGetAccumulativeTime",
+"ret": "X",
+"args": "",
+"impl": true
+},
+"029CA3B3": {
+"name": "sceRtcGetAccumlativeTime",
+"ret": "X",
+"args": "",
+"impl": true
+},
+"4CFA57B0": {
+"name": "sceRtcGetCurrentClock",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"E7C27D1B": {
+"name": "sceRtcGetCurrentClockLocalTime",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"34885E0D": {
+"name": "sceRtcConvertUtcToLocalTime",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"779242A2": {
+"name": "sceRtcConvertLocalTimeToUTC",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"42307A17": {
+"name": "sceRtcIsLeapYear",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"05EF322C": {
+"name": "sceRtcGetDaysInMonth",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"57726BC1": {
+"name": "sceRtcGetDayOfWeek",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"4B1B5E82": {
+"name": "sceRtcCheckValid",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"3A807CC8": {
+"name": "sceRtcSetTime_t",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"27C4594C": {
+"name": "sceRtcGetTime_t",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"F006F264": {
+"name": "sceRtcSetDosTime",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"36075567": {
+"name": "sceRtcGetDosTime",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"7ACE4C04": {
+"name": "sceRtcSetWin32FileTime",
+"ret": "i",
+"args": "xX",
+"impl": true
+},
+"CF561893": {
+"name": "sceRtcGetWin32FileTime",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"7ED29E40": {
+"name": "sceRtcSetTick",
+"ret": "x",
+"args": "xP",
+"impl": true
+},
+"6FF40ACC": {
+"name": "sceRtcGetTick",
+"ret": "i",
+"args": "xP",
+"impl": true
+},
+"9ED0AE87": {
+"name": "sceRtcCompareTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"44F45E05": {
+"name": "sceRtcTickAddTicks",
+"ret": "i",
+"args": "xxX",
+"impl": true
+},
+"26D25A5D": {
+"name": "sceRtcTickAddMicroseconds",
+"ret": "i",
+"args": "xxX",
+"impl": true
+},
+"F2A4AFE5": {
+"name": "sceRtcTickAddSeconds",
+"ret": "i",
+"args": "xxX",
+"impl": true
+},
+"E6605BCA": {
+"name": "sceRtcTickAddMinutes",
+"ret": "i",
+"args": "xxX",
+"impl": true
+},
+"26D7A24A": {
+"name": "sceRtcTickAddHours",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"E51B4B7A": {
+"name": "sceRtcTickAddDays",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"CF3A2CA8": {
+"name": "sceRtcTickAddWeeks",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"DBF74F1B": {
+"name": "sceRtcTickAddMonths",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"42842C77": {
+"name": "sceRtcTickAddYears",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"C663B3B9": {
+"name": "sceRtcFormatRFC2822",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"7DE6711B": {
+"name": "sceRtcFormatRFC2822LocalTime",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"0498FB3C": {
+"name": "sceRtcFormatRFC3339",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"27F98543": {
+"name": "sceRtcFormatRFC3339LocalTime",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"DFBC5F16": {
+"name": "sceRtcParseDateTime",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"28E1E988": {
+"name": "sceRtcParseRFC3339",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E1C93E47": {
+"name": "sceRtcGetTime64_t",
+"ret": "i",
+"args": "xP",
+"impl": true
+},
+"1909C99B": {
+"name": "sceRtcSetTime64_t",
+"ret": "i",
+"args": "xX",
+"impl": true
+},
+"62685E98": {
+"name": "sceRtcGetLastAdjustedTime",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"203CEB0D": {
+"name": "sceRtcGetLastReincarnatedTime",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"7D1FBED3": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"F5FCC995": {
+"name": "sceRtcGetCurrentNetworkTick",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"81FCDA34": {
+"name": "sceRtcIsAlarmed",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"FB3B18CD": {
+"name": "sceRtcRegisterCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6A676D2D": {
+"name": "sceRtcUnregisterCallback",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C2DDBEB5": {
+"name": "sceRtcGetAlarmTick",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"E09880CF": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"54B9C589": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"68AED59A": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"ADAF231F": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"55AC1C23": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"827BCB3F": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"329E8E3A": {
+"name": "sceRtcSetAlarmTick",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"92E41280": {
+"name": "sceRegOpenRegistry",
+"ret": "i",
+"args": "xix",
+"impl": true
+},
+"FA8A5739": {
+"name": "sceRegCloseRegistry",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"DEDA92BF": {
+"name": "sceRegRemoveRegistry",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"1D8A762E": {
+"name": "sceRegOpenCategory",
+"ret": "i",
+"args": "isix",
+"impl": true
+},
+"0CAE832B": {
+"name": "sceRegCloseCategory",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"39461B4D": {
+"name": "sceRegFlushRegistry",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"0D69BF40": {
+"name": "sceRegFlushCategory",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"57641A81": {
+"name": "sceRegCreateKey",
+"ret": "i",
+"args": "isix",
+"impl": true
+},
+"17768E14": {
+"name": "sceRegSetKeyValue",
+"ret": "i",
+"args": "isxx",
+"impl": true
+},
+"D4475AA8": {
+"name": "sceRegGetKeyInfo",
+"ret": "i",
+"args": "isxxx",
+"impl": true
+},
+"28A8E98A": {
+"name": "sceRegGetKeyValue",
+"ret": "i",
+"args": "iixx",
+"impl": true
+},
+"2C0DB9DD": {
+"name": "sceRegGetKeysNum",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"2D211135": {
+"name": "sceRegGetKeys",
+"ret": "i",
+"args": "ipi",
+"impl": true
+},
+"C5768D02": {
+"name": "sceRegGetKeyInfoByName",
+"ret": "i",
+"args": "isxx",
+"impl": true
+},
+"30BE0259": {
+"name": "sceRegGetKeyValueByName",
+"ret": "i",
+"args": "isxx",
+"impl": true
+},
+"4CA16893": {
+"name": "sceRegRemoveCategory",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"3615BC87": {
+"name": "sceRegRemoveKey",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"9B25EDF1": {
+"name": "sceRegExit",
+"ret": "i",
+"args": "i",
+"impl": false
+},
+"BE8C1263": {
+"name": "sceRegGetCategoryNumAtRoot",
+"ret": "i",
+"args": "ii",
+"impl": true
+},
+"835ECE6F": {
+"name": "sceRegGetCategoryListAtRoot",
+"ret": "i",
+"args": "ipi",
+"impl": true
+},
+"0E875980": {
+"name": "sceHeapReallocHeapMemory",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"1C84B58D": {
+"name": "sceHeapReallocHeapMemoryWithOption",
+"ret": "i",
+"args": "xxix",
+"impl": true
+},
+"2ABADC63": {
+"name": "sceHeapFreeHeapMemory",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"2A0C2009": {
+"name": "sceHeapGetMallinfo",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"2B7299D8": {
+"name": "sceHeapAllocHeapMemoryWithOption",
+"ret": "x",
+"args": "xxx",
+"impl": true
+},
+"4929B40D": {
+"name": "sceHeapGetTotalFreeSize",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"7012BBDD": {
+"name": "sceHeapIsAllocatedHeapMemory",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"70210B73": {
+"name": "sceHeapDeleteHeap",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"7DE281C2": {
+"name": "sceHeapCreateHeap",
+"ret": "i",
+"args": "sxix",
+"impl": true
+},
+"A8E102A0": {
+"name": "sceHeapAllocHeapMemory",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"C9626587": {
+"name": "vshKernelLoadModuleBufferVSH",
+"ret": "i",
+"args": "xxxx",
+"impl": true
+},
+"C6395C03": {
+"name": "vshCtrlReadBufferPositive",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"9929DDA5": {
+"name": "vshKernelExitVSH",
+"ret": "v",
+"args": "",
+"impl": true
+},
+"ECF5D379": {
+"name": "sceMt19937Init",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"F40C98E6": {
+"name": "sceMt19937UInt",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"01562BA3": {
+"name": "sceAudioOutput2Reserve",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"2D53F36E": {
+"name": "sceAudioOutput2OutputBlocking",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"63F2889C": {
+"name": "sceAudioOutput2ChangeLength",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"647CEF33": {
+"name": "sceAudioOutput2GetRestSample",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"43196845": {
+"name": "sceAudioOutput2Release",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"80F1F7E0": {
+"name": "sceAudioInit",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"210567F7": {
+"name": "sceAudioEnd",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"A2BEAA6C": {
+"name": "sceAudioSetFrequency",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"927AC32B": {
+"name": "sceAudioSetVolumeOffset",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"8C1009B2": {
+"name": "sceAudioOutput",
+"ret": "x",
+"args": "ixx",
+"impl": true
+},
+"136CAF51": {
+"name": "sceAudioOutputBlocking",
+"ret": "x",
+"args": "ixx",
+"impl": true
+},
+"E2D56B2D": {
+"name": "sceAudioOutputPanned",
+"ret": "x",
+"args": "ixxx",
+"impl": true
+},
+"13F592BC": {
+"name": "sceAudioOutputPannedBlocking",
+"ret": "x",
+"args": "ixxx",
+"impl": true
+},
+"5EC81C55": {
+"name": "sceAudioChReserve",
+"ret": "x",
+"args": "iii",
+"impl": true
+},
+"6FC46853": {
+"name": "sceAudioChRelease",
+"ret": "x",
+"args": "i",
+"impl": true
+},
+"E9D97901": {
+"name": "sceAudioGetChannelRestLen",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"B011922F": {
+"name": "sceAudioGetChannelRestLength",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"CB2E439E": {
+"name": "sceAudioSetChannelDataLen",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"95FD0C2D": {
+"name": "sceAudioChangeChannelConfig",
+"ret": "x",
+"args": "ii",
+"impl": true
+},
+"B7E1D8E7": {
+"name": "sceAudioChangeChannelVolume",
+"ret": "x",
+"args": "ixx",
+"impl": true
+},
+"38553111": {
+"name": "sceAudioSRCChReserve",
+"ret": "x",
+"args": "iii",
+"impl": true
+},
+"5C37C0AE": {
+"name": "sceAudioSRCChRelease",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"E0727056": {
+"name": "sceAudioSRCOutputBlocking",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"41EFADE7": {
+"name": "sceAudioOneshotOutput",
+"ret": "x",
+"args": "iiiiix",
+"impl": true
+},
+"B61595C0": {
+"name": "sceAudioLoopbackTest",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7DE61688": {
+"name": "sceAudioInputInit",
+"ret": "i",
+"args": "iii",
+"impl": true
+},
+"E926D3FB": {
+"name": "sceAudioInputInitEx",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"6D4BEC68": {
+"name": "sceAudioInput",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"086E5895": {
+"name": "sceAudioInputBlocking",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"A708C6A6": {
+"name": "sceAudioGetInputLength",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"A633048E": {
+"name": "sceAudioPollInputEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"87B2E651": {
+"name": "sceAudioWaitInputEnd",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"F8FCD5BA": {
+"name": "sceKernelUtilsSha1BlockInit",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"346F6DA8": {
+"name": "sceKernelUtilsSha1BlockUpdate",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"585F1C09": {
+"name": "sceKernelUtilsSha1BlockResult",
+"ret": "i",
+"args": "xx",
+"impl": true
+},
+"37FB5C42": {
+"name": "sceKernelGetGPI",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"6AD345D7": {
+"name": "sceKernelSetGPO",
+"ret": "v",
+"args": "x",
+"impl": true
+},
+"80001C4C": {
+"name": "sceKernelDcacheProbe",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"16641D70": {
+"name": "sceKernelDcacheReadTag",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"4FD31C9D": {
+"name": "sceKernelIcacheProbe",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FB05FAD0": {
+"name": "sceKernelIcacheReadTag",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"ACE23476": {
+"name": "sceKernelCheckPspConfig",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7BE1421C": {
+"name": "sceKernelCheckExecFile",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BF983EF2": {
+"name": "sceKernelProbeExecutableObject",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7068E6BA": {
+"name": "sceKernelLoadExecutableObject",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B4D6FECC": {
+"name": "sceKernelApplyElfRelSection",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"54AB2675": {
+"name": "sceKernelApplyPspRelSection",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2952F5AC": {
+"name": "sceKernelDcacheWBinvAll",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D8779AC6": {
+"name": "sceKernelIcacheClearAll",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"99A695F0": {
+"name": "sceKernelRegisterLibrary",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5873A31F": {
+"name": "sceKernelRegisterLibraryForUser",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0B464512": {
+"name": "sceKernelReleaseLibrary",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9BAF90F6": {
+"name": "sceKernelCanReleaseLibrary",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0E760DBA": {
+"name": "sceKernelLinkLibraryEntries",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"0DE1F600": {
+"name": "sceKernelLinkLibraryEntriesForUser",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DA1B09AA": {
+"name": "sceKernelUnLinkLibraryEntries",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C99DD47A": {
+"name": "sceKernelQueryLoadCoreCB",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"616FCCCD": {
+"name": "sceKernelSetBootCallbackLevel",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"F32A2940": {
+"name": "sceKernelModuleFromUID",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CD0F3BAC": {
+"name": "sceKernelCreateModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"6B2371C2": {
+"name": "sceKernelDeleteModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7320D964": {
+"name": "sceKernelModuleAssign",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"44B292AB": {
+"name": "sceKernelAllocModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"BD61D4D5": {
+"name": "sceKernelFreeModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"AE7C6E76": {
+"name": "sceKernelRegisterModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"74CF001A": {
+"name": "sceKernelReleaseModule",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"FB8AE27D": {
+"name": "sceKernelFindModuleByAddress",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CCE4A157": {
+"name": "sceKernelFindModuleByUID",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"82CE54ED": {
+"name": "sceKernelModuleCount",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"C0584F0C": {
+"name": "sceKernelGetModuleList",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"CF8A41B1": {
+"name": "sceKernelFindModuleByName",
+"ret": "x",
+"args": "s",
+"impl": true
+},
+"B95FA50D": {
+"name": "LoadCoreForKernel_B95FA50D",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E7A3874D": {
+"name": "sceKernelRegisterAssertHandler",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"2FF4E9F9": {
+"name": "sceKernelAssert",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9B868276": {
+"name": "sceKernelGetDebugPutchar",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E146606D": {
+"name": "sceKernelRegisterDebugPutchar",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7CEB2C09": {
+"name": "sceKernelRegisterKprintfHandler",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"84F370BC": {
+"name": "Kprintf",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"5CE9838B": {
+"name": "sceKernelDebugWrite",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"66253C4E": {
+"name": "sceKernelRegisterDebugWrite",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DBB5597F": {
+"name": "sceKernelDebugRead",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E6554FDA": {
+"name": "sceKernelRegisterDebugRead",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B9C643C9": {
+"name": "sceKernelDebugEcho",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"7D1C74F0": {
+"name": "sceKernelDebugEchoSet",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"24C32559": {
+"name": "sceKernelDipsw",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"D636B827": {
+"name": "sceKernelRemoveByDebugSection",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"5282DD5E": {
+"name": "sceKernelDipswSet",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"9F8703E4": {
+"name": "sceKernelDipswCpTime",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"333DCEC7": {
+"name": "sceKernelSm1RegisterOperations",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"E892D9A1": {
+"name": "sceKernelSm1ReferOperations",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"A126F497": {
+"name": "KDebugForKernel_A126F497",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"B7251823": {
+"name": "sceKernelAcceptMbogoSig",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"DEADBEAF": {
+"name": "pspeDebugWrite",
+"ret": "?",
+"args": "",
+"impl": false
+},
+"1858883D": {
+"name": "sceNetRand",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"2A73ADDC": {
+"name": "sceNetStrtoul",
+"ret": "i",
+"args": "sxi",
+"impl": true
+},
+"4753D878": {
+"name": "sceNetMemmove",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"80C9F02A": {
+"name": "sceNetStrcpy",
+"ret": "i",
+"args": "xs",
+"impl": true
+},
+"94DCA9F0": {
+"name": "sceNetStrncmp",
+"ret": "i",
+"args": "ssx",
+"impl": true
+},
+"9CFBC7E3": {
+"name": "sceNetStrcasecmp",
+"ret": "i",
+"args": "ss",
+"impl": true
+},
+"A0F16ABD": {
+"name": "sceNetStrcmp",
+"ret": "i",
+"args": "ss",
+"impl": true
+},
+"B5CE388A": {
+"name": "sceNetStrncpy",
+"ret": "i",
+"args": "xsx",
+"impl": true
+},
+"BCBE14CF": {
+"name": "sceNetStrchr",
+"ret": "i",
+"args": "si",
+"impl": true
+},
+"CF705E46": {
+"name": "sceNetSprintf",
+"ret": "i",
+"args": "",
+"impl": false
+},
+"D8722983": {
+"name": "sceNetStrlen",
+"ret": "i",
+"args": "s",
+"impl": true
+},
+"E0A81C7C": {
+"name": "sceNetMemcmp",
+"ret": "i",
+"args": "xxx",
+"impl": true
+},
+"07EC321A": {
+"name": "sceMp3ReserveMp3Handle",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"0DB149F4": {
+"name": "sceMp3NotifyAddStreamData",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"2A368661": {
+"name": "sceMp3ResetPlayPosition",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"354D27EA": {
+"name": "sceMp3GetSumDecodedSample",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"35750070": {
+"name": "sceMp3InitResource",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"3C2FA058": {
+"name": "sceMp3TermResource",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"3CEF484F": {
+"name": "sceMp3SetLoopNum",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"44E07129": {
+"name": "sceMp3Init",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"732B042A": {
+"name": "sceMp3EndEntry",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"7F696782": {
+"name": "sceMp3GetMp3ChannelNum",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"87677E40": {
+"name": "sceMp3GetBitRate",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"87C263D1": {
+"name": "sceMp3GetMaxOutputSample",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"8AB81558": {
+"name": "sceMp3StartEntry",
+"ret": "x",
+"args": "",
+"impl": true
+},
+"8F450998": {
+"name": "sceMp3GetSamplingRate",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"A703FE0F": {
+"name": "sceMp3GetInfoToAddStreamData",
+"ret": "i",
+"args": "xppp",
+"impl": true
+},
+"D021C0FB": {
+"name": "sceMp3Decode",
+"ret": "i",
+"args": "xp",
+"impl": true
+},
+"D0A56296": {
+"name": "sceMp3CheckStreamDataNeeded",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"D8F54A51": {
+"name": "sceMp3GetLoopNum",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"F5478233": {
+"name": "sceMp3ReleaseMp3Handle",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"AE6D2027": {
+"name": "sceMp3GetMPEGVersion",
+"ret": "x",
+"args": "x",
+"impl": true
+},
+"3548AEC8": {
+"name": "sceMp3GetFrameNum",
+"ret": "i",
+"args": "x",
+"impl": true
+},
+"0840E808": {
+"name": "sceMp3ResetPlayPositionByFrame",
+"ret": "i",
+"args": "xi",
+"impl": true
+},
+"1B839B83": {
+"name": "sceMp3LowLevelInit",
+"ret": "x",
+"args": "xx",
+"impl": true
+},
+"E3EE2C81": {
+"name": "sceMp3LowLevelDecode",
+"ret": "x",
+"args": "xxxxx",
+"impl": true
+},
+"224C5F44": {
+"name": "sceNetResolverStartNtoA",
+"ret": "i",
+"args": "ixxii",
+"impl": true
+},
+"244172AF": {
+"name": "sceNetResolverCreate",
+"ret": "i",
+"args": "xxi",
+"impl": true
+},
+"94523E09": {
+"name": "sceNetResolverDelete",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"F3370E61": {
+"name": "sceNetResolverInit",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"808F6063": {
+"name": "sceNetResolverStop",
+"ret": "i",
+"args": "i",
+"impl": true
+},
+"6138194A": {
+"name": "sceNetResolverTerm",
+"ret": "i",
+"args": "",
+"impl": true
+},
+"629E2FB7": {
+"name": "sceNetResolverStartAtoN",
+"ret": "i",
+"args": "ixxiii",
+"impl": true
+},
+"14C17EF9": {
+"name": "sceNetResolverStartNtoAAsync",
+"ret": "i",
+"args": "ixxii",
+"impl": true
+},
+"AAC09184": {
+"name": "sceNetResolverStartAtoNAsync",
+"ret": "i",
+"args": "ixxiii",
+"impl": true
+},
+"12748EB9": {
+"name": "sceNetResolverWaitAsync",
+"ret": "i",
+"args": "ix",
+"impl": true
+},
+"4EE99358": {
+"name": "sceNetResolverPollAsync",
+"ret": "i",
+"args": "ix",
+"impl": true
+}
+}
