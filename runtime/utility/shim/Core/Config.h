@@ -28,6 +28,6 @@ struct UtilityConfig {
 	bool bBypassOSKWithKeyboard = false;
 	int iIOTimingMethod = 0;           // IOTIMING_FAST
 	bool bIgnoreBadMemAccess = true;
-	int iMemStickSizeGB = 16;
+	int iMemStickSizeGB = 1;   // Sonic Rivals 2 multiplies free clusters by cluster size in 32 bits: 16 GB wraps to 0
 };
 extern UtilityConfig g_Config;

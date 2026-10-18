@@ -111,7 +111,11 @@ static s32 do_open(const char *psp, u32 flags) {
 		u32 lbn = 0, size = 0;
 		if (sscanf(lb, "sce_lbn%x_size%x", &lbn, &size) != 2) return SCE_ERROR_FILE_NOT_FOUND;
 		const DiscFile *m = disc_by_lbn(lbn);
-		if (!m) { LOGE("io: %s: sector %x isn't inside any file of the disc", psp, lbn); return SCE_ERROR_FILE_NOT_FOUND; }
+		if (!m) {
+			if (getenv("RCSM_LBN_FATAL")) fatal("io: %s: sector %x isn't inside any file of the disc", psp, lbn);
+			LOGE("io: %s: sector %x isn't inside any file of the disc", psp, lbn);
+			return SCE_ERROR_FILE_NOT_FOUND;
+		}
 		char host[1024];
 		snprintf(host, sizeof host, "%s/%s", g_game_root, m->path);
 		resolve_ci(host);
@@ -316,6 +320,8 @@ static void h_IoGetstat(Ctx *c) {
 	struct stat st;
 	if (io_host_path(Pstr(A(0)), hp, sizeof hp) < 0 || stat(hp, &st) != 0) { LOGD("getstat %s -> not found", Pstr(A(0))); RET(SCE_ERROR_FILE_NOT_FOUND); return; }
 	fill_stat(A(1), &st);
+	const DiscFile *df = disc_by_host(hp);
+	if (df) SW(A(1) + 0x40, df->lbn);   // st_private[0]: on UMD, the file's start sector
 	RET(0);
 }
 static void h_IoDopen(Ctx *c) {
