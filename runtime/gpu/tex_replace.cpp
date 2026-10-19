@@ -91,13 +91,31 @@ TextureReplacer::~TextureReplacer() {
 	for (auto &it : levelCache_) delete it.second;
 }
 
+// (Loaded replacements are kept: texture cache entries point at them.)
 void TextureReplacer::NotifyConfigChanged() {
 	replaceEnabled_ = !g_replacements.empty();
 	saveEnabled_ = !g_dump_dir.empty();
 	ignoreAddress_ = true;
-	cache_.clear();
-	for (auto &it : levelCache_) delete it.second;
-	levelCache_.clear();
+}
+
+// The frame ripper (rip.cpp) dumps the textures of the frame it records into its own folder.
+static std::string g_saved_dump_dir;
+static std::unordered_set<std::string> g_saved_dumped;
+extern "C" int ge_tex_rip_dump(const char *dir) {
+	{
+		std::lock_guard<std::mutex> guard(g_lock);
+		if (dir) {
+			g_saved_dump_dir = g_dump_dir;
+			g_saved_dumped.swap(g_dumped);
+			g_dumped.clear();
+			g_dump_dir = dir;
+		} else {
+			g_dump_dir = g_saved_dump_dir;
+			g_dumped.swap(g_saved_dumped);
+		}
+	}
+	if (g_replacer) g_replacer->NotifyConfigChanged();
+	return 0;
 }
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV) {

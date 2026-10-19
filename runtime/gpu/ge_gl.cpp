@@ -386,3 +386,9 @@ extern "C" int ge_read_display(uint8_t *rgba, int w, int h) {
 		g_renderManager->ForgetBoundFramebuffers();
 	return 0;
 }
+
+// sr2recomp frame ripper (rip.cpp): called at every display flip
+void rip_flip(TextureCacheCommon *tc);
+extern "C" void ge_rip_flip(void) {
+	if (gpu) rip_flip(gpu->GetTextureCacheCommon());
+}

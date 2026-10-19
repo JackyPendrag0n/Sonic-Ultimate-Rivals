@@ -107,6 +107,7 @@ ppsspp/Common/Math/lin/matrix4x4.cpp
 ppsspp/Common/GPU/OpenGL/GLProfiler.cpp
 stubs/hw_stubs.cpp
 tex_replace.cpp
+rip.cpp
 stubs/stubs.cpp
 stubs/cpu_detect.cpp
 sce_ge.cpp

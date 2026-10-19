@@ -364,6 +364,16 @@ public:
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
+	// sr2recomp (frame ripper): the replacement-texture name parts of the most recently used texture at addr
+	bool FindEntryNames(u32 addr, u32 *cachekeyLow, u32 *fullhash) const {
+		const TexCacheEntry *best = nullptr;
+		for (auto it = cache_.lower_bound((u64)(addr & 0x3FFFFFFF) << 32); it != cache_.end() && (u32)(it->first >> 32) == (addr & 0x3FFFFFFF); ++it)
+			if (!best || it->second->lastFrame > best->lastFrame) best = it->second.get();
+		if (!best) return false;
+		*cachekeyLow = (u32)best->CacheKey();
+		*fullhash = best->fullhash;
+		return true;
+	}
 	virtual void NotifyConfigChanged();
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,

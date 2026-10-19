@@ -864,6 +864,10 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
+bool rip_recording();
+bool rip_take_clear();
+void rip_prim(u32 op);
+
 void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
@@ -872,6 +876,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	FlushImm();
 	UpdateMatrixProducts();
+	if (rip_take_clear()) {   // sr2recomp frame ripper: decode (and so dump) every texture of this frame again
+		drawEngineCommon_->Flush();
+		textureCache_->Clear(true);
+	}
 
 	// Upper bits are ignored.
 	const GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
@@ -944,6 +952,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+
+	if (rip_recording())   // sr2recomp frame ripper
+		rip_prim(op);
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
@@ -1057,7 +1068,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 	constexpr uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
 
-	if (!useFastRunLoop_)
+	if (!useFastRunLoop_ || rip_recording())
 		goto bail;  // we're either recording or stepping.
 
 	while (src != stall) {

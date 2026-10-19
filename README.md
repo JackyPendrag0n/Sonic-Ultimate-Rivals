@@ -19,7 +19,7 @@ PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP
 ## Controls
 Controller: left stick / d-pad move, A jump, B/X/Y the PSP's circle/square/triangle, LB/LT = L,
 RB/RT = R, Start/Back. Keyboard: WASD or arrows move, Space or K jump, L circle, J square, I triangle,
-Q/E = L/R, Enter Start, Backspace Select, F1/Esc PC settings, F11 fullscreen, F12 screenshot.
+Q/E = L/R, Enter Start, Backspace Select, F1/Esc PC settings, F10 rip the 3D scene to OBJ, F11 fullscreen, F12 screenshot.
 
 ## Build and run
 You need your own game files laid out like the UMD (`PSP_GAME/SYSDIR`, `PSP_GAME/USRDIR`), with
@@ -47,6 +47,11 @@ replace the same file. Rename a mod's folder to start with `_` or `.` to turn it
   with the same name. It can be any size, so 2x or 4x redraws are drawn at full detail with the OpenGL
   renderer. The names hash the texture's pixels and palette, not where it sits in memory, so they stay the
   same between runs.
+
+- **Models and levels.** Press F10 in game (OpenGL renderer) and the next frame's 3D scene is written to
+  `~/.local/share/sr2recomp/rips/rip_<n>/` as `scene.obj` + `scene.mtl` with every texture it uses as PNG,
+  ready to open in Blender. Each draw is its own object, posed and in world space; the PNG names are the
+  same as the texture dump names, so a texture you edit from a rip can go straight into `textures/`.
 
 The log lists the enabled mods and the files and textures they replace.
 

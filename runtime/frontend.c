@@ -146,8 +146,20 @@ static void screenshot_hd(void) {
 	LOGI("screenshot %s", p);
 }
 
+// F10: write the next frame's 3D scene as OBJ + PNG textures to <saves>/rips/rip_<vblank>/ (gpu/rip.cpp)
+extern void ge_rip_request(const char *dir);
+extern void ge_rip_flip(void);
+static void rip_frame(void) {
+	char d[700];
+	snprintf(d, sizeof d, "%s/rips", g_save_root);
+	mkdir(d, 0755);
+	snprintf(d, sizeof d, "%s/rips/rip_%llu", g_save_root, (unsigned long long)g_vblank_count);
+	ge_rip_request(d);
+	LOGE("ripping the next frame to %s", d);
+}
+
 void fe_set_display(u32 top, u32 stride, u32 fmt) {
-	if (top != fb_top) flips++;
+	if (top != fb_top) { flips++; ge_rip_flip(); }
 	fb_top = top & 0x0FFFFFFF; fb_stride = stride; fb_fmt = fmt; fb_set = top != 0;
 	ge_soft_set_display(top, stride, fmt);
 }
@@ -183,6 +195,7 @@ static void poll_input(void) {
 			if (k == SDLK_F1 || k == SDLK_ESCAPE) { menu_set_open(!menu_is_open()); continue; }
 			if (k == SDLK_F11) { g_cfg.fullscreen = !g_cfg.fullscreen; set_fullscreen(g_cfg.fullscreen); config_save(); continue; }
 			if (k == SDLK_F12) { screenshot_hd(); continue; }
+			if (k == SDLK_F10) { rip_frame(); continue; }
 		}
 		if (e.type == SDL_CONTROLLERBUTTONDOWN && e.cbutton.button == SDL_CONTROLLER_BUTTON_GUIDE) { menu_set_open(!menu_is_open()); continue; }
 		if (e.type == SDL_CONTROLLERDEVICEADDED && !pad) { pad = SDL_GameControllerOpen(e.cdevice.which); continue; }
@@ -303,6 +316,11 @@ void fe_vblank(void) {
 	fe_buttons = kb_buttons | pad_buttons | script_buttons;
 	{ extern void game_vblank(void); game_vblank(); }
 	if (g_display_dirty) { g_display_dirty = false; fe_apply_display_settings(); }   // changed in the game's Options screen
+	{	// test aid: SR2_RIP_AT=vblank rips that frame like F10
+		static long ra = -2;
+		if (ra == -2) { const char *e = getenv("SR2_RIP_AT"); ra = e ? atol(e) : -1; }
+		if (ra >= 0 && g_vblank_count == (u64)ra) rip_frame();
+	}
 	{	// test aid: SR2_GE_TRACE=vblank traces one frame of GE commands into <shot dir>/getrace_<vb>.bin
 		static long tv = -2;
 		if (tv == -2) { const char *e = getenv("SR2_GE_TRACE"); tv = e ? atol(e) : -1; }
