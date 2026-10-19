@@ -27,19 +27,21 @@
 #include "ext/xxhash.h"
 
 static std::unordered_map<std::string, std::string> g_replacements;   // file name -> path
+static std::unordered_map<std::string, std::string> g_overlay;        // same, from the folders of the skins in use
+static std::unordered_map<u32, std::string> g_by_addr;                // texture address -> path (skin icons)
 static std::string g_dump_dir;
 static std::unordered_set<std::string> g_dumped;
 static std::mutex g_lock;
 static TextureReplacer *g_replacer;
 
-static void scan_dir(const std::string &dir) {
+static void scan_dir(const std::string &dir, std::unordered_map<std::string, std::string> &into = g_replacements) {
 	DIR *d = opendir(dir.c_str());
 	if (!d) return;
 	while (struct dirent *e = readdir(d)) {
 		std::string n = e->d_name;
 		if (n.size() == 20 && !strcasecmp(n.c_str() + 16, ".png")) {
 			for (auto &ch : n) ch = (char)tolower((unsigned char)ch);
-			g_replacements[n] = dir + "/" + e->d_name;
+			into[n] = dir + "/" + e->d_name;
 		}
 	}
 	closedir(d);
@@ -64,6 +66,34 @@ extern "C" int ge_tex_configure(const char *const *dirs, int ndirs, const char *
 	}
 	if (g_replacer) g_replacer->NotifyConfigChanged();
 	return (int)g_replacements.size();
+}
+
+// Character skins: their texture folders apply only while the skin is in a race, so they are a separate
+// layer above the mods' textures, switched as skins are picked. A switch clears the texture cache.
+extern "C" void ge_tex_cache_clear(void);
+extern "C" void ge_tex_set_overlay(const char *const *dirs, int ndirs) {
+	{
+		std::lock_guard<std::mutex> guard(g_lock);
+		g_overlay.clear();
+		for (int i = 0; i < ndirs; i++) scan_dir(dirs[i], g_overlay);
+	}
+	if (g_replacer) g_replacer->NotifyConfigChanged();
+	ge_tex_cache_clear();
+}
+
+// Replace whatever texture is at `addr` (a copy the runtime made, such as a skin's select-screen icon).
+extern "C" void ge_tex_set_addr(u32 addr, const char *png) {
+	{
+		std::lock_guard<std::mutex> guard(g_lock);
+		if (png) g_by_addr[addr & 0x3FFFFFFF] = png;
+		else g_by_addr.erase(addr & 0x3FFFFFFF);
+	}
+	if (g_replacer) g_replacer->NotifyConfigChanged();
+}
+
+bool ge_tex_has_addr(u32 addr) {
+	std::lock_guard<std::mutex> guard(g_lock);
+	return g_by_addr.count(addr & 0x3FFFFFFF) != 0;
 }
 
 static std::string tex_name(ReplacementCacheKey key) {
@@ -93,7 +123,7 @@ TextureReplacer::~TextureReplacer() {
 
 // (Loaded replacements are kept: texture cache entries point at them.)
 void TextureReplacer::NotifyConfigChanged() {
-	replaceEnabled_ = !g_replacements.empty();
+	replaceEnabled_ = !g_replacements.empty() || !g_overlay.empty() || !g_by_addr.empty();
 	saveEnabled_ = !g_dump_dir.empty();
 	ignoreAddress_ = true;
 }
@@ -134,17 +164,24 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 }
 
 ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey key, int w, int h) {
+	u32 addr = (u32)(key.cachekey >> 32);
 	key.ZeroAddress();
 	std::string name = tex_name(key);
-	auto it = levelCache_.find(name);
-	if (it != levelCache_.end()) return it->second;
 	std::string path;
 	{
 		std::lock_guard<std::mutex> guard(g_lock);
+		auto a = g_by_addr.find(addr);
+		auto o = g_overlay.find(name);
 		auto f = g_replacements.find(name);
-		if (f == g_replacements.end()) return nullptr;
-		path = f->second;
+		if (a != g_by_addr.end()) path = a->second;
+		else if (o != g_overlay.end()) path = o->second;
+		else if (f != g_replacements.end()) path = f->second;
+		else return nullptr;
 	}
+	// (cached by file, since the same texture can map to different files as skins come and go)
+	std::string ck = name + path;
+	auto it = levelCache_.find(ck);
+	if (it != levelCache_.end()) return it->second;
 	ReplacementDesc desc{};
 	desc.w = w;
 	desc.h = h;
@@ -167,7 +204,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey key, int w
 		fprintf(stderr, "texture replacement %s couldn't be read as PNG\n", path.c_str());
 		t->state_ = ReplacementState::NOT_FOUND;
 	}
-	levelCache_[name] = t;
+	levelCache_[ck] = t;
 	return t;
 }
 

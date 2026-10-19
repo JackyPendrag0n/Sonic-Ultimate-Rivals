@@ -104,6 +104,35 @@ static int mod_lookup(const char *rel, char *out, size_t outsz) {
 	return 0;
 }
 
+int io_mod_count(void) { return nmods; }
+const char *io_mod_root(int i) { return i >= 0 && i < nmods ? mods[i].root : NULL; }
+
+// ---- character skins (charslot.c): while a skin is in a race, its base character's racer files
+// (STREAMS/RACER_<NAME>_0.STR and _1.STR) come from the skin's folder when it has them.
+static const char *const racer_names[8] = {"SONIC", "SHADOW", "KNUCKLES", "SILVER", "METALSONIC", "TAILS", "ESPIO", "ROUGE"};
+static char *racer_skin[8];
+void io_set_racer_skin(int base, const char *dir) {
+	if (base < 0 || base >= 8) return;
+	free(racer_skin[base]);
+	racer_skin[base] = dir ? strdup(dir) : NULL;
+}
+// the skin's copy of `rel` (a path in the game folder), or NULL. Only sector opens are redirected: the game
+// opens a racer file by name just to ask for its start sector, which must stay the disc's.
+static const char *racer_redirect(const char *rel, char *buf, size_t n) {
+	const char *f = strrchr(rel, '/');
+	f = f ? f + 1 : rel;
+	if (strncasecmp(f, "RACER_", 6)) return NULL;
+	for (int i = 0; i < 8; i++) {
+		size_t l = strlen(racer_names[i]);
+		if (!racer_skin[i] || strncasecmp(f + 6, racer_names[i], l) || f[6 + l] != '_') continue;
+		snprintf(buf, n, "%s/%s", racer_skin[i], f);
+		resolve_ci(buf);
+		struct stat st;
+		return stat(buf, &st) == 0 && S_ISREG(st.st_mode) ? buf : NULL;
+	}
+	return NULL;
+}
+
 int io_host_path(const char *psp, char *out, size_t outsz) {
 	const char *colon = strchr(psp, ':');
 	const char *dev = psp;
@@ -200,6 +229,9 @@ static s32 do_open(const char *psp, u32 flags) {
 			return SCE_ERROR_FILE_NOT_FOUND;
 		}
 		const char *host = disc_host[m - disc_files];
+		if (strstr(m->path, "STREAMS/STORY_")) { void charslot_reset(void); charslot_reset(); }   // skins are for single events
+		char skin[1024];
+		if (racer_redirect(m->path, skin, sizeof skin)) { host = skin; LOGI("io: %s from the skin, %s", m->path, skin); }
 		int h = open(host, O_RDONLY);
 		if (h < 0) LOGE("io: %s needs %s, which can't be opened", psp, host);
 		if (h < 0) return SCE_ERROR_FILE_NOT_FOUND;

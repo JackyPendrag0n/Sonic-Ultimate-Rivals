@@ -72,6 +72,35 @@ replace the same file. Rename a mod's folder to start with `_` or `.` to turn it
 
 The log lists the enabled mods and the files and textures they replace.
 
+### Character skins
+
+A skin is an extra character on the Single Event Select Character and Select Rival screens. It races as one
+of the eight characters (same moves, stats and code) with its own name, icon, textures, and optionally its
+own racer files (model, textures and voice). Skins appear in a third row of icons, up to four of them. Story
+mode always uses the game's own characters.
+
+A skin is a folder `mods/<mod>/characters/<skin>/`:
+
+- `character.ini`: `name=Dark Sonic` and `base=sonic` (sonic, shadow, knuckles, silver, metal sonic, tails,
+  espio or rouge).
+- `icon.png`, and optionally `icon_selected.png` for the highlighted icon. The first run writes
+  `icon_template.png` and `icon_template_selected.png` there, the base character's icons, to paint over (any
+  size, keep the layout).
+- `textures/`: replacement textures named like a mod's `textures/` folder. They apply only while the skin is
+  racing. To find the character's textures, dump textures (`SR2_TEX_DUMP=1`) in a race as the base character
+  and in a race without it, and keep the ones only the first has.
+- `RACER_<BASE>_0.STR` and `RACER_<BASE>_1.STR` (optional): the base character's racer files with the skin's
+  model, textures and voice. They must keep the game's size.
+
+`tools/sr2skin.py` (Python 3, nothing to install) starts a skin and swaps its voice:
+
+    tools/sr2skin.py new <game folder> sonic "Dark Sonic" mods/myskins/characters/darksonic
+    tools/sr2skin.py sounds mods/myskins/characters/darksonic    # racer files' clips -> sounds/*.wav
+    # edit or replace the WAVs (any rate, mono or stereo, 16-bit)
+    tools/sr2skin.py voice mods/myskins/characters/darksonic     # edited WAVs -> both racer files
+
+A clip keeps its original length (longer audio is cut). The model inside the racer files has no editor yet.
+
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
   (all 253 in this game), and `.init` is merged into the code range across alignment padding.

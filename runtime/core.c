@@ -501,6 +501,7 @@ int main(int argc, char **argv) {
 	vfpu_init();
 	kernel_init();
 	io_init();
+	{ void charslot_init(void); charslot_init(); }
 	display_init();
 	ge_init();
 	hle_misc_init();

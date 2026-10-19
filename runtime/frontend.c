@@ -8,7 +8,7 @@
 //   SR2_INPUT="f:BTN+BTN,f:-,..."  scripted input from vblank f ('-' = release; SUP/SDOWN/SLEFT/SRIGHT = stick)
 //   SR2_DUMP_AT="f1,f2"     dump guest RAM 0x08800000-0x0A000000 at those vblanks
 //   SR2_CTL=fifo            live test control, one command per line: "press BTN+BTN [vblanks]" (stick: SUP...),
-//                           "shot file.png", "dump file.bin" (RAM from 0x08800000); acks "ok <vblank>" to fifo.out
+//                           "shot file.png", "dump file.bin" (RAM from 0x08000000); acks "ok <vblank>" to fifo.out
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
@@ -376,7 +376,7 @@ static void ctl_poll(void) {
 		else if (!strcmp(cmd, "winshot")) { snprintf(winshot_path, sizeof winshot_path, "%s", arg); want_winshot = true; }
 		else if (!strcmp(cmd, "dump")) {
 			FILE *f = fopen(arg, "wb");
-			if (f) { fwrite(PTR(0x08800000), 1, 0x01800000, f); fclose(f); }
+			if (f) { fwrite(PTR(0x08000000), 1, 0x02000000, f); fclose(f); }
 		}
 		char ack[300]; snprintf(ack, sizeof ack, "%s.out", getenv("SR2_CTL"));
 		FILE *f = fopen(ack, "a");

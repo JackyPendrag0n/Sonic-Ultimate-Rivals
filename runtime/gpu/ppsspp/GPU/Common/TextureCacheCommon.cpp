@@ -2917,7 +2917,9 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.h = gstate.getTextureHeight(0);
 
 	// TODO: We should move the PPGE texture entirely out from the PSP's memory space, so we don't save it in every save state.
-	const bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd();
+	// (rcsm: textures the runtime itself placed in kernel memory with a replacement aren't PPGe's)
+	extern bool ge_tex_has_addr(u32 addr);
+	const bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd() && !ge_tex_has_addr(entry->addr);
 
 	// Don't scale the PPGe texture.
 	if (isPPGETexture) {

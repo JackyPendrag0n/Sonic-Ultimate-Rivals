@@ -129,7 +129,7 @@ static void apply_frame_rate(void) {
 #define TEXT_COUNT     0x089ABCCC
 
 enum { B_UP = 0x10, B_RIGHT = 0x20, B_DOWN = 0x40, B_LEFT = 0x80, B_CIRCLE = 0x2000, B_CROSS = 0x4000 };
-enum { S_GRAPHICS, S_ROW0, NSTR = S_ROW0 + 5, STR_LEN = 48 };
+enum { S_GRAPHICS, S_ROW0, S_SKIN = S_ROW0 + 5, NSTR = S_SKIN + 4, STR_LEN = 48 };
 extern u32 fe_buttons;
 extern bool g_display_dirty;
 
@@ -145,6 +145,10 @@ static void set_str(int i, const char *fmt, ...) {
 	vsnprintf((char *)PTR(str_buf + i * STR_LEN), STR_LEN, fmt, ap);
 	va_end(ap);
 }
+
+// strings for charslot.c (skin names): their ids once the text table is patched, 0 before
+u32 game_text_id(int i) { return str_table ? str_base + S_SKIN + i : 0; }
+void game_text(int i, const char *s) { if (str_buf) set_str(S_SKIN + i, "%s", s); }
 
 // Append our strings to the game's text table (again whenever the game loads a new one).
 static void text_patch(void) {
@@ -278,12 +282,15 @@ static void options_input(void) {
 	}
 }
 
+void charslot_vblank(void);
+
 void game_vblank(void) {
 	static int last_fps;
 	if (g_cfg.fps != last_fps) { last_fps = g_cfg.fps; apply_frame_rate(); }
 	text_patch();
 	options_patch();
 	options_input();
+	charslot_vblank();
 }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) { return v; }

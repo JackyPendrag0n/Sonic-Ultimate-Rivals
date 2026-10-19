@@ -30,6 +30,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/GPU_GLES.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GLES/RcsmLight.h"
 
 #include "stubs/kernel_bridge.h"  // last: short macros
@@ -51,6 +52,7 @@ static GLRenderManager *g_renderManager;
 static int g_scale = 1;
 static int g_pendingScale;          // ge_gl_set_internal_scale() before the next frame starts
 static bool g_pendingConfigChange;  // ge_gl_set_options()
+static bool g_pendingTexClear;      // ge_tex_cache_clear()
 static bool g_frameOpen;            // inside BeginFrame/EndFrame
 
 // The image the presenter blits from: PPSSPP's presentation output (OpenGL) or the display buffer
@@ -212,6 +214,9 @@ extern "C" void ge_gl_init(void *(*get_proc)(const char *), int internal_scale) 
 		ge_gl_create_gpu();
 }
 
+// texture replacements changed: drop every cached texture so they are looked up again
+extern "C" void ge_tex_cache_clear(void) { g_pendingTexClear = true; }
+
 extern "C" void ge_gl_set_internal_scale(int scale) {
 	scale = std::max(1, std::min(scale, 8));
 	if (g_backend != GE_BACKEND_OPENGL || !g_draw) {
@@ -289,6 +294,10 @@ static void PresentGL() {
 		ApplyRenderSize();
 		gpu->NotifyDisplayResized();
 		gpu->NotifyRenderResized(config);
+	}
+	if (g_pendingTexClear && gpu) {
+		g_pendingTexClear = false;
+		if (TextureCacheCommon *tc = gpu->GetTextureCacheCommon()) tc->ClearNextFrame();
 	}
 	if (g_pendingConfigChange) {
 		g_pendingConfigChange = false;
