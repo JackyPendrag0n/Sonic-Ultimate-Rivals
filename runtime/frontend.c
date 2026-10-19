@@ -7,6 +7,8 @@
 //   SR2_WINSHOT_EVERY=N     the same, of the whole window as presented (GL)
 //   SR2_INPUT="f:BTN+BTN,f:-,..."  scripted input from vblank f ('-' = release; SUP/SDOWN/SLEFT/SRIGHT = stick)
 //   SR2_DUMP_AT="f1,f2"     dump guest RAM 0x08800000-0x0A000000 at those vblanks
+//   SR2_CTL=fifo            live test control, one command per line: "press BTN+BTN [vblanks]" (stick: SUP...),
+//                           "shot file.png", "dump file.bin" (RAM from 0x08800000); acks "ok <vblank>" to fifo.out
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
@@ -23,6 +25,8 @@ static void (*p_glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, vo
 #define glClear p_glClear
 #include <zlib.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <math.h>
 
 // menu.cpp
@@ -32,6 +36,18 @@ bool menu_is_open(void);
 void menu_set_open(bool open);
 void menu_draw(int w, int h, float fps, float game_fps);
 bool menu_quit_requested(void);
+
+// splitscreen.c
+void split_child_init(void);
+bool split_is_child(void);
+bool split_active(void);
+bool split_start(void);
+void split_stop(void);
+void split_poll(void);
+void split_child_frame(void);
+void split_child_input(u32 *buttons, u8 *lx, u8 *ly);
+void split_set_input(u32 buttons, u8 lx, u8 ly);
+void split_draw(int x, int y, int w, int h);
 
 u32 fe_buttons;
 bool g_display_dirty;
@@ -43,7 +59,7 @@ static int kb_ax, kb_ay;
 static SDL_Window *win;
 static SDL_GLContext glctx;
 static SDL_AudioDeviceID audio_dev;
-static SDL_GameController *pad;
+static SDL_GameController *pad, *pad2;   // pad2: player 2 in split screen
 static bool headless, have_gl;
 static u32 fb_top, fb_stride, fb_fmt;
 static bool fb_set;
@@ -80,6 +96,9 @@ static void parse_stick(const char *s, int *ax, int *ay) {
 }
 
 // ---------------------------------------------------------------- frames, screenshots
+static bool want_winshot;
+static char winshot_path[300];   // SR2_CTL "winshot": where the next window capture goes
+static u32 p2b; static int p2x, p2y;   // SR2_CTL "press2": player 2 test input
 static void convert_fb(void) {
 	if (have_gl) { if (ge_read_display((uint8_t *)rgba, 480, 272) != 0) memset(rgba, 0, sizeof rgba); return; }
 	if (!fb_set) { memset(rgba, 0, sizeof rgba); return; }
@@ -186,6 +205,24 @@ static u32 key_to_button(SDL_Keycode k) {
 
 static int kb_w, kb_a, kb_s, kb_d;
 
+static u32 read_pad(SDL_GameController *g, int *ax, int *ay) {
+	if (!g) return 0;
+	static const struct { int sb; u32 b; } map[] = {
+		{SDL_CONTROLLER_BUTTON_A, B_CROSS}, {SDL_CONTROLLER_BUTTON_B, B_CIRCLE}, {SDL_CONTROLLER_BUTTON_X, B_SQUARE},
+		{SDL_CONTROLLER_BUTTON_Y, B_TRIANGLE}, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER, B_L}, {SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, B_R},
+		{SDL_CONTROLLER_BUTTON_START, B_START}, {SDL_CONTROLLER_BUTTON_BACK, B_SELECT}, {SDL_CONTROLLER_BUTTON_DPAD_UP, B_UP},
+		{SDL_CONTROLLER_BUTTON_DPAD_DOWN, B_DOWN}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, B_LEFT}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, B_RIGHT}};
+	u32 b = 0;
+	for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
+		if (SDL_GameControllerGetButton(g, map[i].sb)) b |= map[i].b;
+	int dz = g_cfg.stick_deadzone * 32767 / 100;
+	int px = SDL_GameControllerGetAxis(g, SDL_CONTROLLER_AXIS_LEFTX), py = SDL_GameControllerGetAxis(g, SDL_CONTROLLER_AXIS_LEFTY);
+	if ((long)px * px + (long)py * py > (long)dz * dz) { *ax = px / 256; *ay = py / 256; }
+	if (SDL_GameControllerGetAxis(g, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 12000) b |= B_L;
+	if (SDL_GameControllerGetAxis(g, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 12000) b |= B_R;
+	return b;
+}
+
 static void poll_input(void) {
 	SDL_Event e;
 	while (SDL_PollEvent(&e)) {
@@ -196,10 +233,19 @@ static void poll_input(void) {
 			if (k == SDLK_F11) { g_cfg.fullscreen = !g_cfg.fullscreen; set_fullscreen(g_cfg.fullscreen); config_save(); continue; }
 			if (k == SDLK_F12) { screenshot_hd(); continue; }
 			if (k == SDLK_F10) { rip_frame(); continue; }
+			if (k == SDLK_F9) { if (split_active()) split_stop(); else split_start(); continue; }
 		}
 		if (e.type == SDL_CONTROLLERBUTTONDOWN && e.cbutton.button == SDL_CONTROLLER_BUTTON_GUIDE) { menu_set_open(!menu_is_open()); continue; }
-		if (e.type == SDL_CONTROLLERDEVICEADDED && !pad) { pad = SDL_GameControllerOpen(e.cdevice.which); continue; }
-		if (e.type == SDL_CONTROLLERDEVICEREMOVED && pad && !SDL_GameControllerGetAttached(pad)) { SDL_GameControllerClose(pad); pad = NULL; continue; }
+		if (e.type == SDL_CONTROLLERDEVICEADDED) {
+			SDL_GameController *g = SDL_GameControllerOpen(e.cdevice.which);
+			if (g && g != pad && g != pad2) { if (!pad) pad = g; else if (!pad2) pad2 = g; }
+			continue;
+		}
+		if (e.type == SDL_CONTROLLERDEVICEREMOVED) {
+			if (pad2 && !SDL_GameControllerGetAttached(pad2)) { SDL_GameControllerClose(pad2); pad2 = NULL; }
+			if (pad && !SDL_GameControllerGetAttached(pad)) { SDL_GameControllerClose(pad); pad = pad2; pad2 = NULL; }
+			continue;
+		}
 		if (menu_is_open()) { menu_event(&e); continue; }
 		if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
 			bool down = e.type == SDL_KEYDOWN;
@@ -214,44 +260,50 @@ static void poll_input(void) {
 	}
 	kb_ax = (kb_d - kb_a) * 127;
 	kb_ay = (kb_s - kb_w) * 127;
-	pad_buttons = 0;
+	// Split screen: player 2 plays on the second controller, or on the only one while player 1 uses the keyboard.
+	SDL_GameController *p1pad = pad, *p2pad = NULL;
+	if (split_active()) { if (pad2) p2pad = pad2; else { p2pad = pad; p1pad = NULL; } }
 	int ax = kb_ax, ay = kb_ay;
-	if (pad && !menu_is_open()) {
-		static const struct { int sb; u32 b; } map[] = {
-			{SDL_CONTROLLER_BUTTON_A, B_CROSS}, {SDL_CONTROLLER_BUTTON_B, B_CIRCLE}, {SDL_CONTROLLER_BUTTON_X, B_SQUARE},
-			{SDL_CONTROLLER_BUTTON_Y, B_TRIANGLE}, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER, B_L}, {SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, B_R},
-			{SDL_CONTROLLER_BUTTON_START, B_START}, {SDL_CONTROLLER_BUTTON_BACK, B_SELECT}, {SDL_CONTROLLER_BUTTON_DPAD_UP, B_UP},
-			{SDL_CONTROLLER_BUTTON_DPAD_DOWN, B_DOWN}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, B_LEFT}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, B_RIGHT}};
-		for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
-			if (SDL_GameControllerGetButton(pad, map[i].sb)) pad_buttons |= map[i].b;
-		int dz = g_cfg.stick_deadzone * 32767 / 100;
-		int px = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX), py = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
-		if ((long)px * px + (long)py * py > (long)dz * dz) { ax = px / 256; ay = py / 256; }
-		bool lt = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 12000;
-		bool rt = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 12000;
-		if (lt) pad_buttons |= B_L;
-		if (rt) pad_buttons |= B_R;
-	}
+	pad_buttons = menu_is_open() ? 0 : read_pad(p1pad, &ax, &ay);
 	if (ax < -128) ax = -128; if (ax > 127) ax = 127;
 	if (ay < -128) ay = -128; if (ay > 127) ay = 127;
 	fe_lx = (u8)(ax + 128); fe_ly = (u8)(ay + 128);
+	if (split_active()) {
+		int bx = 0, by = 0;
+		u32 b = read_pad(p2pad, &bx, &by) | p2b;
+		if (p2x || p2y) { bx = p2x; by = p2y; }
+		if (bx < -128) bx = -128; if (bx > 127) bx = 127;
+		if (by < -128) by = -128; if (by > 127) by = 127;
+		split_set_input(b, (u8)(bx + 128), (u8)(by + 128));
+	}
 }
 
 // ---------------------------------------------------------------- presentation
 static float fps_shown, game_fps_shown;
-static bool want_winshot;
 static u64 fps_t0, fps_frames, fps_flips0;
 
 static void present(void) {
 	if (!have_gl) return;
 	int w, h;
 	SDL_GL_GetDrawableSize(win, &w, &h);
-	int vw = w, vh = h;
-	if (g_cfg.keep_aspect) { vh = w * 272 / 480; if (vh > h) { vh = h; vw = h * 480 / 272; } }
 	glViewport(0, 0, w, h);
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
-	ge_present((w - vw) / 2, (h - vh) / 2, vw, vh);
+	if (split_active()) {
+		// player 1 left (or top), player 2 right (or bottom); GL's y runs bottom-up
+		bool tb = g_cfg.split_layout == 1;
+		int cw = tb ? w : w / 2, ch = tb ? h / 2 : h;
+		int vw = cw, vh = ch;
+		if (g_cfg.keep_aspect) { vh = cw * 272 / 480; if (vh > ch) { vh = ch; vw = ch * 480 / 272; } }
+		int ox = (cw - vw) / 2, oy = (ch - vh) / 2;
+		ge_present(ox, (tb ? ch : 0) + oy, vw, vh);
+		split_draw((tb ? 0 : cw) + ox, oy, vw, vh);
+	} else {
+		int vw = w, vh = h;
+		if (g_cfg.keep_aspect) { vh = w * 272 / 480; if (vh > h) { vh = h; vw = h * 480 / 272; } }
+		ge_present((w - vw) / 2, (h - vh) / 2, vw, vh);
+		if (split_is_child()) split_child_frame();
+	}
 	if (!headless) menu_draw(w, h, fps_shown, game_fps_shown);
 	if (want_winshot && p_glReadPixels) {
 		// test aid: capture the whole window (game + overlay) as presented
@@ -261,6 +313,7 @@ static void present(void) {
 		char p[300];
 		mkdir(shot_dir, 0755);
 		snprintf(p, sizeof p, "%s/window_%llu.png", shot_dir, (unsigned long long)g_vblank_count);
+		if (winshot_path[0]) { snprintf(p, sizeof p, "%s", winshot_path); winshot_path[0] = 0; }
 		write_png(p, fl, w, h);
 		free(px); free(fl);
 		want_winshot = false;
@@ -294,8 +347,48 @@ static void run_menu_pause(void) {
 	kb_buttons = 0; kb_w = kb_a = kb_s = kb_d = 0;
 }
 
+// SR2_CTL: drive a running game from a shell (see the top of this file)
+static void ctl_poll(void) {
+	static int fd = -2, release_in, release2_in;
+
+	static char buf[1024]; static int len;
+	if (fd == -2) {
+		const char *e = getenv("SR2_CTL");
+		fd = -1;
+		if (e) { mkfifo(e, 0644); fd = open(e, O_RDWR | O_NONBLOCK); }
+	}
+	if (fd < 0) return;
+	if (release_in && --release_in == 0) { script_buttons = 0; script_ax = script_ay = 0; }
+	if (release2_in && --release2_in == 0) { p2b = 0; p2x = p2y = 0; }
+
+	int n = read(fd, buf + len, sizeof buf - 1 - len);
+	if (n > 0) len += n;
+	char *nl;
+	while ((nl = memchr(buf, '\n', len))) {
+		*nl = 0;
+		char cmd[16] = "", arg[256] = ""; int cnt = 6;
+		sscanf(buf, "%15s %255s %d", cmd, arg, &cnt);
+		if (!strcmp(cmd, "press")) {
+			script_buttons = parse_buttons(arg); parse_stick(arg, &script_ax, &script_ay); release_in = cnt;
+		} else if (!strcmp(cmd, "press2")) {   // split screen: player 2's input
+			p2b = parse_buttons(arg); parse_stick(arg, &p2x, &p2y); release2_in = cnt;
+		} else if (!strcmp(cmd, "shot")) fe_write_png(arg);
+		else if (!strcmp(cmd, "winshot")) { snprintf(winshot_path, sizeof winshot_path, "%s", arg); want_winshot = true; }
+		else if (!strcmp(cmd, "dump")) {
+			FILE *f = fopen(arg, "wb");
+			if (f) { fwrite(PTR(0x08800000), 1, 0x01800000, f); fclose(f); }
+		}
+		char ack[300]; snprintf(ack, sizeof ack, "%s.out", getenv("SR2_CTL"));
+		FILE *f = fopen(ack, "a");
+		if (f) { fprintf(f, "ok %llu %s\n", (unsigned long long)g_vblank_count, cmd); fclose(f); }
+		len -= nl + 1 - buf;
+		memmove(buf, nl + 1, len);
+	}
+}
+
 void fe_vblank(void) {
 	ge_soft_vblank();
+	ctl_poll();
 	{	// test aid: SR2_LOG_AT="vblank:level" raises the log level from that vblank on
 		static long at = -2; static int lvl;
 		if (at == -2) { const char *e = getenv("SR2_LOG_AT"); at = e ? atol(e) : -1; if (e && strchr(e, ':')) lvl = atoi(strchr(e, ':') + 1); }
@@ -329,6 +422,8 @@ void fe_vblank(void) {
 	}
 	if (script_ax || script_ay) { fe_lx = (u8)(script_ax + 128); fe_ly = (u8)(script_ay + 128); }
 	else if (headless) { fe_lx = 128; fe_ly = 128; }
+	if (split_is_child()) { u32 b; split_child_input(&b, &fe_lx, &fe_ly); fe_buttons |= b; }
+	split_poll();
 	{
 		static const char *dump_at = (const char *)-1;
 		if (dump_at == (const char *)-1) dump_at = getenv("SR2_DUMP_AT");
@@ -378,6 +473,7 @@ void fe_audio_push(const s16 *samples, int frames) {
 
 // The backend must be chosen before ge_soft_init (called from main before fe_init).
 void fe_preinit(void) {
+	split_child_init();
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");  // let Ctrl+C / SIGTERM end the process normally
 	config_load();
 	headless = getenv("SR2_HEADLESS") && atoi(getenv("SR2_HEADLESS"));
@@ -451,10 +547,21 @@ void fe_init(void) {
 		audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
 		if (audio_dev) SDL_PauseAudioDevice(audio_dev, 0);
 		else LOGI("no audio device (%s)", SDL_GetError());
-		for (int i = 0; i < SDL_NumJoysticks(); i++) if (SDL_IsGameController(i)) { pad = SDL_GameControllerOpen(i); break; }
+		for (int i = 0; i < SDL_NumJoysticks(); i++)
+			if (SDL_IsGameController(i)) { if (!pad) pad = SDL_GameControllerOpen(i); else if (!pad2) pad2 = SDL_GameControllerOpen(i); }
 		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
 		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
 	}
+	if (!split_is_child() && (g_start_2p || (getenv("SR2_2P") && atoi(getenv("SR2_2P"))))) split_start();
+}
+
+// split screen started/stopped or its layout changed: a window that isn't fullscreen grows to fit two games
+void fe_split_layout_changed(void) {
+	if (!win || headless || g_cfg.fullscreen) return;
+	int s = g_cfg.window_scale < 1 ? 2 : g_cfg.window_scale;
+	int k = split_active() ? 2 : 1;
+	if (split_active() && g_cfg.split_layout == 1) SDL_SetWindowSize(win, 480 * s, 272 * s * k);
+	else SDL_SetWindowSize(win, 480 * s * k, 272 * s);
 }
 
 // settings menu callbacks
@@ -462,7 +569,7 @@ void fe_apply_display_settings(void) {
 	static int last_full = -1, last_scale = -1;
 	if (g_cfg.fullscreen != last_full) set_fullscreen(g_cfg.fullscreen);
 	if (!g_cfg.fullscreen && win && (g_cfg.fullscreen != last_full || g_cfg.window_scale != last_scale))
-		SDL_SetWindowSize(win, 480 * g_cfg.window_scale, 272 * g_cfg.window_scale);
+		fe_split_layout_changed();
 	last_full = g_cfg.fullscreen; last_scale = g_cfg.window_scale;
 	if (have_gl && !headless) SDL_GL_SetSwapInterval(g_cfg.vsync ? 1 : 0);
 	ge_gl_set_internal_scale(g_cfg.internal_scale);

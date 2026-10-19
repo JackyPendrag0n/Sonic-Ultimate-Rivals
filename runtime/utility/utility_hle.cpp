@@ -723,3 +723,8 @@ void utility_hle_init(void) {
 	int n = hle_bridge_register_pending();
 	LOGI("utility: PPSSPP sceUtility dialogs + PPGe, %d functions", n);
 }
+
+// the PSP nickname, for the ad hoc layer (net.c)
+extern "C" const char *utility_nickname(void) { return g_Config.sNickName.c_str(); }
+// SR2_NICKNAME overrides it (local split screen names the second copy "PLAYER 2")
+extern "C" void utility_nickname_from_env(void) { if (getenv("SR2_NICKNAME")) g_Config.sNickName = getenv("SR2_NICKNAME"); }

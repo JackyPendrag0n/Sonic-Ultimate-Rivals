@@ -556,7 +556,8 @@ void io_init(void) {
 		char p[600];
 		snprintf(p, sizeof p, "%s/mods", g_game_root);
 		mods_scan(p);
-		snprintf(p, sizeof p, "%s/mods", g_save_root);
+		// (player 2 in split screen has its own saves but uses player 1's mods)
+		snprintf(p, sizeof p, "%s/mods", getenv("SR2_DATA_ROOT") ? getenv("SR2_DATA_ROOT") : g_save_root);
 		mods_scan(p);
 	}
 	disc_build();

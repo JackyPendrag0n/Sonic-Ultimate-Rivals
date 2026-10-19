@@ -22,6 +22,8 @@ typedef struct GameConfig {
 	int stick_deadzone;    // 0..100 %
 	// audio
 	int volume;            // 0..100
+	// local 2 players
+	int split_layout;      // 0 side by side, 1 top and bottom
 } GameConfig;
 
 extern GameConfig g_cfg;

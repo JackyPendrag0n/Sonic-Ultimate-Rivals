@@ -135,7 +135,8 @@ u32 g_vblank_us = 16683;            // emulated vblank period (the races can ask
 
 static void thread_tramp(void) {
 	Thread *t = g_cur;
-	rt_call(&t->ctx, t->entry);
+	if (t->host_entry) t->host_entry(t);
+	else rt_call(&t->ctx, t->entry);
 	// returned from entry: exit with v0
 	t->exit_status = t->ctx.r[2];
 	LOGD("thread '%s' returned %x", t->name, t->exit_status);

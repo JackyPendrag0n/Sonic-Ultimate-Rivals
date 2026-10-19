@@ -15,11 +15,13 @@ PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP
   into Resolution, Frame Rate, Fullscreen, V-Sync and Filtering (left/right or CROSS change a row,
   CIRCLE goes back). F1 / Esc opens the same settings as an overlay, plus window and audio options.
   Settings are saved to `~/.config/sr2recomp/settings.ini`; saves go to `~/.local/share/sr2recomp`.
+- Wireless Play works, and two players can race on one PC in split screen (see below).
 
 ## Controls
 Controller: left stick / d-pad move, A jump, B/X/Y the PSP's circle/square/triangle, LB/LT = L,
 RB/RT = R, Start/Back. Keyboard: WASD or arrows move, Space or K jump, L circle, J square, I triangle,
-Q/E = L/R, Enter Start, Backspace Select, F1/Esc PC settings, F10 rip the 3D scene to OBJ, F11 fullscreen, F12 screenshot.
+Q/E = L/R, Enter Start, Backspace Select, F1/Esc PC settings, F9 start/stop player 2 (split screen), F10 rip the 3D scene
+to OBJ, F11 fullscreen, F12 screenshot.
 
 ## Build and run
 You need your own game files laid out like the UMD (`PSP_GAME/SYSDIR`, `PSP_GAME/USRDIR`), with
@@ -31,6 +33,21 @@ You need your own game files laid out like the UMD (`PSP_GAME/SYSDIR`, `PSP_GAME
 build/sr2recomp /path/to/game
 ```
 Dependencies are the same as rcsm (gcc/g++, SDL2, FFmpeg, libpng, zlib dev packages).
+
+## Two players on one PC (split screen)
+Press **F9** (or F1 > 2 Players, or start with `--2p`) and a second copy of the game opens in the right half of the
+window (or the bottom half: F1 > 2 Players > Layout). The two copies race each other through the game's own
+Wireless Play, exactly like two PSPs: both choose Multiplayer > Wireless Play, player 1 picks **Create** and sets up
+the race, player 2 picks **Join**, chooses player 1's game and then a character. With two controllers each player
+has one; with one controller, player 1 uses the keyboard and player 2 the controller. Player 2 has its own save
+data in `<saves>/player2` (copied from player 1's the first time) and uses player 1's mods. Player 2's copy is muted,
+so the music isn't heard twice.
+
+How it works: `runtime/net.c` implements the PSP's ad hoc stack (sceNetAdhocctl, PDP sockets and the Matching
+lobby protocol) over UDP. Each copy is a "PSP" with MAC `02:53:52:32:00:<n>` on UDP port 47320+n-1 on 127.0.0.1 and
+finds the others by port. `runtime/splitscreen.c` starts the second copy with a hidden window and shares its frames
+and player 2's input through shared memory. `SR2_NET_PEERS=host[:port],...` (with `SR2_NET_ID=n` set differently on
+each PC) also sends the traffic to copies on other machines; that LAN path is untested.
 
 ## Mods
 
@@ -80,7 +97,8 @@ The log lists the enabled mods and the files and textures they replace.
 `./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables:
 `SR2_LOG=2|3`, `SR2_INPUT="300:CROSS,308:-,..."` (scripted input by vblank),
 `SR2_WINSHOT_EVERY=N SR2_SHOT_DIR=dir` (screenshots), `SR2_FPS=120`, `SR2_GL_SCALE=N`,
-`SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
+`SR2_2P=1` (start player 2), `SR2_CTL=fifo` (live control: `press`, `press2` for player 2, `shot`,
+`winshot`, `dump` commands, see `runtime/frontend.c`), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
 the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
 backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
 `SR2_WATCH=lo-hi` memory watches.

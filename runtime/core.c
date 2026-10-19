@@ -416,7 +416,7 @@ LoadedModule *module_load(const char *psp_path, s32 *err) {
 }
 
 static void usage(void) {
-	fprintf(stderr, "usage: sr2recomp [folder containing PSP_GAME] [--log N]\n"
+	fprintf(stderr, "usage: sr2recomp [folder containing PSP_GAME] [--2p] [--log N]\n"
 	                "  (no folder: the current directory, or the one sr2recomp is in)\n"
 	                "  env: SR2_HEADLESS=1, SR2_SCALE=N, SR2_SAVE_DIR=dir, PSPGPU_THREADS=N, SR2_LOG=N\n");
 	exit(2);
@@ -441,6 +441,8 @@ static bool try_game_root(const char *root) {
 	return false;
 }
 
+bool g_start_2p;   // --2p: open player 2 (split screen) at start
+
 int main(int argc, char **argv) {
 	// The game folder: the arguments before the first option. Several of them are joined with spaces, so an
 	// unquoted path with spaces in it still works. No folder given: the current directory, then the folder
@@ -451,6 +453,7 @@ int main(int argc, char **argv) {
 		if (!strncmp(argv[i], "--", 2)) {
 			if (!strcmp(argv[i], "--log") && i + 1 < argc) g_loglevel = atoi(argv[++i]);
 			else if (!strcmp(argv[i], "--help")) usage();
+			else if (!strcmp(argv[i], "--2p")) g_start_2p = true;
 			continue;
 		}
 		if (npath++) strncat(given, " ", sizeof given - strlen(given) - 1);

@@ -100,6 +100,7 @@ typedef struct Thread {
 	bool cb_wake;       // resumed only to run callbacks, then keeps waiting
 	u64 seq;
 	u32 wakeup_count;
+	void (*host_entry)(struct Thread *);   // runtime-owned thread: runs this host function instead of guest code
 	struct Thread *next_all;
 } Thread;
 
@@ -159,6 +160,7 @@ int io_host_path(const char *psp, char *out, size_t outsz);
 const char *io_fd_path(u32 fd);
 extern char g_game_root[512];
 extern char g_save_root[512];
+extern bool g_start_2p;
 void io_init(void);
 void ge_init(void);
 void display_init(void);

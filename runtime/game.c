@@ -29,7 +29,7 @@ const char *config_path(void) {
 
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(fullscreen, b) \
-	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i)
+	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
