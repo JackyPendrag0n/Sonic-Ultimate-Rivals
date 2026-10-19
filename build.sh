@@ -7,8 +7,9 @@
 # into C under gen/, builds the runtime libraries, and links build/sr2recomp.
 # Then run:   build/sr2recomp /path/to/game
 #
-# Options (environment): JOBS=N (default: nproc), MARCH=... (default: native; use x86-64-v2 for an
-# older-CPU-compatible build), SKIP_MODULES="rtpspnetah rtpspnetin" (default; Sony network libraries
+# Options (environment): JOBS=N (default: nproc), MARCH=... (default: x86-64-v2, which runs on any
+# x86-64 CPU from about 2009 on; MARCH=native is faster on the build machine but the binary then only runs
+# on CPUs with the same features), SKIP_MODULES="rtpspnetah rtpspnetin" (default; Sony network libraries
 # for multiplayer use a relocation format the recompiler doesn't handle yet).
 set -e
 cd "$(dirname "$0")"
@@ -16,7 +17,7 @@ GAME=${1:-${GAME:-game}}
 [ -d "$GAME" ] || { echo "usage: $0 /path/to/game (folder containing PSP_GAME)"; exit 2; }
 GAME=$(cd "$GAME" && pwd)
 case "$GAME" in */PSP_GAME|*/psp_game) GAME=$(dirname "$GAME");; esac
-MARCH=${MARCH:-native}
+MARCH=${MARCH:-x86-64-v2}
 SKIP_MODULES=${SKIP_MODULES:-"rtpspnetah rtpspnetin"}
 export JOBS=${JOBS:-$(nproc)}
 
@@ -55,6 +56,10 @@ while IFS= read -r f; do
 done < <(find "$GAME" \( -ipath "*/PSP_GAME/USRDIR/BIN/*.prx" -o -ipath "*/PSP_GAME/USRDIR/MODULES/*.prx" \) | sort)
 mv "$tmp" data/modules.txt
 echo "modules: $(wc -l < data/modules.txt)"
+
+# a different MARCH needs the libraries rebuilt
+[ "$(cat build/march 2>/dev/null)" = "$MARCH" ] || rm -f build/libpsp*.a
+echo "$MARCH" > build/march
 
 # runtime libraries (PPSSPP-derived GPU, audio, video, system dialogs)
 for lib in gpu audio mpeg utility; do

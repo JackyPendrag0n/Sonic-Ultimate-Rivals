@@ -6,6 +6,8 @@ set -e
 cd "$(dirname "$0")/../.."
 GAME=${1:?usage: $0 /path/to/game}
 A=build/AppDir
+# the AppImage runs on other people's CPUs, so it must not be built for this one
+[ "$(cat build/march 2>/dev/null)" != native ] || { echo "build/sr2recomp was built with MARCH=native; rebuild with the default MARCH first"; exit 1; }
 rm -rf $A; mkdir -p $A/usr/bin $A/usr/lib
 cp build/sr2recomp $A/usr/bin/sr2recomp; strip $A/usr/bin/sr2recomp
 # system libraries the host must provide itself (glibc, GL/X11/Wayland/audio drivers)
