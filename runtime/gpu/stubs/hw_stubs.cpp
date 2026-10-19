@@ -130,17 +130,7 @@ bool TranslateShader(std::string *dst, ShaderLanguage destLang, const ShaderLang
 	return false;
 }
 
-// ------------------------------------------------------------------ texture replacement (disabled)
-TextureReplacer::TextureReplacer(Draw::DrawContext *draw) {}
-TextureReplacer::~TextureReplacer() {}
-void TextureReplacer::NotifyConfigChanged() {}
-u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV) { return 0; }
-ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey key, int w, int h) { return nullptr; }
-bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const { return false; }
-void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH) {}
-void TextureReplacer::Decimate(ReplacerDecimateMode mode) {}
-bool ReplacedTexture::Poll(double budget) { return false; }
-bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch) { return false; }
+// texture replacement: tex_replace.cpp
 
 // ------------------------------------------------------------------ texture upscaling (off: 1x)
 TextureScalerCommon::TextureScalerCommon() {}

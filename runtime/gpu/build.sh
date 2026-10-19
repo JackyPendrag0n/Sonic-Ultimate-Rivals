@@ -106,6 +106,7 @@ ppsspp/Common/Math/lin/vec3.cpp
 ppsspp/Common/Math/lin/matrix4x4.cpp
 ppsspp/Common/GPU/OpenGL/GLProfiler.cpp
 stubs/hw_stubs.cpp
+tex_replace.cpp
 stubs/stubs.cpp
 stubs/cpu_detect.cpp
 sce_ge.cpp
@@ -144,9 +145,9 @@ echo "built $OUT/libpspgpu.a"
 [ "$1" = lib ] && exit 0
 
 compile test_ge.cpp
-$CXX -o "$OUT/test_ge" "$OBJ/test_ge.o" "$OUT/libpspgpu.a" -lz -lpthread
+$CXX -o "$OUT/test_ge" "$OBJ/test_ge.o" "$OUT/libpspgpu.a" -lpng -lz -lpthread
 echo "built $OUT/test_ge"
 # Backend test in an SDL OpenGL window (run under xvfb-run when headless).
 compile test_ge_gl.cpp
-$CXX -o "$OUT/test_ge_gl" "$OBJ/test_ge_gl.o" "$OUT/libpspgpu.a" $(sdl2-config --libs) -lz -lpthread
+$CXX -o "$OUT/test_ge_gl" "$OBJ/test_ge_gl.o" "$OUT/libpspgpu.a" $(sdl2-config --libs) -lpng -lz -lpthread
 echo "built $OUT/test_ge_gl"

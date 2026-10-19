@@ -47,6 +47,63 @@ static void resolve_ci(char *path) {
 	strcpy(path, out);
 }
 
+// ---- mods: folders whose files replace the game's own
+// Each enabled mod is a folder in <game>/mods/ or ~/.local/share/sr2recomp/mods/ ($SR2_MODS overrides both).
+// A mod mirrors the disc layout (PSP_GAME/USRDIR/TEXT/STR_EN_NA.TXT); a mod without a PSP_GAME folder is taken
+// to mirror USRDIR (TEXT/STR_EN_NA.TXT). Mods load in name order and a later one wins; a folder whose name
+// starts with '.' or '_' is disabled.
+#define MAX_MODS 64
+typedef struct { char root[600]; int usrdir; } Mod;
+static Mod mods[MAX_MODS];
+static int nmods;
+
+static int name_cmp(const void *a, const void *b) { return strcasecmp(*(char *const *)a, *(char *const *)b); }
+static void mods_scan(const char *dir) {
+	DIR *d = opendir(dir);
+	if (!d) return;
+	char *names[MAX_MODS];
+	int n = 0;
+	struct dirent *e;
+	while ((e = readdir(d)) && n < MAX_MODS) {
+		if (e->d_name[0] == '.' || e->d_name[0] == '_') continue;
+		char p[1200];
+		struct stat st;
+		snprintf(p, sizeof p, "%s/%s", dir, e->d_name);
+		if (stat(p, &st) == 0 && S_ISDIR(st.st_mode)) names[n++] = strdup(e->d_name);
+	}
+	closedir(d);
+	qsort(names, n, sizeof names[0], name_cmp);
+	for (int i = 0; i < n; i++) {
+		if (nmods < MAX_MODS) {
+			Mod *m = &mods[nmods++];
+			snprintf(m->root, sizeof m->root, "%s/%s", dir, names[i]);
+			char p[700];
+			snprintf(p, sizeof p, "%s/PSP_GAME", m->root);
+			resolve_ci(p);
+			struct stat st;
+			m->usrdir = !(stat(p, &st) == 0 && S_ISDIR(st.st_mode));
+			LOGE("mod %d: %s%s", nmods, m->root, m->usrdir ? " (files relative to USRDIR)" : "");
+		}
+		free(names[i]);
+	}
+}
+// `rel` is a path relative to the game folder. Finds the file in the highest-priority mod that has it.
+static int mod_lookup(const char *rel, char *out, size_t outsz) {
+	while (*rel == '/') rel++;
+	for (int i = nmods - 1; i >= 0; i--) {
+		const char *r = rel;
+		if (mods[i].usrdir) {
+			if (strncasecmp(rel, "PSP_GAME/USRDIR/", 16)) continue;
+			r = rel + 16;
+		}
+		snprintf(out, outsz, "%s/%s", mods[i].root, r);
+		resolve_ci(out);
+		struct stat st;
+		if (stat(out, &st) == 0 && S_ISREG(st.st_mode)) return 1;
+	}
+	return 0;
+}
+
 int io_host_path(const char *psp, char *out, size_t outsz) {
 	const char *colon = strchr(psp, ':');
 	const char *dev = psp;
@@ -55,7 +112,10 @@ int io_host_path(const char *psp, char *out, size_t outsz) {
 	if (!colon) {
 		root = g_game_root;
 		// relative to the boot directory
-		snprintf(out, outsz, "%s/PSP_GAME/SYSDIR/%s", root, psp);
+		char rel[600];
+		snprintf(rel, sizeof rel, "PSP_GAME/SYSDIR/%s", psp);
+		if (mod_lookup(rel, out, outsz)) return 0;
+		snprintf(out, outsz, "%s/%s", root, rel);
 		resolve_ci(out);
 		return 0;
 	}
@@ -65,6 +125,7 @@ int io_host_path(const char *psp, char *out, size_t outsz) {
 	else if (!strncasecmp(dev, "host", 4)) return -1;
 	else { LOGI("io: unsupported device in '%s'", psp); return -1; }
 	while (*rest == '/') rest++;
+	if (root == g_game_root && mod_lookup(rest, out, outsz)) return 0;
 	snprintf(out, outsz, "%s/%s", root, rest);
 	resolve_ci(out);
 	return 0;
@@ -76,15 +137,38 @@ int io_host_path(const char *psp, char *out, size_t outsz) {
 // sectors, so the runtime carries the disc's sector map (tools/lbnmap.py) and maps sce_lbn opens back
 // to a window into the file that holds those sectors.
 typedef struct { u32 lbn, size; const char *path; } DiscFile;
-static const DiscFile disc_files[] = {
+static const DiscFile disc_map[] = {
 #include "lbnmap_ulus10323.inc"
 };
-#define NDISC ((int)(sizeof disc_files / sizeof disc_files[0]))
-// path relative to the game folder ("PSP_GAME/..."), compared case-insensitively
+#define NDISC ((int)(sizeof disc_map / sizeof disc_map[0]))
+// The disc map as this run sees it: a file a mod replaces is served from the mod, with the mod file's size.
+// When it no longer fits in the original sectors it gets a new sector range past the end of the disc.
+static DiscFile disc_files[NDISC];
+static char *disc_host[NDISC];   // resolved host path of each file
+static void disc_build(void) {
+	u32 end = 0;
+	for (int i = 0; i < NDISC; i++) { u32 e = disc_map[i].lbn + (disc_map[i].size + 2047) / 2048; if (e > end) end = e; }
+	int modded = 0;
+	for (int i = 0; i < NDISC; i++) {
+		disc_files[i] = disc_map[i];
+		char hp[1024];
+		struct stat st;
+		if (mod_lookup(disc_map[i].path, hp, sizeof hp) && stat(hp, &st) == 0) {
+			u32 old_n = (disc_map[i].size + 2047) / 2048, n = ((u32)st.st_size + 2047) / 2048;
+			disc_files[i].size = (u32)st.st_size;
+			if (n > (old_n ? old_n : 1)) { disc_files[i].lbn = end; end += n; }
+			modded++;
+			LOGI("mod: %s -> %s", disc_map[i].path, hp);
+		} else {
+			snprintf(hp, sizeof hp, "%s/%s", g_game_root, disc_map[i].path);
+			resolve_ci(hp);
+		}
+		disc_host[i] = strdup(hp);
+	}
+	if (nmods) LOGE("mods: %d enabled, %d disc files replaced", nmods, modded);
+}
 static const DiscFile *disc_by_host(const char *host) {
-	size_t rl = strlen(g_game_root);
-	if (strncmp(host, g_game_root, rl) || host[rl] != '/') return NULL;
-	for (int i = 0; i < NDISC; i++) if (!strcasecmp(host + rl + 1, disc_files[i].path)) return &disc_files[i];
+	for (int i = 0; i < NDISC; i++) if (!strcmp(host, disc_host[i])) return &disc_files[i];
 	return NULL;
 }
 static const DiscFile *disc_by_lbn(u32 lbn) {
@@ -115,9 +199,7 @@ static s32 do_open(const char *psp, u32 flags) {
 			LOGE("io: %s: sector %x isn't inside any file of the disc", psp, lbn);
 			return SCE_ERROR_FILE_NOT_FOUND;
 		}
-		char host[1024];
-		snprintf(host, sizeof host, "%s/%s", g_game_root, m->path);
-		resolve_ci(host);
+		const char *host = disc_host[m - disc_files];
 		int h = open(host, O_RDONLY);
 		if (h < 0) LOGE("io: %s needs %s, which can't be opened", psp, host);
 		if (h < 0) return SCE_ERROR_FILE_NOT_FOUND;
@@ -215,7 +297,9 @@ static s32 do_read(u32 fd, u32 buf, u32 size) {
 		if (pos >= f->win_len) return 0;
 		if ((s64)size > f->win_len - pos) size = (u32)(f->win_len - pos);
 	}
+	s64 at = lseek(f->hostfd, 0, SEEK_CUR);
 	ssize_t n = read(f->hostfd, PTR(buf), size);
+	LOGV("read fd %d %s @%llx -> %08x, %x bytes (got %zd)", fd, f->path, (long long)at, buf, size, n);
 	return n < 0 ? (s32)0x80010005 : (s32)n;
 }
 static void h_IoRead(Ctx *c) { RET(do_read(A(0), A(1), A(2))); }
@@ -466,5 +550,30 @@ static const HleEnt io_ents[] = {
 };
 
 void io_init(void) {
+	const char *md = getenv("SR2_MODS");
+	if (md) mods_scan(md);
+	else {
+		char p[600];
+		snprintf(p, sizeof p, "%s/mods", g_game_root);
+		mods_scan(p);
+		snprintf(p, sizeof p, "%s/mods", g_save_root);
+		mods_scan(p);
+	}
+	disc_build();
+	// textures: <mod>/textures/*.png replace the game's; SR2_TEX_DUMP=1 writes every texture to <saves>/texdump
+	extern int ge_tex_configure(const char *const *dirs, int ndirs, const char *dump_dir);
+	static char tdirs[MAX_MODS][640];
+	const char *tp[MAX_MODS];
+	for (int i = 0; i < nmods; i++) {
+		snprintf(tdirs[i], sizeof tdirs[i], "%s/textures", mods[i].root);
+		resolve_ci(tdirs[i]);
+		tp[i] = tdirs[i];
+	}
+	char dump[600] = "";
+	const char *td = getenv("SR2_TEX_DUMP");
+	if (td && *td && strcmp(td, "0")) snprintf(dump, sizeof dump, "%s/texdump", g_save_root);
+	int nt = ge_tex_configure(tp, nmods, dump);
+	if (nt) LOGE("mods: %d replacement textures", nt);
+	if (dump[0]) LOGE("dumping textures to %s", dump);
 	hle_register(io_ents, sizeof io_ents / sizeof io_ents[0]);
 }

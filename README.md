@@ -32,6 +32,24 @@ build/sr2recomp /path/to/game
 ```
 Dependencies are the same as rcsm (gcc/g++, SDL2, FFmpeg, libpng, zlib dev packages).
 
+## Mods
+
+Put each mod in its own folder under `mods/` next to `PSP_GAME` (or under `~/.local/share/sr2recomp/mods/`;
+`SR2_MODS=dir` uses that folder instead of both). Mods load in name order and a later mod wins when two
+replace the same file. Rename a mod's folder to start with `_` or `.` to turn it off.
+
+- **Game files.** A mod mirrors the disc: `mods/mymod/PSP_GAME/USRDIR/TEXT/STR_EN_NA.TXT` replaces the game's
+  text. A mod with no `PSP_GAME` folder is read relative to `USRDIR`, so `mods/mymod/TEXT/STR_EN_NA.TXT` works
+  too. Replaced files may be larger than the originals: files the game reads by disc sector are given new
+  sectors past the end of the disc.
+- **Textures.** Run once with `SR2_TEX_DUMP=1` and every texture the game draws is written to
+  `~/.local/share/sr2recomp/texdump/` as `<16 hex digits>.png`. Edit one and put it in `mods/mymod/textures/`
+  with the same name. It can be any size, so 2x or 4x redraws are drawn at full detail with the OpenGL
+  renderer. The names hash the texture's pixels and palette, not where it sits in memory, so they stay the
+  same between runs.
+
+The log lists the enabled mods and the files and textures they replace.
+
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
   (all 253 in this game), and `.init` is merged into the code range across alignment padding.
