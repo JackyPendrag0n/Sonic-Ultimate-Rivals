@@ -191,6 +191,10 @@ void rt_call(Ctx *c, u32 addr) {
 		HLE(c, m->stub_nids[idx]);
 		return;
 	}
+	if (!addr) for (int i = 0; i < 32; i += 8)
+		LOGI("r%d: %08x %08x %08x %08x %08x %08x %08x %08x", i, c->r[i], c->r[i+1], c->r[i+2], c->r[i+3], c->r[i+4], c->r[i+5], c->r[i+6], c->r[i+7]);
+	if (!addr) for (u32 a = c->r[29]; a < c->r[29] + 0x200; a += 32)
+		LOGI("sp+%03x: %08x %08x %08x %08x %08x %08x %08x %08x", a - c->r[29], LW(a), LW(a+4), LW(a+8), LW(a+12), LW(a+16), LW(a+20), LW(a+24), LW(a+28));
 	fatal("call to unknown address %08x (%s+%x). Add it to the module's extra seeds and re-run the recompiler.",
 	      addr, m ? m->name : "?", m ? addr - m->base : addr);
 }

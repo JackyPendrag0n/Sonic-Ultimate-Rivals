@@ -74,6 +74,23 @@
     "02138821",
     "8e254cc8"
    ]
+  },
+  {
+   "id": 6,
+   "name": "TRACK_ENTITY_SECTION",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "World update, per entity: finds the level section it is in and switches it off when that section is not loaded; the two racers (W+0x502C[0..1]) are exempt. The experimental extra racer is exempted too.",
+   "pattern": [
+    "27bdff60",
+    "afb40090",
+    "3c140000/ffff0000",
+    "00003821",
+    "afb3008c",
+    "26930000/ffff0000",
+    "afb20088",
+    "00809021"
+   ]
   }
  ]
 }

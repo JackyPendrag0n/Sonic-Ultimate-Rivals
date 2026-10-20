@@ -121,7 +121,13 @@ characters, and a `_1` rebuilt from `_0` races normally in place of the original
 
 Experimental: `SR2_EXTRA_RACER=<file>` loads a file made by `racergen.py` (for example slot 13 at
 0x0A000000, heap block 0x0A200000) during the race load and builds its scene nodes right after the
-game's own racers (hook 5). The racer object is created, but nothing spawns it into the race yet.
+game's own racers (hook 5), adding it to world slot 0 as a third racer. On the race's first frame it is
+switched on (F_16c0b0), placed next to the local player the way F_159194 places racers (`SR2_EXTRA_DXYZ`
+moves it), and its controller (racer+0x480) is reset. Its section index is kept current by hook 6 instead
+of the section tracker, which would switch it off. It is drawn and collides with the player, but stands
+still: nothing steers it yet. Notes for going further: the game's own code keeps two racers at world
++0x502C (and +0x5024 = the local player, F_3731c); the racer's per-frame player step is vtable +0x38
+(F_aff70), called by the world update only for the local player.
 
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found

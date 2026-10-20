@@ -97,7 +97,7 @@ int config_fps_next(int fps, int dir) {
 // The game's display manager (0x089A0BE4) flips at most every <+24> vblanks. Races ask for 2 (30 fps),
 // the menus for 1. Gameplay is timed by the system clock, so the races run correctly at any rate:
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
-enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT };
+enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -338,12 +338,14 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 // ---------------------------------------------------------------- extra racer (experimental)
 // A racer file is a 1.4 MB memory image made for one load slot at one address (RACER_<C>_0: slot 14 at
 // 0x08F61670, _1: slot 15 at 0x090C7CF0). tools/racergen.py rebuilds one for slot 13 (a level slot that
-// races leave empty) at EXTRA_BASE. SR2_EXTRA_RACER=<that file> loads it during the race load, copies its
-// slot header into world slot 13 like the game does for slots 14/15, and builds its scene nodes.
+// races leave empty) at 0x0A000000. SR2_EXTRA_RACER=<that file> loads it during the race load, copies its
+// slot header into world slot 13 like the game does for slots 14/15, and builds its scene nodes. On the
+// first frame of the race it is switched on, put next to the local player (SR2_EXTRA_DXYZ=x,y,z offsets
+// it) and its controller reset. It is drawn, collides with the player, and stands still: nothing steers it.
 #define WORLD        0x089ABD10
 #define WORLD_SLOT(k) (WORLD + 0x90 + (k) * 0x4c0)
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
-static u32 extra_base;
+static u32 extra_base, extra_racer, extra_pending;   // extra racer, and whether it waits to be switched on
 static bool extra_racer_prepare(void) {
 	const char *path = getenv("SR2_EXTRA_RACER");
 	if (!path) return false;
@@ -365,7 +367,50 @@ static void extra_racer_build(Ctx *c, u32 loader) {
 	c->r[4] = loader; c->r[5] = slot;
 	rt_call(c, 0x08800000 + 0x16208c);   // build the slot's scene nodes (the racer among them)
 	*c = save;
-	LOGI("extra racer: built, root node %08x", LW(slot + 0xd0));
+	// What F_159954 then does for its own racers i = 0, 1: the racer becomes entity i of world slot 0, and
+	// its 0x70-byte body is copied to entry i of that slot's body table. Add ours after them.
+	u32 racer = LW(slot + 0xd0), s0 = WORLD_SLOT(0), i = LW(s0 + 0x438);
+	if (i < 64) {
+		u32 body = LW(s0 + 0x410) + i * 0x70;
+		memcpy(PTR(body), PTR(LW(racer + 4)), 0x70);
+		SW(racer + 4, body);
+		SW(s0 + 0xd0 + 4 * i, racer);
+		SW(s0 + 0x438, i + 1);
+	}
+	LOGI("extra racer: built, racer %08x is entity %u of slot 0", racer, i);
+	extra_racer = extra_pending = racer;
+}
+
+// Put the extra racer at the start next to racer pr, the way F_159194 puts racers 0/1 at their start
+// (racer+0xb0): move the body (+0x20) and the previous position (+0xe0), telling the racer's collision
+// object (F_15e3c/F_15e64 take the offset), face the same way (+0xc0, body +0x30), then F_a2430.
+static void extra_racer_place(Ctx *c, u32 r, u32 pr) {
+	float t[4], cur[4], d[4];
+	float d0[3] = { 0, -1.2f, 0 };   // just behind (y is along the track here): in front it blocks the player
+	const char *e = getenv("SR2_EXTRA_DXYZ");
+	if (e) sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]);
+	memcpy(t, PTR(pr + 0xb0), 16);
+	for (int j = 0; j < 3; j++) t[j] += d0[j];
+	memcpy(PTR(r + 0xb0), t, 16);
+	memcpy(PTR(r + 0xc0), PTR(pr + 0xc0), 16);
+	u32 eb = LW(r + 4), tmp = c->r[29] - 0x200;   // scratch below the guest stack
+	Ctx save = *c;
+	static const u16 at[2] = { 0x20, 0xe0 };   // body +0x20 (base eb), racer +0xe0 (base r)
+	static const u32 fn[2] = { 0x15e3c, 0x15e64 };
+	for (int k = 0; k < 2; k++) {
+		u32 a = (k ? r : eb) + at[k];
+		memcpy(cur, PTR(a), 16);
+		for (int j = 0; j < 4; j++) d[j] = t[j] - cur[j];
+		memcpy(PTR(tmp), d, 16);
+		c->r[29] = tmp - 0x40; c->r[4] = r; c->r[5] = tmp;
+		rt_call(c, 0x08800000 + fn[k]);
+		*c = save;
+		memcpy(PTR(a), t, 16);
+	}
+	memcpy(PTR(eb + 0x30), PTR(LW(pr + 4) + 0x30), 16);
+	SW(eb + 8, LW(eb + 8) | 0xc000);
+	c->r[4] = r; rt_call(c, 0x08800000 + 0xa2430);
+	*c = save;
 }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
@@ -384,7 +429,35 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (slot == WORLD_SLOT(15) && extra_racer_prepare()) extra_racer_build(c, loader);
 		return;
 	}
+	case HOOK_TRACK_ENTITY_SECTION:   // F_1691b4(entity): racers are exempt, so is the extra one
+		if (extra_racer && A(0) == extra_racer) {   // keep its section index current (the start of F_1691b4)
+			u32 e = A(0), body = LW(e + 4);
+			Ctx save = *c;
+			c->r[4] = WORLD; c->r[5] = e; c->r[6] = 0; c->r[7] = 0;
+			rt_call(c, 0x08800000 + 0x15e0e8);
+			s32 sec = c->r[2];
+			*c = save;
+			if (sec > 0 && sec <= (s32)LW(WORLD + 0x4d10)) { SW(body + 0xc, sec); SW(body + 0x10, sec); }
+			c->r[2] = 1;
+			return;
+		}
+		break;
 	case HOOK_RACER_MOVE:
+		if (extra_pending) {   // the race is running: switch the extra racer on like the world update does (F_15aafc)
+			u32 r = extra_pending; extra_pending = 0;
+			u32 pr = LW(WORLD + 0x5024), eb = LW(r + 4);   // the local player (F_3731c(world, 0))
+			if (!pr) pr = A(0);
+			u32 pb = LW(pr + 4);
+			Ctx save = *c;
+			c->r[4] = r; c->r[5] = 1; c->r[6] = 2;
+			rt_call(c, 0x08800000 + 0x16c0b0);
+			*c = save;
+			extra_racer_place(c, r, pr);
+			u32 ctl = LW(r + 0x480);   // its controller: reset it, as the racer's start step (F_aff70) does first
+			c->r[4] = ctl; rt_call(c, LW(LW(ctl) + 8));
+			*c = save;
+			LOGI("extra racer: switched on %08x (body %08x), player body %08x, racers in race: %u", r, eb, pb, PTR(0x08A7C69C)[0]);
+		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;
 	case HOOK_SET_SWAP_INTERVAL:   // F_073c4(disp, interval)
