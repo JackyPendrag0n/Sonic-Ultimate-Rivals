@@ -115,7 +115,7 @@ void ReportMessageFormatted(const char *message, const char *formatted) {}
 // ------------------------------------------------------------------ memory
 namespace Memory {
 u8 *base = nullptr;
-u32 g_MemorySize = 0x02000000;
+u32 g_MemorySize = 0x04000000;   // 0x0A000000+ is used for extra racers
 u32 g_PSPModel = 0;
 u32 g_UserPartitionSize = 0;
 int g_depthTranslationIndex = DepthTranslationIndex(0x400);

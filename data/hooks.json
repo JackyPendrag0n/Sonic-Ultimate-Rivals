@@ -62,6 +62,18 @@
     "afb00100",
     "00808021"
    ]
+  },
+  {
+   "id": 5,
+   "name": "BUILD_RACER_SLOT",
+   "kind": "call",
+   "index": 0,
+   "_doc": "Race load: the call that builds a racer slot's scene nodes (once per racer, slots 14 and 15). Experimental extra racer: SR2_EXTRA_RACER=file (a racer file from tools/racergen.py) is loaded and built here too, right after the last racer.",
+   "pattern": [
+    "0c000000/fc000000",
+    "02138821",
+    "8e254cc8"
+   ]
   }
  ]
 }

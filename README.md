@@ -103,6 +103,26 @@ A skin is a folder `mods/<mod>/characters/<skin>/`:
 
 A clip keeps its original length (longer audio is cut). The model inside the racer files has no editor yet.
 
+## Racer files
+`STREAMS/RACER_<CHAR>_0.STR` and `_1.STR` (0x166670 bytes each) are raw memory images. The race load copies
+one to a fixed address and uses it as is, with no fix-ups: `_0` is made for load slot 14 at 0x08F61670, `_1`
+for slot 15 at 0x090C7CF0 (single-player races only load `_1`). The world has 16 load slots of 0x4C0 bytes
+at 0x089ABDA0 (slot 0 the level, 1-13 level sections, 14-15 the racers), and a racer file carries its own
+copy of its slot header at file offset 0x5430 (+0xD0 root scene node, +0x410 start, +0x438 node count). The
+racer object itself is at file offset 0x5900. The race's racer list (0x08A7C69C: count byte, then up to 5
+racer pointers) has room for more than two.
+
+The two images hold the same objects in the same order, so lining them up shows every word that depends on
+the slot: about 3,600 pointers into the image (some through the uncached mirror), about 900 slot numbers
+(mostly byte 2 of `0x0?SS00nn` handles), about 170 pointers to per-slot game objects, and a few pointers into
+a per-racer block of the game heap. `tools/racergen.py` uses that to rebuild a character's racer file for
+any slot and address; for slot 14 at the `_0` address it reproduces `_0` byte for byte for all eight
+characters, and a `_1` rebuilt from `_0` races normally in place of the original.
+
+Experimental: `SR2_EXTRA_RACER=<file>` loads a file made by `racergen.py` (for example slot 13 at
+0x0A000000, heap block 0x0A200000) during the race load and builds its scene nodes right after the
+game's own racers (hook 5). The racer object is created, but nothing spawns it into the race yet.
+
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
   (all 253 in this game), and `.init` is merged into the code range across alignment padding.
@@ -142,4 +162,5 @@ vblank) commands, see `runtime/frontend.c`), `SR2_DETERMINISTIC=1` (virtual cloc
 the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
 backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
 `SR2_WATCH=lo-hi` memory watches (VFPU stores included). `SR2_GPU=soft SR2_DRAW_EVERY=N` draws only every
-Nth frame in the software renderer, which makes long headless runs several times faster.
+Nth frame in the software renderer, which makes long headless runs several times faster (screenshots then
+often catch a skipped frame).

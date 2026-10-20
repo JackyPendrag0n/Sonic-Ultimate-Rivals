@@ -393,7 +393,7 @@ static void ctl_poll(void) {
 			if (!a) ntrack = 0; else if (ntrack < 8) track[ntrack++] = a;
 		} else if (!strcmp(cmd, "dump")) {
 			FILE *f = fopen(arg, "wb");
-			if (f) { fwrite(PTR(0x08000000), 1, 0x02000000, f); fclose(f); }
+			if (f) { fwrite(PTR(0x08000000), 1, 0x04000000, f); fclose(f); }
 		}
 		char ack[300]; snprintf(ack, sizeof ack, "%s.out", getenv("SR2_CTL"));
 		FILE *f = fopen(ack, "a");

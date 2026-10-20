@@ -97,7 +97,7 @@ int config_fps_next(int fps, int dir) {
 // The game's display manager (0x089A0BE4) flips at most every <+24> vblanks. Races ask for 2 (30 fps),
 // the menus for 1. Gameplay is timed by the system clock, so the races run correctly at any rate:
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
-enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE };
+enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -335,6 +335,39 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 	orig(c);
 }
 
+// ---------------------------------------------------------------- extra racer (experimental)
+// A racer file is a 1.4 MB memory image made for one load slot at one address (RACER_<C>_0: slot 14 at
+// 0x08F61670, _1: slot 15 at 0x090C7CF0). tools/racergen.py rebuilds one for slot 13 (a level slot that
+// races leave empty) at EXTRA_BASE. SR2_EXTRA_RACER=<that file> loads it during the race load, copies its
+// slot header into world slot 13 like the game does for slots 14/15, and builds its scene nodes.
+#define WORLD        0x089ABD10
+#define WORLD_SLOT(k) (WORLD + 0x90 + (k) * 0x4c0)
+#define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
+static u32 extra_base;
+static bool extra_racer_prepare(void) {
+	const char *path = getenv("SR2_EXTRA_RACER");
+	if (!path) return false;
+	FILE *f = fopen(path, "rb");
+	if (!f) { LOGI("extra racer: cannot open %s", path); return false; }
+	static u8 buf[0x200000];
+	size_t n = fread(buf, 1, sizeof buf, f); fclose(f);
+	u32 start; memcpy(&start, buf + FILE_SLOT_HDR + 0x410, 4);   // the file's own address (+0x10)
+	extra_base = start - 0x10;
+	memcpy(PTR(extra_base), buf, n);
+	LOGI("extra racer: %s (%zu bytes) at %08x", path, n, extra_base);
+	return true;
+}
+static void extra_racer_build(Ctx *c, u32 loader) {
+	u32 hdr = extra_base + FILE_SLOT_HDR, slot = WORLD_SLOT(LW(hdr + 0x20));   // the file's own slot number
+	static const u16 fields[] = { 0xd0, 0x410, 0x414, 0x438, 0x47c, 0x4b0 };   // root node, file range, node count, ..
+	for (unsigned i = 0; i < sizeof fields / sizeof *fields; i++) SW(slot + fields[i], LW(hdr + fields[i]));
+	Ctx save = *c;
+	c->r[4] = loader; c->r[5] = slot;
+	rt_call(c, 0x08800000 + 0x16208c);   // build the slot's scene nodes (the racer among them)
+	*c = save;
+	LOGI("extra racer: built, root node %08x", LW(slot + 0xd0));
+}
+
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	switch (id) {
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
@@ -345,6 +378,12 @@ u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	switch (id) {
+	case HOOK_BUILD_RACER_SLOT: {   // F_16208c(loader, slot)
+		u32 loader = A(0), slot = A(1);
+		orig(c);
+		if (slot == WORLD_SLOT(15) && extra_racer_prepare()) extra_racer_build(c, loader);
+		return;
+	}
 	case HOOK_RACER_MOVE:
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;
