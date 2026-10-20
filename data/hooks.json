@@ -91,6 +91,23 @@
     "afb20088",
     "00809021"
    ]
+  },
+  {
+   "id": 7,
+   "name": "RACER_INPUT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "A racer's input step (input): reads the pad (source 0..3, all the same pad device at 0x089A4020) or zeros (negative source) into the racer's input. The experimental extra racer gets source 1, which reads player 2's pad through a second pad device.",
+   "pattern": [
+    "27bdfff0",
+    "afb10004",
+    "00808821",
+    "afbf0008",
+    "afb00000",
+    "8c82001c",
+    "ac800010",
+    "24430004"
+   ]
   }
  ]
 }

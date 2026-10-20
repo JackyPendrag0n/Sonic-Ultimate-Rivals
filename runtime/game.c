@@ -97,7 +97,7 @@ int config_fps_next(int fps, int dir) {
 // The game's display manager (0x089A0BE4) flips at most every <+24> vblanks. Races ask for 2 (30 fps),
 // the menus for 1. Gameplay is timed by the system clock, so the races run correctly at any rate:
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
-enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION };
+enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION, HOOK_RACER_INPUT };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -341,7 +341,7 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 // races leave empty) at 0x0A000000. SR2_EXTRA_RACER=<that file> loads it during the race load, copies its
 // slot header into world slot 13 like the game does for slots 14/15, and builds its scene nodes. On the
 // first frame of the race it is switched on, put next to the local player (SR2_EXTRA_DXYZ=x,y,z offsets
-// it) and its controller reset. It is drawn, collides with the player, and stands still: nothing steers it.
+// it), takes the empty rival seat (Free Play), and is set up as a human racer reading player 2's pad.
 #define WORLD        0x089ABD10
 #define WORLD_SLOT(k) (WORLD + 0x90 + (k) * 0x4c0)
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
@@ -386,7 +386,7 @@ static void extra_racer_build(Ctx *c, u32 loader) {
 // object (F_15e3c/F_15e64 take the offset), face the same way (+0xc0, body +0x30), then F_a2430.
 static void extra_racer_place(Ctx *c, u32 r, u32 pr) {
 	float t[4], cur[4], d[4];
-	float d0[3] = { 0, -1.2f, 0 };   // just behind (y is along the track here): in front it blocks the player
+	float d0[3] = { 0, 1.2f, 0 };   // just ahead (y is along the track here; racers block each other)
 	const char *e = getenv("SR2_EXTRA_DXYZ");
 	if (e) sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]);
 	memcpy(t, PTR(pr + 0xb0), 16);
@@ -413,6 +413,14 @@ static void extra_racer_place(Ctx *c, u32 r, u32 pr) {
 	*c = save;
 }
 
+// Player 2 steers the extra racer. Every racer has an input block (source at +0x1c) that F_17d58 fills each
+// frame; sources 0..3 all read the one pad device the main loop updates (F_06774, 0x089A4020). The extra
+// racer gets source 1, and for it F_17d58 runs against a second device kept here, updated from player 2's
+// controller (g_ctrl_port makes the sceCtrl calls return that pad).
+#define PAD_DEV  0x089A4020
+#define PAD2_DEV 0x0A1F0000   // above the PSP's 32 MB, clear of the extra racer file
+#define PAD_DEV_SIZE 0x60
+extern int g_ctrl_port;
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	switch (id) {
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
@@ -429,6 +437,24 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (slot == WORLD_SLOT(15) && extra_racer_prepare()) extra_racer_build(c, loader);
 		return;
 	}
+	case HOOK_RACER_INPUT:   // F_17d58(input)
+		if (extra_racer && (s32)LW(A(0) + 0x1c) == 1) {
+			u32 in = A(0);
+			Ctx save = *c;
+			g_ctrl_port = 1;
+			c->r[4] = PAD2_DEV; rt_call(c, 0x08800000 + 0x6774);   // update player 2's device
+			g_ctrl_port = 0;
+			*c = save;
+			static u8 p1[PAD_DEV_SIZE];
+			memcpy(p1, PTR(PAD_DEV), PAD_DEV_SIZE);
+			memcpy(PTR(PAD_DEV), PTR(PAD2_DEV), PAD_DEV_SIZE);
+			SW(in + 0x1c, 0);
+			orig(c);
+			SW(in + 0x1c, 1);
+			memcpy(PTR(PAD_DEV), p1, PAD_DEV_SIZE);
+			return;
+		}
+		break;
 	case HOOK_TRACK_ENTITY_SECTION:   // F_1691b4(entity): racers are exempt, so is the extra one
 		if (extra_racer && A(0) == extra_racer) {   // keep its section index current (the start of F_1691b4)
 			u32 e = A(0), body = LW(e + 4);
@@ -456,7 +482,21 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			u32 ctl = LW(r + 0x480);   // its controller: reset it, as the racer's start step (F_aff70) does first
 			c->r[4] = ctl; rt_call(c, LW(LW(ctl) + 8));
 			*c = save;
-			LOGI("extra racer: switched on %08x (body %08x), player body %08x, racers in race: %u", r, eb, pb, PTR(0x08A7C69C)[0]);
+			if (!LW(WORLD + 0x502c)) {   // take the empty rival seat (Free Play): the game's race code only moves seated racers
+				SW(WORLD + 0x502c, r); SW(WORLD + 0x4f84, r);
+			}
+			memcpy(PTR(PAD2_DEV), PTR(PAD_DEV), PAD_DEV_SIZE);   // player 2's pad device starts as a copy of the game's
+			u32 in = LW(r + 0x8c) ? LW(LW(r + 0x8c) + 4) : 0;   // its input block: set up like F_159194 does for a
+			if (in) {                                            // human racer (F_17138: button map, source), source 1
+				c->r[4] = in; c->r[5] = 2; c->r[6] = 1;
+				rt_call(c, 0x08800000 + 0x17138);
+				*c = save;
+			}
+			c->r[4] = r; c->r[5] = 0; rt_call(c, 0x08800000 + 0xade6c);   // not computer-driven (F_ade6c, as F_159194)
+			*c = save;
+			c->r[4] = r; c->r[5] = 0; c->r[6] = 0; rt_call(c, LW(LW(r) + 0x38));   // its race-start step (F_aff70)
+			*c = save;
+			LOGI("extra racer: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", r, eb, pb, in, PTR(0x08A7C69C)[0]);
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;

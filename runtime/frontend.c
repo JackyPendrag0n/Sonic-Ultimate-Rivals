@@ -51,6 +51,7 @@ void split_set_input(u32 buttons, u8 lx, u8 ly);
 void split_draw(int x, int y, int w, int h);
 
 u32 fe_buttons;
+u32 fe_buttons2; u8 fe_lx2 = 128, fe_ly2 = 128;   // player 2 in the same game (extra racer): second controller or "press2"
 bool g_display_dirty;
 u8 fe_lx = 128, fe_ly = 128;
 static u32 kb_buttons, pad_buttons, script_buttons;
@@ -276,6 +277,13 @@ static void poll_input(void) {
 		if (bx < -128) bx = -128; if (bx > 127) bx = 127;
 		if (by < -128) by = -128; if (by > 127) by = 127;
 		split_set_input(b, (u8)(bx + 128), (u8)(by + 128));
+	} else {   // no split screen: the second controller (or "press2") is player 2 inside this game
+		int bx = 0, by = 0;
+		fe_buttons2 = (menu_is_open() ? 0 : read_pad(pad2, &bx, &by)) | p2b;
+		if (p2x || p2y) { bx = p2x; by = p2y; }
+		if (bx < -128) bx = -128; if (bx > 127) bx = 127;
+		if (by < -128) by = -128; if (by > 127) by = 127;
+		fe_lx2 = (u8)(bx + 128); fe_ly2 = (u8)(by + 128);
 	}
 }
 
@@ -439,6 +447,7 @@ void fe_vblank(void) {
 	}
 	if (script_ax || script_ay) { fe_lx = (u8)(script_ax + 128); fe_ly = (u8)(script_ay + 128); }
 	else if (headless) { fe_lx = 128; fe_ly = 128; }
+	if (headless && !split_active()) { fe_buttons2 = p2b; fe_lx2 = (u8)(p2x + 128); fe_ly2 = (u8)(p2y + 128); }
 	if (split_is_child()) { u32 b; split_child_input(&b, &fe_lx, &fe_ly); fe_buttons |= b; }
 	split_poll();
 	{

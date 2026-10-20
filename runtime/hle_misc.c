@@ -155,8 +155,10 @@ void ge_vblank(void) {
 // ================================================================= controller
 extern u32 fe_buttons;
 extern u8 fe_lx, fe_ly;
+extern u32 fe_buttons2; extern u8 fe_lx2, fe_ly2;
+int g_ctrl_port;   // 1 while the game reads player 2's pad (game.c, extra racer)
 static void write_ctrl(u32 p, int n) {
-	u32 b = fe_buttons; u8 lx = fe_lx, ly = fe_ly;
+	u32 b = g_ctrl_port ? fe_buttons2 : fe_buttons; u8 lx = g_ctrl_port ? fe_lx2 : fe_lx, ly = g_ctrl_port ? fe_ly2 : fe_ly;
 	for (int i = 0; i < n; i++) {
 		u32 q = p + i * 16;
 		SW(q, (u32)now_us()); SW(q + 4, b); SB(q + 8, lx); SB(q + 9, ly);
@@ -168,10 +170,10 @@ static void h_CtrlSetSamplingMode(Ctx *c) { RET(0); }
 static void h_CtrlReadBufferPositive(Ctx *c) { int n = A(1) ? A(1) : 1; write_ctrl(A(0), n); RET(n); kernel_wait_vblank(c, false); c->r[2] = n; }
 static void h_CtrlPeekBufferPositive(Ctx *c) { int n = A(1) ? A(1) : 1; write_ctrl(A(0), n); RET(n); }
 static void h_CtrlReadLatch(Ctx *c) {
-	static u32 prev;
-	u32 cur = fe_buttons;
-	SW(A(0), cur & ~prev); SW(A(0) + 4, prev & ~cur); SW(A(0) + 8, cur); SW(A(0) + 12, ~cur);
-	prev = cur;
+	static u32 prevs[2];
+	u32 *prev = &prevs[g_ctrl_port ? 1 : 0], cur = g_ctrl_port ? fe_buttons2 : fe_buttons;
+	SW(A(0), cur & ~*prev); SW(A(0) + 4, *prev & ~cur); SW(A(0) + 8, cur); SW(A(0) + 12, ~cur);
+	*prev = cur;
 	RET(1);
 }
 
