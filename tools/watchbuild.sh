@@ -8,6 +8,10 @@ CF="-O1 -g -fno-strict-aliasing -fwrapv -foptimize-sibling-calls -Iruntime -w -D
 objs=(); pids=()
 for o in build/obj/*.o; do
   b=$(basename $o .o); use=$o
+  case $b in vfpu_InterpreterVFPU|vfpu_vfpu_glue)   # VFPU stores report too
+    use=build/watchobj/$b.o; src=runtime/vfpu/${b#vfpu_}.cpp
+    [ -f $use ] && [ $use -nt $src ] && [ $use -nt runtime/vfpu/inc/Core/MemMap.h ] || g++ -std=c++17 -O2 -g -Iruntime/vfpu/inc -w -DSR2_WATCH -c $src -o $use;;
+  esac
   for m in "$@"; do
     case $b in ${m}_[0-9]*|${m}_table)
       src=gen/$m/$b.c; use=build/watchobj/$b.o

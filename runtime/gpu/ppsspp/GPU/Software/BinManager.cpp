@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+bool g_ge_skip_draw;   // sr2recomp: skip rasterizing (headless test runs)
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
@@ -508,6 +509,7 @@ void BinManager::AddFlags(F calculate) {
 }
 
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	if (g_ge_skip_draw) return;   // sr2recomp test aid: SR2_DRAW_EVERY
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
@@ -546,6 +548,7 @@ void BinManager::PushItem(BinItemType type, const BinCoords &range, const Vertex
 }
 
 void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
+	if (g_ge_skip_draw) return;   // sr2recomp test aid: SR2_DRAW_EVERY
 	const BinCoords range = Range(v0, v1);
 	if (range.Invalid())
 		return;
@@ -558,6 +561,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 }
 
 void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
+	if (g_ge_skip_draw) return;   // sr2recomp test aid: SR2_DRAW_EVERY
 	const BinCoords range = Range(v0, v1);
 	if (range.Invalid())
 		return;
@@ -570,6 +574,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 }
 
 void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
+	if (g_ge_skip_draw) return;   // sr2recomp test aid: SR2_DRAW_EVERY
 	const BinCoords range = Range(v0, v1);
 	if (range.Invalid())
 		return;
@@ -582,6 +587,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 }
 
 void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
+	if (g_ge_skip_draw) return;   // sr2recomp test aid: SR2_DRAW_EVERY
 	const BinCoords range = Range(v0, v1);
 	if (range.Invalid())
 		return;
@@ -594,6 +600,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 }
 
 void BinManager::AddPoint(const VertexData &v0) {
+	if (g_ge_skip_draw) return;   // sr2recomp test aid: SR2_DRAW_EVERY
 	const BinCoords range = Range(v0);
 	if (range.Invalid())
 		return;

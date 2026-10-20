@@ -330,6 +330,7 @@ namespace MIPSInt
 			f = reinterpret_cast<float *>(Memory::GetPointerWriteUnchecked(addr));
 			if (f) {
 				ReadVector(mips, f, V_Quad, vt);
+				for (int i = 0; i < 4; i++) { u32 u; memcpy(&u, &f[i], 4); WCHK_VFPU(addr + 4 * i, u); }
 			}
 #else
 			float svqd[4];

@@ -709,9 +709,15 @@ void ge_soft_init(void) {
 }
 
 // Per frame (vblank): finish queued drawing so VRAM holds the frame, and do the GPU's frame upkeep.
+extern bool g_ge_skip_draw;
 void ge_soft_vblank(void) {
 	if (!gpu)
 		return;
+	{	// test aid: SR2_DRAW_EVERY=N rasterizes only every Nth vblank's drawing (software renderer), for fast headless runs
+		static int every = -1, n;
+		if (every < 0) { const char *e = getenv("SR2_DRAW_EVERY"); every = e ? atoi(e) : 0; }
+		if (every > 1) g_ge_skip_draw = ++n % every != 0;
+	}
 	gpu->FlushPendingDrawing();
 	gpu->PSPFrame();
 }

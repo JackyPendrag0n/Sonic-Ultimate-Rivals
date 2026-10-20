@@ -6,7 +6,62 @@
    "name": "SET_SWAP_INTERVAL",
    "kind": "entry",
    "index": 0,
-   "pattern": ["18a00003", "ac850018", "24030001", "ac830008", "03e00008"]
+   "pattern": [
+    "18a00003",
+    "ac850018",
+    "24030001",
+    "ac830008",
+    "03e00008"
+   ]
+  },
+  {
+   "id": 2,
+   "name": "COPTER_LIFT_DT",
+   "kind": "value",
+   "index": 2,
+   "_doc": "Tail Copter: each flap sets the lift time to dt * 4 (4 frames) and accelerates at 30/s while it lasts, so above 30 fps the climb shrank. The lift time is computed from at least 1/30 s, as on the PSP.",
+   "pattern": [
+    "1060004e",
+    "3c090000/ffff0000",
+    "c6410000/ffff0000",
+    "c5240000/ffff0000",
+    "46040d02",
+    "44801800",
+    "4614183c"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "SIG_START_DT",
+   "kind": "value",
+   "index": 2,
+   "_doc": "Signature move start (Tails' Tail Copter among others): lift time dt * 4 and an upward kick of 2 * dt * 30, both meant as 4 frames / one frame at 30 fps. Fed at least 1/30 s.",
+   "pattern": [
+    "3c0d0000/ffff0000",
+    "3c0c0000/ffff0000",
+    "c5a10000/ffff0000",
+    "c5830000/ffff0000",
+    "3c0b0000/ffff0000",
+    "c5600000/ffff0000",
+    "46030902"
+   ]
+  },
+  {
+   "id": 4,
+   "name": "RACER_MOVE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "A racer's move step (racer, dt): pos += vel * dt, then the collide-and-slide pass. Above ~165 fps the steps get so short that a racer sliding into a concave corner (the bottom of a loop, a ramp into a wall) creeps toward it forever instead of crossing onto the next surface; see racer_move() in game.c.",
+   "pattern": [
+    "27bdfee0",
+    "afb20108",
+    "3c030000/ffff0000",
+    "249202f0",
+    "afb10104",
+    "44116000",
+    "afb00100",
+    "00808021"
+   ]
   }
  ]
 }

@@ -5,6 +5,7 @@
 #include "config.h"
 #include <sys/stat.h>
 #include <stdarg.h>
+#include <math.h>
 
 GameConfig g_cfg = {
 	.renderer = 1, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
@@ -96,7 +97,7 @@ int config_fps_next(int fps, int dir) {
 // The game's display manager (0x089A0BE4) flips at most every <+24> vblanks. Races ask for 2 (30 fps),
 // the menus for 1. Gameplay is timed by the system clock, so the races run correctly at any rate:
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
-enum { HOOK_SET_SWAP_INTERVAL = 1 };
+enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -293,10 +294,60 @@ void game_vblank(void) {
 	charslot_vblank();
 }
 
-u32 rt_hookval(Ctx *c, u32 id, u32 v) { return v; }
+// ---------------------------------------------------------------- frame-rate fixes
+// Races ran at 30 fps on the PSP and most of the game scales by the frame time, but a few timers are set to
+// "dt * N", meaning N frames. Above 30 fps those get shorter, so they are fed at least 1/30 s.
+static u32 at_least_30fps_dt(u32 v) {
+	float dt; memcpy(&dt, &v, 4);
+	if (!(dt >= 1.0f / 30)) dt = 1.0f / 30;
+	memcpy(&v, &dt, 4);
+	return v;
+}
+
+// A racer's move step F(racer, dt) does pos += vel * dt and then collides and slides. At very high frame rates
+// a racer sliding into a concave corner (the start of a loop, a ramp running into a wall) moves a shorter and
+// shorter distance each frame and never crosses onto the next surface, which at 30-165 fps it does by
+// overshooting a little; it then sits there until the speed runs out. When a racer has covered under a quarter
+// of the distance its speed asks for, three frames running, one step is taken with a 60 fps frame time.
+#define RACER_BODY   0x004     // -> body; position at +0x20
+#define RACER_VEL    0x130
+static struct { u32 racer; float pos[3], expect; int stuck; } movers[8];
+
+static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
+	u32 racer = A(0), body = LW(racer + RACER_BODY);
+	float dt = c->f[12], pos[3], vel[3];
+	memcpy(pos, PTR(body + 0x20), sizeof pos);
+	memcpy(vel, PTR(racer + RACER_VEL), sizeof vel);
+	int i = 0;
+	while (i < 8 && movers[i].racer && movers[i].racer != racer) i++;
+	if (i == 8) i = racer >> 4 & 7;
+	if (movers[i].racer != racer) memset(&movers[i], 0, sizeof movers[i]), movers[i].racer = racer;
+	float dx = pos[0] - movers[i].pos[0], dy = pos[1] - movers[i].pos[1], dz = pos[2] - movers[i].pos[2];
+	float moved = sqrtf(dx * dx + dy * dy + dz * dz);
+	if (movers[i].expect > 0.004f && moved < 0.25f * movers[i].expect) movers[i].stuck++;
+	else movers[i].stuck = 0;
+	memcpy(movers[i].pos, pos, sizeof pos);
+	movers[i].expect = sqrtf(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]) * dt;
+	if (movers[i].stuck >= 3 && dt < 1.0f / 60) {
+		movers[i].stuck = 0;
+		c->f[12] = 1.0f / 60;
+	}
+	orig(c);
+}
+
+u32 rt_hookval(Ctx *c, u32 id, u32 v) {
+	switch (id) {
+	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
+	case HOOK_SIG_START_DT: return at_least_30fps_dt(v);     // signature move start: lift time and kick
+	}
+	return v;
+}
 
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	switch (id) {
+	case HOOK_RACER_MOVE:
+		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
+		break;
 	case HOOK_SET_SWAP_INTERVAL:   // F_073c4(disp, interval)
 		if ((s32)A(1) > 0) {
 			in_race = A(1) >= 2;

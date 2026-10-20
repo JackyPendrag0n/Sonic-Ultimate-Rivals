@@ -75,5 +75,11 @@ extern "C" void vfpu_reset_ctx(Ctx *c) {
 	c->vfpuCtrl[VFPU_CTRL_RCX6] = 0x3f800000;
 	c->vfpuCtrl[VFPU_CTRL_RCX7] = 0x3f800000;
 }
-#define X(n) extern "C" void interp_##n(Ctx *c, u32 op) { currentMIPS = (MIPSState *)c; MIPSInt::n((MIPSState *)c, MIPSOpcode(op)); }
+#ifdef SR2_WATCH
+extern "C" Ctx *g_interp_ctx;
+#define WATCH_CTX(c) g_interp_ctx = (c);
+#else
+#define WATCH_CTX(c)
+#endif
+#define X(n) extern "C" void interp_##n(Ctx *c, u32 op) { currentMIPS = (MIPSState *)c; WATCH_CTX(c) MIPSInt::n((MIPSState *)c, MIPSOpcode(op)); }
 #include "../interp_list.h"

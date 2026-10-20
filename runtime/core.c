@@ -153,6 +153,17 @@ void rt_watch(u32 a, int size, int write, u32 val, const char *fn) {
 	LOGI("watch: %s %s %08x (+%x) size %d = %x  (vblank %llu)", fn, write ? "WRITE" : "read ", a, a - g_watch_lo, size, val, (unsigned long long)g_vblank_count);
 }
 
+// VFPU stores (sv.s/sv.q run in the interpreter): named by the guest pc of the instruction
+Ctx *g_interp_ctx;
+void rt_watch_vfpu(u32 a, u32 val) {
+	static char names[64][24]; static u32 pcs[64]; static int n;
+	u32 pc = g_interp_ctx ? g_interp_ctx->pc : 0;
+	int i = 0;
+	while (i < n && pcs[i] != pc) i++;
+	if (i == n) { if (n == 64) i = 63; else n++; pcs[i] = pc; snprintf(names[i], sizeof names[i], "vfpu@%08x", pc); }
+	rt_watch(a, 4, 1, val, names[i]);
+}
+
 // ---------------------------------------------------------------- guest calls
 LoadedModule *g_modules;
 

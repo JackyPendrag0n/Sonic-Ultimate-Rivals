@@ -8,7 +8,8 @@
 //   SR2_INPUT="f:BTN+BTN,f:-,..."  scripted input from vblank f ('-' = release; SUP/SDOWN/SLEFT/SRIGHT = stick)
 //   SR2_DUMP_AT="f1,f2"     dump guest RAM 0x08800000-0x0A000000 at those vblanks
 //   SR2_CTL=fifo            live test control, one command per line: "press BTN+BTN [vblanks]" (stick: SUP...),
-//                           "shot file.png", "dump file.bin" (RAM from 0x08000000); acks "ok <vblank>" to fifo.out
+//                           "shot file.png", "dump file.bin" (RAM from 0x08000000), "poke ADDR hex|float",
+//                           "track ADDR" (float logged every vblank to fifo.track); acks "ok <vblank>" to fifo.out
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
@@ -348,6 +349,7 @@ static void run_menu_pause(void) {
 }
 
 // SR2_CTL: drive a running game from a shell (see the top of this file)
+static u32 track[8]; static int ntrack;
 static void ctl_poll(void) {
 	static int fd = -2, release_in, release2_in;
 
@@ -358,6 +360,15 @@ static void ctl_poll(void) {
 		if (e) { mkfifo(e, 0644); fd = open(e, O_RDWR | O_NONBLOCK); }
 	}
 	if (fd < 0) return;
+	if (ntrack) {
+		char tp[300]; snprintf(tp, sizeof tp, "%s.track", getenv("SR2_CTL"));
+		FILE *f = fopen(tp, "a");
+		if (f) {
+			fprintf(f, "%llu", (unsigned long long)g_vblank_count);
+			for (int i = 0; i < ntrack; i++) { float v; memcpy(&v, PTR(track[i]), 4); fprintf(f, " %g", v); }
+			fputc('\n', f); fclose(f);
+		}
+	}
 	if (release_in && --release_in == 0) { script_buttons = 0; script_ax = script_ay = 0; }
 	if (release2_in && --release2_in == 0) { p2b = 0; p2x = p2y = 0; }
 
@@ -374,7 +385,13 @@ static void ctl_poll(void) {
 			p2b = parse_buttons(arg); parse_stick(arg, &p2x, &p2y); release2_in = cnt;
 		} else if (!strcmp(cmd, "shot")) fe_write_png(arg);
 		else if (!strcmp(cmd, "winshot")) { snprintf(winshot_path, sizeof winshot_path, "%s", arg); want_winshot = true; }
-		else if (!strcmp(cmd, "dump")) {
+		else if (!strcmp(cmd, "poke")) {      // "poke ADDR VALUE": 32-bit word, VALUE hex or a float with a '.'
+			u32 a = strtoul(arg, NULL, 16); const char *v = strchr(buf + strlen(cmd) + 1, ' ');
+			if (v) { if (strchr(v, '.')) { float fv = strtof(v, NULL); memcpy(PTR(a), &fv, 4); } else SW(a, strtoul(v, NULL, 16)); }
+		} else if (!strcmp(cmd, "track")) {   // "track ADDR": log that float every vblank to <fifo>.track ("track 0" clears)
+			u32 a = strtoul(arg, NULL, 16);
+			if (!a) ntrack = 0; else if (ntrack < 8) track[ntrack++] = a;
+		} else if (!strcmp(cmd, "dump")) {
 			FILE *f = fopen(arg, "wb");
 			if (f) { fwrite(PTR(0x08000000), 1, 0x02000000, f); fclose(f); }
 		}

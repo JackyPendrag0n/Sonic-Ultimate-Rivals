@@ -15,6 +15,8 @@ PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP
   into Resolution, Frame Rate, Fullscreen, V-Sync and Filtering (left/right or CROSS change a row,
   CIRCLE goes back). F1 / Esc opens the same settings as an overlay, plus window and audio options.
   Settings are saved to `~/.config/sr2recomp/settings.ini`; saves go to `~/.local/share/sr2recomp`.
+- High frame rates: a few spots of the game assumed 30 fps steps and are corrected above it (see
+  "Frame-rate fixes" below).
 - Wireless Play works, and two players can race on one PC in split screen (see below).
 
 ## Controls
@@ -120,6 +122,14 @@ A clip keeps its original length (longer audio is cut). The model inside the rac
   data-driven (0x420-byte widgets baked into the menu data at fixed addresses, text by index into
   `STR_EN_NA.TXT`), so the runtime adds a fifth widget to the Options list and appends its strings to the
   game's text table.
+- Frame-rate fixes (`runtime/game.c`, hooks 2-4 in `data/hooks.json`):
+  - Tails' Tail Copter sets a lift timer to `dt*4` and a starting kick to `dt*30`, which only add up
+    to a climb at 30 fps. Hooks 2 and 3 give those two dt loads at least 1/30 s, so at 240 fps he climbs
+    about as high as at 30 (3.5 vs 3.3 units; it was 2.6).
+  - Racer movement (hook 4 on the move function, active in races above 60 fps): with very small steps
+    the collide-and-slide can creep into a corner without ever crossing onto the next surface, and the
+    racer stops dead (seen on a Blue Coast ramp at 240 fps). When a racer has moved less than a quarter
+    of its expected distance for 3 frames in a row, one step is taken with a 1/60 s dt.
 - The Size Matters debug menu, mods, control schemes and test scripts are gone.
 
 ## Headless testing
@@ -127,7 +137,9 @@ A clip keeps its original length (longer audio is cut). The model inside the rac
 `SR2_LOG=2|3`, `SR2_INPUT="300:CROSS,308:-,..."` (scripted input by vblank),
 `SR2_WINSHOT_EVERY=N SR2_SHOT_DIR=dir` (screenshots), `SR2_FPS=120`, `SR2_GL_SCALE=N`,
 `SR2_2P=1` (start player 2), `SR2_CTL=fifo` (live control: `press`, `press2` for player 2, `shot`,
-`winshot`, `dump` commands, see `runtime/frontend.c`), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
+`winshot`, `dump`, `poke ADDR hex|float`, `track ADDR` (append those words to `<fifo>.track` every
+vblank) commands, see `runtime/frontend.c`), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
 the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
 backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
-`SR2_WATCH=lo-hi` memory watches.
+`SR2_WATCH=lo-hi` memory watches (VFPU stores included). `SR2_GPU=soft SR2_DRAW_EVERY=N` draws only every
+Nth frame in the software renderer, which makes long headless runs several times faster.
