@@ -97,7 +97,8 @@ int config_fps_next(int fps, int dir) {
 // The game's display manager (0x089A0BE4) flips at most every <+24> vblanks. Races ask for 2 (30 fps),
 // the menus for 1. Gameplay is timed by the system clock, so the races run correctly at any rate:
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
-enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION, HOOK_RACER_INPUT };
+enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION, HOOK_RACER_INPUT,
+       HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -421,6 +422,89 @@ static void extra_racer_place(Ctx *c, u32 r, u32 pr) {
 #define PAD2_DEV 0x0A1F0000   // above the PSP's 32 MB, clear of the extra racer file
 #define PAD_DEV_SIZE 0x60
 extern int g_ctrl_port;
+// Split view: one screen, one view per human racer. The race camera (CAM_MAIN) follows the racer at +0x294;
+// a second camera is the same object with its own state, kept here and swapped in while it steps
+// (HOOK_CAMERA_UPDATE) and while the world is drawn for it (HOOK_WORLD_DRAW). Each view is drawn into its
+// part of the screen by moving the GE's viewport centre and clipping with the scissor, so it keeps the
+// game's aspect and sees the middle of what a full-screen view would. SR2_SPLIT_VIEW=lr (side by side),
+// tb (top and bottom, the default) or 0 (off).
+#define CAM_MAIN     0x08A855D4   // the race camera
+#define CAM_SIZE     0x66c        // its allocation
+#define CAM_NODE_SZ  0x7c         // the transform node it owns (camera +4)
+#define CAM_TARGET   0x294
+#define GE_LIST_PTR  0x089A0E1C   // the display list being written
+static int split_view = -1;       // -1 not read yet, 0 off, 1 top and bottom, 2 side by side
+static bool camb_ready;
+static u32 camb_cam;
+static u8 camb_obj[CAM_SIZE], camb_node[CAM_NODE_SZ];
+
+static bool split_view_on(void) {
+	if (split_view < 0) {
+		const char *e = getenv("SR2_SPLIT_VIEW");
+		split_view = !e ? 1 : !strcmp(e, "0") ? 0 : !strcmp(e, "lr") ? 2 : 1;
+	}
+	return split_view && extra_racer && !extra_pending && LW(CAM_MAIN);
+}
+
+static void swap_bytes(u8 *a, u8 *b, u32 n) { for (u32 i = 0; i < n; i++) { u8 t = a[i]; a[i] = b[i]; b[i] = t; } }
+
+static void camb_swap(void) {
+	u32 cam = LW(CAM_MAIN);
+	if (!camb_ready || camb_cam != cam) {   // the second camera starts as a copy of the first, following the extra racer
+		memcpy(camb_obj, PTR(cam), CAM_SIZE);
+		memcpy(camb_node, PTR(LW(cam + 4)), CAM_NODE_SZ);
+		memcpy(camb_obj + CAM_TARGET, &extra_racer, 4);
+		camb_cam = cam; camb_ready = true;
+	}
+	swap_bytes(PTR(cam), camb_obj, CAM_SIZE);
+	swap_bytes(PTR(LW(cam + 4)), camb_node, CAM_NODE_SZ);
+}
+
+// rebuild the view from the current camera state, as F_581b0 does at the start of the race render
+static void view_refresh(Ctx *c) {
+	Ctx save = *c;
+	u32 cam = LW(CAM_MAIN), buf = c->r[29] - 0x100;
+	c->r[29] = buf - 0x40;
+	c->r[4] = cam; c->r[5] = buf; rt_call(c, LW(LW(cam) + 0x40));
+	c->r[29] = buf - 0x40;
+	c->r[4] = 0x08800000 + 0x1a3f20; c->r[5] = buf; rt_call(c, 0x08800000 + 0x2ac50);
+	*c = save;
+}
+
+static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p + 4); }
+
+// view k of 2, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24) and scissor. The first view
+// is not clipped: it fills the screen (centred on its own part), and the next view is drawn over the rest.
+// Drawing the first view into only part of the screen leaves the colours washed out, as if something
+// later in the frame weighs in the parts nothing was drawn to.
+static void ge_region(int k) {
+	int x0 = 0, y0 = 0, w = 480, h = 272;
+	if (k >= 0) { if (split_view == 2) { w = 240; x0 = k * 240; } else { h = 136; y0 = k * 136; } }
+	float px = 2048.0f - 240 + x0 + w / 2, py = 2048.0f - 136 + y0 + h / 2;   // the screen offset stays (2048-240, 2048-136)
+	u32 bx, by; memcpy(&bx, &px, 4); memcpy(&by, &py, 4);
+	ge_put(0x45000000 | bx >> 8);
+	ge_put(0x46000000 | by >> 8);
+	if (k <= 0) { x0 = 0; y0 = 0; w = 480; h = 272; }
+	ge_put(0xD4000000 | x0 | y0 << 10);
+	ge_put(0xD5000000 | (x0 + w - 1) | (y0 + h - 1) << 10);
+}
+
+// one draw call of the race render, once per view: the first camera's view, then the second camera's (with
+// the extra racer as the local player, whose section picks the scenery), then the first camera's state back
+static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
+	Ctx save = *c;
+	ge_region(0); orig(c);
+	Ctx out = *c;
+	*c = save;
+	u32 p1 = LW(WORLD + 0x5024);
+	camb_swap(); SW(WORLD + 0x5024, extra_racer); view_refresh(c);
+	ge_region(1); orig(c);
+	*c = save;
+	SW(WORLD + 0x5024, p1); camb_swap(); view_refresh(c);
+	ge_region(-1);
+	*c = out;
+}
+
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	switch (id) {
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
@@ -455,6 +539,20 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
+	case HOOK_CAMERA_UPDATE:   // F_10a250(camera, dt)
+		if (split_view_on() && A(0) == LW(CAM_MAIN)) {
+			Ctx save = *c;
+			orig(c);
+			*c = save;
+			camb_swap(); orig(c); camb_swap();
+			return;
+		}
+		break;
+	case HOOK_WORLD_DRAW:     // F_15a460(world)
+	case HOOK_SHADOW_DRAW:    // F_31300
+	case HOOK_EFFECT_DRAW:    // F_30414
+		if (split_view_on()) { split_draw_views(c, orig); return; }
+		break;
 	case HOOK_TRACK_ENTITY_SECTION:   // F_1691b4(entity): racers are exempt, so is the extra one
 		if (extra_racer && A(0) == extra_racer) {   // keep its section index current (the start of F_1691b4)
 			u32 e = A(0), body = LW(e + 4);
@@ -471,6 +569,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_RACER_MOVE:
 		if (extra_pending) {   // the race is running: switch the extra racer on like the world update does (F_15aafc)
 			u32 r = extra_pending; extra_pending = 0;
+			camb_ready = false;
 			u32 pr = LW(WORLD + 0x5024), eb = LW(r + 4);   // the local player (F_3731c(world, 0))
 			if (!pr) pr = A(0);
 			u32 pb = LW(pr + 4);

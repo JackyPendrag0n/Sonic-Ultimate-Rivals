@@ -128,7 +128,17 @@ moves seated racers), its computer driver is turned off (F_ade6c) and its input 
 human racer's (F_17138) with source 1. Its section index is kept current by hook 6. Hook 7 (F_17d58, a
 racer's input step) reads source 1 from a second pad device (0x0A1F0000) that is updated from the second
 controller (or the `press2` ctl command) when split screen is off. So with two controllers, player 2 runs
-the extra Sonic around the same track; the camera still follows player 1 only.
+the extra Sonic around the same track.
+
+Split view (on with the extra racer; `SR2_SPLIT_VIEW=tb` top and bottom, the default, `lr` side by side,
+`0` off): the race camera (0x08A855D4, a 0x66c-byte object plus the 0x7c-byte transform node at +4)
+follows the racer at +0x294. A second camera is kept as a copy of that state aimed at the extra racer and
+swapped in around the camera step (hook 8, F_10a250) and around the race render's draws (hooks 9-11:
+F_15a460 world, F_31300, F_30414), with the view rebuilt as F_581b0 does (camera vt+0x40, F_2ac50) and the
+extra racer standing in as the local player (world +0x5024). Each view goes into its half of the screen by
+moving the GE viewport centre (XPOS/YPOS) and, for the second, the scissor; the first view is drawn over
+the whole screen, since leaving part of the screen empty during it washes out the colours. The HUD is
+still player 1's.
 
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found

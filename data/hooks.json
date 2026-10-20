@@ -108,6 +108,74 @@
     "ac800010",
     "24430004"
    ]
+  },
+  {
+   "id": 8,
+   "name": "CAMERA_UPDATE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "The race camera's per-frame step (camera, dt): follows the racer at camera+0x294. Split view runs it a second time on the second camera's state.",
+   "pattern": [
+    "3c030000/ffff0000",
+    "c4610000/ffff0000",
+    "27bdff70",
+    "afb00070",
+    "460c083c",
+    "00808021",
+    "e7b40080",
+    "46006506"
+   ]
+  },
+  {
+   "id": 9,
+   "name": "WORLD_DRAW",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "Race render: draws the level and racers from the current camera (F_15a460(world)). Split view draws it once per view, each clipped to its part of the screen.",
+   "pattern": [
+    "27bdff90",
+    "afb3004c",
+    "afbf0064",
+    "afbe0060",
+    "afb7005c",
+    "afb60058",
+    "afb50054",
+    "afb40050"
+   ]
+  },
+  {
+   "id": 10,
+   "name": "SHADOW_DRAW",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "Race render, after the world: F_31300 draws from the current camera too. Split view draws it once per view.",
+   "pattern": [
+    "27bdffe0",
+    "afb20008",
+    "3c120000/ffff0000",
+    "afb00000",
+    "00808021",
+    "afbf0010",
+    "afb3000c",
+    "0c000000/fc000000"
+   ]
+  },
+  {
+   "id": 11,
+   "name": "EFFECT_DRAW",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "Race render, after the world: F_30414 draws from the current camera too. Split view draws it once per view.",
+   "pattern": [
+    "27bdfff0",
+    "afb10004",
+    "3c110000/ffff0000",
+    "24080001",
+    "8e220000/ffff0000",
+    "ac80000c",
+    "2405ffc7",
+    "a0480000"
+   ]
   }
  ]
 }
