@@ -255,6 +255,120 @@
     "00a09821",
     "afb20028"
    ]
+  },
+  {
+   "id": 17,
+   "name": "HUD_ELEM",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_12f280(element): draws one HUD element (its +0xA0 says whether it is shown).",
+   "pattern": [
+    "27bdfff0",
+    "afb00000",
+    "afbf0004",
+    "908300a0",
+    "14600005",
+    "00808021"
+   ]
+  },
+  {
+   "id": 18,
+   "name": "HUD_PART_A",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_12d868: a HUD part drawn by F_12ad44.",
+   "pattern": [
+    "27bdffe0",
+    "afb50014",
+    "afb40010",
+    "3c140000/ffff0000",
+    "26850000/ffff0000"
+   ]
+  },
+  {
+   "id": 19,
+   "name": "HUD_PART_B",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_130ab8: a HUD part drawn by F_12ad44.",
+   "pattern": [
+    "27bdfff0",
+    "afb20008",
+    "3c120000/ffff0000",
+    "26450000/ffff0000",
+    "afbf000c"
+   ]
+  },
+  {
+   "id": 20,
+   "name": "HUD_PART_C",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_12dfa4: a HUD part drawn by F_12ad44 (for the rival).",
+   "pattern": [
+    "f3838094",
+    "27bdfe60",
+    "afbf018c",
+    "27aa0080",
+    "afb00170"
+   ]
+  },
+  {
+   "id": 21,
+   "name": "HUD_PART_D",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_1276b0: a HUD part drawn by F_12ad44.",
+   "pattern": [
+    "27bdffa0",
+    "afb00040",
+    "00808021",
+    "00a02021",
+    "e7b60058"
+   ]
+  },
+  {
+   "id": 22,
+   "name": "PLAYER_CONTACTS",
+   "kind": "call",
+   "index": 0,
+   "_doc": "World update (F_15aafc): F_15c2d0(world), the local player's (world +0x5024) contacts with the ground and the level's objects, which drive its actions and animation. Extra racers get their own pass.",
+   "pattern": [
+    "0c000000/fc000000",
+    "02002021",
+    "afa00080",
+    "afa00084",
+    "8fa90080"
+   ]
+  },
+  {
+   "id": 23,
+   "name": "FOCUS_RACER_STEP",
+   "kind": "call",
+   "index": 0,
+   "_doc": "World update (F_15aafc): F_15e4a8(world, world +0x5028), a step for the racer the world follows (player 1).",
+   "pattern": [
+    "0c000000/fc000000",
+    "02002021",
+    "8e020000/ffff0000",
+    "2404ffff"
+   ]
+  },
+  {
+   "id": 24,
+   "name": "RACER_UPDATE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_af53c(racer, ...): a racer's update in the world update (rings, animation). Extra racers run it as the local player (test).",
+   "pattern": [
+    "27bdff30",
+    "afb500a4",
+    "afb400a0",
+    "00a0a021",
+    "afb00090",
+    "00808021",
+    "afbf00b4"
+   ]
   }
  ]
 }

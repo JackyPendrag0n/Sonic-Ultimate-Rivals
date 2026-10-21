@@ -85,14 +85,25 @@ def build(f0, f1, slot, base, heap):
     own = lambda v, b: b <= (v & 0x3fffffff) < b + SIZE
     mp = align(f0, f1)
     g = f0.copy()
-    count = {'pointers': 0, 'slot numbers': 0, 'per-slot objects': 0, 'heap pointers': 0, 'unresolved': 0}
+    count = {'slot arrays': 0, 'pointers': 0, 'slot numbers': 0, 'per-slot objects': 0, 'heap pointers': 0, 'unresolved': 0}
     unresolved = []
     heap_ptrs = []
+    moved = []
+    W = len(f0)
     for i in range(len(mp)):
         j = mp[i]
         for k in range(4):
             o = i * 4 + k
             a = int(f0[o])
+            # an array indexed by slot (an animation's clips per slot): _0's entry 14 is _1's entry 15. Such a
+            # line differs between the two even masked, so it may have no match: its neighbours' then.
+            jj = j if j >= 0 else mp[i - 1] + 1 if i and mp[i - 1] >= 0 else mp[i + 1] - 1 if i + 1 < len(mp) and mp[i + 1] >= 0 else -1
+            p1 = jj * 4 + k
+            if (jj >= 0 and p1 + 1 < W and o + 1 < W and own(a, BASE[0]) and not f1[p1] and not f0[o + 1]
+                    and own(int(f1[p1 + 1]), BASE[1])
+                    and abs(((int(f1[p1 + 1]) & 0x3fffffff) - BASE[1]) - ((a & 0x3fffffff) - BASE[0])) < 0x1000):
+                moved.append(o); count['slot arrays'] += 1
+                continue
             if j < 0:
                 if own(a, BASE[0]):
                     g[o] = (a & 0xc0000000) | ((a & 0x3fffffff) - BASE[0] + base); count['pointers'] += 1
@@ -128,6 +139,9 @@ def build(f0, f1, slot, base, heap):
         else:
             count['unresolved'] += 1
             print('  kept %06x: %08x (in _1: %08x)' % (o * 4, a, b))
+    for o in moved:   # after the loop: the entry's new place was handled already
+        a = int(f0[o])
+        g[o] = 0; g[o + slot - 14] = (a & 0xc0000000) | ((a & 0x3fffffff) - BASE[0] + base)
     lo = min(int(f0[o]) for o in heap_ptrs) & ~0xf if heap_ptrs else 0
     hi = max(int(f0[o]) for o in heap_ptrs) if heap_ptrs else 0
     if heap is not None:

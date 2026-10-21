@@ -91,7 +91,7 @@ u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresol
 	u32 *f0 = malloc(RG_SIZE + 1), *f1 = malloc(RG_SIZE + 1), *g = (u32 *)out;
 	M0 = malloc(RG_SIZE); M1 = malloc(RG_SIZE);
 	s32 *mp = malloc(RG_LINES * sizeof *mp);
-	u32 *heap_ptrs = malloc(RG_SIZE), nheap = 0, size = 0;
+	u32 *heap_ptrs = malloc(RG_SIZE), nheap = 0, size = 0, *moved = malloc(RG_SIZE), nmoved = 0;
 	int bad = 0;
 	if (!load(ch, 0, f0) || !load(ch, 1, f1)) goto done;
 	mask(f0, M0); mask(f1, M1);
@@ -102,6 +102,14 @@ u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresol
 		for (int k = 0; k < 4; k++) {
 			int o = i * 4 + k;
 			u32 a = f0[o];
+			// an array indexed by slot (an animation's clips per slot): _0's entry 14 is _1's entry 15. Such a
+			// line differs between the two even masked, so it may have no match: its neighbours' then.
+			int jj = j >= 0 ? j : i && mp[i - 1] >= 0 ? mp[i - 1] + 1 : i + 1 < RG_LINES && mp[i + 1] >= 0 ? mp[i + 1] - 1 : -1;
+			int p1 = jj * 4 + k;
+			if (jj >= 0 && p1 + 1 < RG_WORDS && o + 1 < RG_WORDS && own(a, BASE[0]) && !f1[p1] && !f0[o + 1] && own(f1[p1 + 1], BASE[1])
+			    && abs((s32)((f1[p1 + 1] & 0x3fffffff) - BASE[1]) - (s32)((a & 0x3fffffff) - BASE[0])) < 0x1000) {   // the same thing
+				moved[nmoved++] = o; continue;
+			}
 			if (j < 0) { if (own(a, BASE[0])) g[o] = rebase(a, base); continue; }
 			u32 b = f1[j * 4 + k], x = a ^ b;
 			if (a == b) continue;
@@ -123,14 +131,18 @@ u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresol
 			else { bad++; LOGI("racergen: kept %06x: %08x (in _1: %08x)", o * 4, a, b); }
 		}
 	}
+	for (u32 n = 0; n < nmoved; n++) {   // after the loop: the entry's new place was handled already
+		u32 o = moved[n];
+		g[o] = 0; g[o + slot - 14] = rebase(f0[o], base);
+	}
 	u32 lo = ~0u, hi = 0;
 	for (u32 n = 0; n < nheap; n++) { u32 v = f0[heap_ptrs[n]]; if (v < lo) lo = v; if (v > hi) hi = v; }
 	lo &= ~0xfu;
 	for (u32 n = 0; n < nheap; n++) g[heap_ptrs[n]] = f0[heap_ptrs[n]] - lo + heap;
 	size = nheap ? hi - lo + 0x10 : 0x10;
-	LOGI("racergen: %s for slot %d at %08x, heap %08x (+%x), %d words kept", ch, slot, base, heap, size, bad);
+	LOGI("racergen: %s for slot %d at %08x, heap %08x (+%x), %u slot entries moved, %d words kept", ch, slot, base, heap, size, nmoved, bad);
 done:
 	if (unresolved) *unresolved = bad;
-	free(f0); free(f1); free(M0); free(M1); free(mp); free(heap_ptrs);
+	free(f0); free(f1); free(M0); free(M1); free(mp); free(heap_ptrs); free(moved);
 	return size;
 }

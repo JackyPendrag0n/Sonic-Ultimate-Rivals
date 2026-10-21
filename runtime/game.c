@@ -107,7 +107,9 @@ int config_fps_next(int fps, int dir) {
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
 enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION, HOOK_RACER_INPUT,
        HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW,
-       HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP };
+       HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP,
+       HOOK_HUD_ELEM, HOOK_HUD_PART_A, HOOK_HUD_PART_B, HOOK_HUD_PART_C, HOOK_HUD_PART_D,
+       HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -647,6 +649,61 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (k >= 0 && k < 8 && (last[k] != rl || c->r[2])) { last[k] = rl; LOGI("rings %08x (n %u) racer %08x (p%d): took %u", rl, LW(rl + 0x10), r, k + 1, c->r[2]); }
 		return;
 	}
+	case HOOK_HUD_ELEM: case HOOK_HUD_PART_A: case HOOK_HUD_PART_B: case HOOK_HUD_PART_C: case HOOK_HUD_PART_D: {
+		// test aid: SR2_HUD_HIDE="a".."d" (parts) or element offsets (hex), or SR2_HUD_HIDE_FILE, read again every frame
+		static char hide[256]; static int got;
+		if (!got) { const char *e = getenv("SR2_HUD_HIDE"); snprintf(hide, sizeof hide, "%s", e ? e : ""); got = 1; }
+		const char *hf = getenv("SR2_HUD_HIDE_FILE");
+		static u64 read_at;
+		if (hf && read_at != g_vblank_count) {
+			read_at = g_vblank_count; hide[0] = 0;
+			FILE *f = fopen(hf, "r"); if (f) { if (!fgets(hide, sizeof hide, f)) hide[0] = 0; fclose(f); }
+			hide[strcspn(hide, "\n")] = 0;
+		}
+		if (!hide[0]) break;
+		char key[16];
+		if (id == HOOK_HUD_ELEM) snprintf(key, sizeof key, ",%x,", A(0) - 0x08A7DF30); else snprintf(key, sizeof key, ",%c,", 'a' + id - HOOK_HUD_PART_A);
+		char list[256]; snprintf(list, sizeof list, ",%s,", hide);
+		if (strstr(list, key)) return;
+		break;
+	}
+	case HOOK_PLAYER_CONTACTS:   // F_15c2d0(world): only for the local player; again for each extra racer
+		if (n_extra && !getenv("SR2_NO_CONTACTS")) {
+			Ctx save = *c;
+			orig(c);
+			Ctx out = *c;
+			u32 p1 = LW(WORLD + 0x5024);
+			for (int k = 0; k < n_extra; k++) {
+				if (extra_pending[k]) continue;
+				*c = save; SW(WORLD + 0x5024, extra_racer[k]); orig(c);
+			}
+			SW(WORLD + 0x5024, p1);
+			*c = out;
+			return;
+		}
+		break;
+	case HOOK_FOCUS_RACER_STEP:   // F_15e4a8(world, racer)
+		if (n_extra && getenv("SR2_FOCUS_STEP")) {
+			Ctx save = *c;
+			orig(c);
+			Ctx out = *c;
+			for (int k = 0; k < n_extra; k++) {
+				if (extra_pending[k]) continue;
+				*c = save; c->r[5] = extra_racer[k]; orig(c);
+			}
+			*c = out;
+			return;
+		}
+		break;
+	case HOOK_RACER_UPDATE:   // F_af53c(racer, ...)
+		if (getenv("SR2_UPDATE_AS_P1") && extra_index(A(0)) >= 0) {
+			u32 p1 = LW(WORLD + 0x5024), f = LW(WORLD + 0x5028);
+			SW(WORLD + 0x5024, A(0)); SW(WORLD + 0x5028, A(0));
+			orig(c);
+			SW(WORLD + 0x5024, p1); SW(WORLD + 0x5028, f);
+			return;
+		}
+		break;
 	case HOOK_HUD_DRAW:   // F_12ad44(hud)
 		if (split_view_on()) {   // one HUD per view, scaled into it like the view
 			Ctx save = *c;
@@ -711,7 +768,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			rt_call(c, 0x08800000 + 0x15e0e8);
 			s32 sec = c->r[2];
 			*c = save;
-			if (sec > 0 && sec <= (s32)LW(WORLD + 0x4d10)) { SW(body + 0xc, sec); SW(body + 0x10, sec); }
+			if (sec > 0 && sec <= (s32)LW(WORLD + 0x4d10)) { SW(body + 0xc, sec); if (getenv("SR2_OLD_SEC")) SW(body + 0x10, sec); }   // +0x10 stays its slot, as a racer's
 			c->r[2] = 1;
 			return;
 		}
