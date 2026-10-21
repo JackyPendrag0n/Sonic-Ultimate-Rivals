@@ -295,6 +295,7 @@ static void options_input(void) {
 
 void charslot_vblank(void);
 
+static void mp_trace(void);
 void game_vblank(void) {
 	static int last_fps;
 	if (g_cfg.fps != last_fps) { last_fps = g_cfg.fps; apply_frame_rate(); }
@@ -302,6 +303,7 @@ void game_vblank(void) {
 	options_patch();
 	options_input();
 	charslot_vblank();
+	mp_trace();
 }
 
 // ---------------------------------------------------------------- frame-rate fixes
@@ -431,7 +433,9 @@ static void extra_racer_build(Ctx *c, u32 loader) {
 // object (F_15e3c/F_15e64 take the offset), face the same way (+0xc0, body +0x30), then F_a2430.
 static void extra_racer_place(Ctx *c, u32 r, u32 pr, int k) {
 	float t[4], cur[4], d[4];
-	float d0[3] = { 0, 1.2f * (k + 1), 0 };   // just ahead, in a row (y is along the track here; racers block each other)
+	// beside the player (x is across the track, y along it, z up): in a row ahead, the ones still standing
+	// block the others; behind, there may be a wall
+	float d0[3] = { -0.6f * (k + 1), 0, 0 };
 	const char *e = getenv("SR2_EXTRA_DXYZ");
 	if (e && sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]) == 3) for (int j = 0; j < 3; j++) d0[j] *= k + 1;
 	memcpy(t, PTR(pr + 0xb0), 16);
@@ -517,7 +521,7 @@ static void view_refresh(Ctx *c) {
 
 static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p + 4); }
 
-// view k, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24) and scissor. Two views split the
+// view k, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24), scale and scissor. Two views split the
 // screen in halves, three or four in quarters. The first view is not clipped: it fills the screen (centred
 // on its own part), and the other views are drawn over the rest. Drawing the first view into only part of
 // the screen leaves the colours washed out, as if something later in the frame weighs in the parts nothing
@@ -530,6 +534,12 @@ static void ge_region(int k) {
 	u32 bx, by; memcpy(&bx, &px, 4); memcpy(&by, &py, 4);
 	ge_put(0x45000000 | bx >> 8);
 	ge_put(0x46000000 | by >> 8);
+	// quarters show the whole view at half size (viewport scale, XSCALE/YSCALE); halves show its middle
+	float sx = 240, sy = -136;
+	if (k >= 0 && n_extra >= 2) { sx = 120; sy = -68; }
+	memcpy(&bx, &sx, 4); memcpy(&by, &sy, 4);
+	ge_put(0x42000000 | bx >> 8);
+	ge_put(0x43000000 | by >> 8);
 	if (k <= 0) { x0 = 0; y0 = 0; w = 480; h = 272; }
 	ge_put(0xD4000000 | x0 | y0 << 10);
 	ge_put(0xD5000000 | (x0 + w - 1) | (y0 + h - 1) << 10);
@@ -715,4 +725,20 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	}
 	orig(c);
+}
+
+static void mp_trace(void) {
+	static int trace = -1;
+	if (trace < 0) trace = getenv("SR2_MP_TRACE") != NULL;
+	if (trace && n_extra && g_vblank_count % 30 == 0) {   // test aid: where each player and camera is
+		char line[512]; int o = 0;
+		u32 rs[4] = {LW(WORLD + 0x5024)};
+		for (int k = 0; k < n_extra; k++) rs[k + 1] = extra_racer[k];
+		for (int k = 0; k <= n_extra; k++) {
+			u32 r = rs[k]; float *pos = r && LW(r + 4) ? (float *)PTR(LW(r + 4) + 0x20) : NULL;
+			o += snprintf(line + o, sizeof line - o, " p%d %08x (%.1f %.1f %.1f)", k + 1, r, pos ? pos[0] : 0, pos ? pos[1] : 0, pos ? pos[2] : 0);
+		}
+		u32 cam = LW(CAM_MAIN);
+		LOGI("mp:%s cam target %08x seats %08x %08x", line, cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
+	}
 }
