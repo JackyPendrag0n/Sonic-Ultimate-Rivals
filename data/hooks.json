@@ -176,6 +176,57 @@
     "2405ffc7",
     "a0480000"
    ]
+  },
+  {
+   "id": 12,
+   "name": "RACER_STEP",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "World update: a seated racer's frame step (F_b2e48(racer)), called for W+0x502C[0] then [1]. Extra racers without a seat are stepped right after the last seated one.",
+   "pattern": [
+    "27bdfe90",
+    "afb00150",
+    "3c100000/ffff0000",
+    "afb10154",
+    "00808821",
+    "afbf015c",
+    "afb20158",
+    "0c000000/fc000000"
+   ]
+  },
+  {
+   "id": 13,
+   "name": "RACE_STATE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "Race state change (F_592cc(race, state): countdown, go, finish...). It acts on the two seated racers only (F_3731c), mostly by sending them events; extra racers without a seat get the events the local player gets (HOOK_SEND_EVENT) and its +0x548 timer.",
+   "pattern": [
+    "27bdffc0",
+    "afb00010",
+    "00a08021",
+    "24a5fffb",
+    "2ca30002",
+    "afb10014",
+    "00808821",
+    "24040064"
+   ]
+  },
+  {
+   "id": 14,
+   "name": "SEND_EVENT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "Send an event (F_16c388(manager, target, source, hash, ...)). See RACE_STATE.",
+   "pattern": [
+    "27bdffe0",
+    "afb40010",
+    "315400ff",
+    "afb10004",
+    "00a08821",
+    "00e02821",
+    "afb60018",
+    "0120b021"
+   ]
   }
  ]
 }

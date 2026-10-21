@@ -98,7 +98,8 @@ int config_fps_next(int fps, int dir) {
 // the menus for 1. Gameplay is timed by the system clock, so the races run correctly at any rate:
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
 enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION, HOOK_RACER_INPUT,
-       HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW };
+       HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW,
+       HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -343,13 +344,26 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 // slot header into world slot 13 like the game does for slots 14/15, and builds its scene nodes. On the
 // first frame of the race it is switched on, put next to the local player (SR2_EXTRA_DXYZ=x,y,z offsets
 // it), takes the empty rival seat (Free Play), and is set up as a human racer reading player 2's pad.
+// Up to three files, separated by ':' (each made for its own slot and address, e.g. slots 13, 12, 11 at
+// 0x0A000000, 0x0A400000, 0x0A800000), give players 2-4; the ones without a seat are stepped right after
+// the seated racers (HOOK_RACER_STEP).
 #define WORLD        0x089ABD10
 #define WORLD_SLOT(k) (WORLD + 0x90 + (k) * 0x4c0)
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
-static u32 extra_base, extra_racer, extra_pending;   // extra racer, and whether it waits to be switched on
-static bool extra_racer_prepare(void) {
-	const char *path = getenv("SR2_EXTRA_RACER");
-	if (!path) return false;
+#define MAX_EXTRA 3
+static int n_extra;                                         // extra racers built for this race
+static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
+static bool extra_racer_prepare(int k) {
+	const char *list = getenv("SR2_EXTRA_RACER");
+	if (!list) return false;
+	char path[1024];
+	for (int i = 0; ; i++) {   // the k-th of the ':'-separated files
+		const char *e = strchr(list, ':');
+		size_t len = e ? (size_t)(e - list) : strlen(list);
+		if (i == k) { if (!len || len >= sizeof path) return false; memcpy(path, list, len); path[len] = 0; break; }
+		if (!e) return false;
+		list = e + 1;
+	}
 	FILE *f = fopen(path, "rb");
 	if (!f) { LOGI("extra racer: cannot open %s", path); return false; }
 	static u8 buf[0x200000];
@@ -378,18 +392,19 @@ static void extra_racer_build(Ctx *c, u32 loader) {
 		SW(s0 + 0xd0 + 4 * i, racer);
 		SW(s0 + 0x438, i + 1);
 	}
-	LOGI("extra racer: built, racer %08x is entity %u of slot 0", racer, i);
-	extra_racer = extra_pending = racer;
+	LOGI("extra racer %d: built, racer %08x is entity %u of slot 0", n_extra, racer, i);
+	extra_racer[n_extra] = extra_pending[n_extra] = racer;
+	n_extra++;
 }
 
 // Put the extra racer at the start next to racer pr, the way F_159194 puts racers 0/1 at their start
 // (racer+0xb0): move the body (+0x20) and the previous position (+0xe0), telling the racer's collision
 // object (F_15e3c/F_15e64 take the offset), face the same way (+0xc0, body +0x30), then F_a2430.
-static void extra_racer_place(Ctx *c, u32 r, u32 pr) {
+static void extra_racer_place(Ctx *c, u32 r, u32 pr, int k) {
 	float t[4], cur[4], d[4];
-	float d0[3] = { 0, 1.2f, 0 };   // just ahead (y is along the track here; racers block each other)
+	float d0[3] = { 0, 1.2f * (k + 1), 0 };   // just ahead, in a row (y is along the track here; racers block each other)
 	const char *e = getenv("SR2_EXTRA_DXYZ");
-	if (e) sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]);
+	if (e && sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]) == 3) for (int j = 0; j < 3; j++) d0[j] *= k + 1;
 	memcpy(t, PTR(pr + 0xb0), 16);
 	for (int j = 0; j < 3; j++) t[j] += d0[j];
 	memcpy(PTR(r + 0xb0), t, 16);
@@ -414,12 +429,12 @@ static void extra_racer_place(Ctx *c, u32 r, u32 pr) {
 	*c = save;
 }
 
-// Player 2 steers the extra racer. Every racer has an input block (source at +0x1c) that F_17d58 fills each
-// frame; sources 0..3 all read the one pad device the main loop updates (F_06774, 0x089A4020). The extra
-// racer gets source 1, and for it F_17d58 runs against a second device kept here, updated from player 2's
-// controller (g_ctrl_port makes the sceCtrl calls return that pad).
+// Players 2-4 steer the extra racers. Every racer has an input block (source at +0x1c) that F_17d58 fills
+// each frame; sources 0..3 all read the one pad device the main loop updates (F_06774, 0x089A4020). Extra
+// racer k gets source k+1, and for it F_17d58 runs against a device of its own kept here, updated from
+// controller k+2 (g_ctrl_port makes the sceCtrl calls return that pad).
 #define PAD_DEV  0x089A4020
-#define PAD2_DEV 0x0A1F0000   // above the PSP's 32 MB, clear of the extra racer file
+#define PAD_DEVN(k) (0x0A1F0000 + (k) * 0x100)   // above the PSP's 32 MB, clear of the first extra racer file
 #define PAD_DEV_SIZE 0x60
 extern int g_ctrl_port;
 // Split view: one screen, one view per human racer. The race camera (CAM_MAIN) follows the racer at +0x294;
@@ -434,30 +449,30 @@ extern int g_ctrl_port;
 #define CAM_TARGET   0x294
 #define GE_LIST_PTR  0x089A0E1C   // the display list being written
 static int split_view = -1;       // -1 not read yet, 0 off, 1 top and bottom, 2 side by side
-static bool camb_ready;
-static u32 camb_cam;
-static u8 camb_obj[CAM_SIZE], camb_node[CAM_NODE_SZ];
+static bool cam_ready[MAX_EXTRA];
+static u32 cam_of[MAX_EXTRA];
+static u8 cam_obj[MAX_EXTRA][CAM_SIZE], cam_node[MAX_EXTRA][CAM_NODE_SZ];   // the cameras of extra racers 0..2
 
 static bool split_view_on(void) {
 	if (split_view < 0) {
 		const char *e = getenv("SR2_SPLIT_VIEW");
 		split_view = !e ? 1 : !strcmp(e, "0") ? 0 : !strcmp(e, "lr") ? 2 : 1;
 	}
-	return split_view && extra_racer && !extra_pending && LW(CAM_MAIN);
+	return split_view && n_extra && !extra_pending[n_extra - 1] && LW(CAM_MAIN);
 }
 
 static void swap_bytes(u8 *a, u8 *b, u32 n) { for (u32 i = 0; i < n; i++) { u8 t = a[i]; a[i] = b[i]; b[i] = t; } }
 
-static void camb_swap(void) {
+static void cam_swap(int k) {   // swap extra racer k's camera state in or out
 	u32 cam = LW(CAM_MAIN);
-	if (!camb_ready || camb_cam != cam) {   // the second camera starts as a copy of the first, following the extra racer
-		memcpy(camb_obj, PTR(cam), CAM_SIZE);
-		memcpy(camb_node, PTR(LW(cam + 4)), CAM_NODE_SZ);
-		memcpy(camb_obj + CAM_TARGET, &extra_racer, 4);
-		camb_cam = cam; camb_ready = true;
+	if (!cam_ready[k] || cam_of[k] != cam) {   // it starts as a copy of the first camera, following its racer
+		memcpy(cam_obj[k], PTR(cam), CAM_SIZE);
+		memcpy(cam_node[k], PTR(LW(cam + 4)), CAM_NODE_SZ);
+		memcpy(cam_obj[k] + CAM_TARGET, &extra_racer[k], 4);
+		cam_of[k] = cam; cam_ready[k] = true;
 	}
-	swap_bytes(PTR(cam), camb_obj, CAM_SIZE);
-	swap_bytes(PTR(LW(cam + 4)), camb_node, CAM_NODE_SZ);
+	swap_bytes(PTR(cam), cam_obj[k], CAM_SIZE);
+	swap_bytes(PTR(LW(cam + 4)), cam_node[k], CAM_NODE_SZ);
 }
 
 // rebuild the view from the current camera state, as F_581b0 does at the start of the race render
@@ -473,13 +488,15 @@ static void view_refresh(Ctx *c) {
 
 static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p + 4); }
 
-// view k of 2, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24) and scissor. The first view
-// is not clipped: it fills the screen (centred on its own part), and the next view is drawn over the rest.
-// Drawing the first view into only part of the screen leaves the colours washed out, as if something
-// later in the frame weighs in the parts nothing was drawn to.
+// view k, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24) and scissor. Two views split the
+// screen in halves, three or four in quarters. The first view is not clipped: it fills the screen (centred
+// on its own part), and the other views are drawn over the rest. Drawing the first view into only part of
+// the screen leaves the colours washed out, as if something later in the frame weighs in the parts nothing
+// was drawn to.
 static void ge_region(int k) {
 	int x0 = 0, y0 = 0, w = 480, h = 272;
-	if (k >= 0) { if (split_view == 2) { w = 240; x0 = k * 240; } else { h = 136; y0 = k * 136; } }
+	if (k >= 0 && n_extra >= 2) { w = 240; h = 136; x0 = (k & 1) * 240; y0 = (k >> 1) * 136; }
+	else if (k >= 0) { if (split_view == 2) { w = 240; x0 = k * 240; } else { h = 136; y0 = k * 136; } }
 	float px = 2048.0f - 240 + x0 + w / 2, py = 2048.0f - 136 + y0 + h / 2;   // the screen offset stays (2048-240, 2048-136)
 	u32 bx, by; memcpy(&bx, &px, 4); memcpy(&by, &py, 4);
 	ge_put(0x45000000 | bx >> 8);
@@ -489,20 +506,30 @@ static void ge_region(int k) {
 	ge_put(0xD5000000 | (x0 + w - 1) | (y0 + h - 1) << 10);
 }
 
-// one draw call of the race render, once per view: the first camera's view, then the second camera's (with
-// the extra racer as the local player, whose section picks the scenery), then the first camera's state back
+// one draw call of the race render, once per view: the first camera's view, then each extra racer's (with
+// that racer as the local player, whose section picks the scenery), then the first camera's state back
 static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 	Ctx save = *c;
 	ge_region(0); orig(c);
 	Ctx out = *c;
 	*c = save;
 	u32 p1 = LW(WORLD + 0x5024);
-	camb_swap(); SW(WORLD + 0x5024, extra_racer); view_refresh(c);
-	ge_region(1); orig(c);
-	*c = save;
-	SW(WORLD + 0x5024, p1); camb_swap(); view_refresh(c);
+	for (int k = 0; k < n_extra; k++) {
+		cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); view_refresh(c);
+		ge_region(k + 1); orig(c);
+		*c = save;
+		SW(WORLD + 0x5024, p1); cam_swap(k);
+	}
+	view_refresh(c);
 	ge_region(-1);
 	*c = out;
+}
+
+static int race_state_depth;   // inside F_592cc
+static int extra_index(u32 r) { for (int k = 0; k < n_extra; k++) if (extra_racer[k] == r) return k; return -1; }
+static int input_extra(u32 in) {   // which extra racer an input block belongs to
+	for (int k = 0; k < n_extra; k++) { u32 r = extra_racer[k]; if (LW(r + 0x8c) && LW(LW(r + 0x8c) + 4) == in) return k; }
+	return -1;
 }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
@@ -518,20 +545,23 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_BUILD_RACER_SLOT: {   // F_16208c(loader, slot)
 		u32 loader = A(0), slot = A(1);
 		orig(c);
-		if (slot == WORLD_SLOT(15) && extra_racer_prepare()) extra_racer_build(c, loader);
+		if (slot == WORLD_SLOT(15)) {
+			n_extra = 0;
+			for (int k = 0; k < MAX_EXTRA && extra_racer_prepare(k); k++) extra_racer_build(c, loader);
+		}
 		return;
 	}
 	case HOOK_RACER_INPUT:   // F_17d58(input)
-		if (extra_racer && (s32)LW(A(0) + 0x1c) == 1) {
-			u32 in = A(0);
+		if ((s32)LW(A(0) + 0x1c) == 1 && input_extra(A(0)) >= 0) {
+			u32 in = A(0); int k = input_extra(in);
 			Ctx save = *c;
-			g_ctrl_port = 1;
-			c->r[4] = PAD2_DEV; rt_call(c, 0x08800000 + 0x6774);   // update player 2's device
+			g_ctrl_port = k + 1;
+			c->r[4] = PAD_DEVN(k); rt_call(c, 0x08800000 + 0x6774);   // update that player's device
 			g_ctrl_port = 0;
 			*c = save;
 			static u8 p1[PAD_DEV_SIZE];
 			memcpy(p1, PTR(PAD_DEV), PAD_DEV_SIZE);
-			memcpy(PTR(PAD_DEV), PTR(PAD2_DEV), PAD_DEV_SIZE);
+			memcpy(PTR(PAD_DEV), PTR(PAD_DEVN(k)), PAD_DEV_SIZE);
 			SW(in + 0x1c, 0);
 			orig(c);
 			SW(in + 0x1c, 1);
@@ -544,7 +574,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			Ctx save = *c;
 			orig(c);
 			*c = save;
-			camb_swap(); orig(c); camb_swap();
+			for (int k = 0; k < n_extra; k++) { cam_swap(k); orig(c); cam_swap(k); *c = save; }
 			return;
 		}
 		break;
@@ -553,8 +583,52 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_EFFECT_DRAW:    // F_30414
 		if (split_view_on()) { split_draw_views(c, orig); return; }
 		break;
+	case HOOK_RACE_STATE: {   // F_592cc(race, state)
+		if (!n_extra) break;
+		static int depth;
+		depth++; race_state_depth = depth;
+		orig(c);
+		depth--; race_state_depth = depth;
+		u32 p1 = LW(WORLD + 0x5024);
+		for (int k = 0; k < n_extra; k++)
+			if (!extra_pending[k] && p1 && extra_racer[k] != LW(WORLD + 0x502c) && extra_racer[k] != LW(WORLD + 0x5030))
+				SW(extra_racer[k] + 0x548, LW(p1 + 0x548));
+		return;
+	}
+	case HOOK_SEND_EVENT:   // F_16c388(manager, target, source, hash, ...)
+		if (race_state_depth && A(1) && A(1) == LW(WORLD + 0x5024)) {   // the race tells the local player: tell the
+			Ctx save = *c;                                                // extra racers without a seat too
+			orig(c);
+			Ctx out = *c;
+			for (int k = 0; k < n_extra; k++) {
+				u32 e = extra_racer[k];
+				if (extra_pending[k] || e == LW(WORLD + 0x502c) || e == LW(WORLD + 0x5030)) continue;
+				*c = save; c->r[5] = e; if (A(2) == LW(WORLD + 0x5024)) c->r[6] = e;
+				orig(c);
+			}
+			*c = out;
+			return;
+		}
+		break;
+	case HOOK_RACER_STEP: {   // F_b2e48(racer), from the seat loop: seat 0, then seat 1
+		u32 r = A(0), s0 = LW(WORLD + 0x502c), s1 = LW(WORLD + 0x5030);
+		if (!n_extra || r != (s1 ? s1 : s0)) break;
+		Ctx save = *c;
+		orig(c);
+		Ctx out = *c;
+		for (int k = 0; k < n_extra; k++) {   // then the extra racers that have no seat
+			u32 e = extra_racer[k];
+			if (e == s0 || e == s1 || extra_pending[k]) continue;
+			u32 i0 = LW(WORLD + 0x4f84);
+			SW(WORLD + 0x502c, e); SW(WORLD + 0x4f84, e);   // it borrows seat 0 meanwhile
+			*c = save; c->r[4] = e; orig(c);
+			SW(WORLD + 0x502c, s0); SW(WORLD + 0x4f84, i0);
+		}
+		*c = out;
+		return;
+	}
 	case HOOK_TRACK_ENTITY_SECTION:   // F_1691b4(entity): racers are exempt, so is the extra one
-		if (extra_racer && A(0) == extra_racer) {   // keep its section index current (the start of F_1691b4)
+		if (extra_index(A(0)) >= 0) {   // keep its section index current (the start of F_1691b4)
 			u32 e = A(0), body = LW(e + 4);
 			Ctx save = *c;
 			c->r[4] = WORLD; c->r[5] = e; c->r[6] = 0; c->r[7] = 0;
@@ -567,24 +641,23 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		break;
 	case HOOK_RACER_MOVE:
-		if (extra_pending) {   // the race is running: switch the extra racer on like the world update does (F_15aafc)
-			u32 r = extra_pending; extra_pending = 0;
-			camb_ready = false;
+		for (int k = 0; k < n_extra; k++) if (extra_pending[k]) {   // the race is running: switch the extra racer on
+			u32 r = extra_pending[k]; extra_pending[k] = 0;            // like the world update does (F_15aafc)
+			cam_ready[k] = false;
 			u32 pr = LW(WORLD + 0x5024), eb = LW(r + 4);   // the local player (F_3731c(world, 0))
 			if (!pr) pr = A(0);
 			u32 pb = LW(pr + 4);
 			Ctx save = *c;
+			u32 seat0 = LW(WORLD + 0x502c), info0 = LW(WORLD + 0x4f84);
+			SW(WORLD + 0x502c, r); SW(WORLD + 0x4f84, r);   // seated while it is switched on (kept by the first one in Free Play)
 			c->r[4] = r; c->r[5] = 1; c->r[6] = 2;
 			rt_call(c, 0x08800000 + 0x16c0b0);
 			*c = save;
-			extra_racer_place(c, r, pr);
+			extra_racer_place(c, r, pr, k);
 			u32 ctl = LW(r + 0x480);   // its controller: reset it, as the racer's start step (F_aff70) does first
 			c->r[4] = ctl; rt_call(c, LW(LW(ctl) + 8));
 			*c = save;
-			if (!LW(WORLD + 0x502c)) {   // take the empty rival seat (Free Play): the game's race code only moves seated racers
-				SW(WORLD + 0x502c, r); SW(WORLD + 0x4f84, r);
-			}
-			memcpy(PTR(PAD2_DEV), PTR(PAD_DEV), PAD_DEV_SIZE);   // player 2's pad device starts as a copy of the game's
+			memcpy(PTR(PAD_DEVN(k)), PTR(PAD_DEV), PAD_DEV_SIZE);   // its player's pad device starts as a copy of the game's
 			u32 in = LW(r + 0x8c) ? LW(LW(r + 0x8c) + 4) : 0;   // its input block: set up like F_159194 does for a
 			if (in) {                                            // human racer (F_17138: button map, source), source 1
 				c->r[4] = in; c->r[5] = 2; c->r[6] = 1;
@@ -595,7 +668,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			*c = save;
 			c->r[4] = r; c->r[5] = 0; c->r[6] = 0; rt_call(c, LW(LW(r) + 0x38));   // its race-start step (F_aff70)
 			*c = save;
-			LOGI("extra racer: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", r, eb, pb, in, PTR(0x08A7C69C)[0]);
+			if (seat0 || k) {   // the first one keeps the empty rival seat
+				SW(WORLD + 0x502c, seat0); SW(WORLD + 0x4f84, info0);                              // (Free Play); the others borrow it
+			}
+			LOGI("extra racer %d: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", k, r, eb, pb, in, PTR(0x08A7C69C)[0]);
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;

@@ -130,6 +130,22 @@ void rt_watch(u32 a, int size, int write, u32 val, const char *fn) {
 		free(sy);
 		return;
 	}
+	if (getenv("SR2_WATCH_BT") && atoi(getenv("SR2_WATCH_BT")) == 2) {   // SR2_WATCH_BT=2: one line per distinct call path, reads too
+		void *frames[8];
+		int n = backtrace(frames, 8);
+		static void *paths[4096][4]; static int np;
+		for (int i = 0; i < np; i++) if (!memcmp(paths[i], frames + 2, sizeof paths[i])) return;
+		if (np < 4096) memcpy(paths[np++], frames + 2, sizeof paths[0]);
+		char **sy = backtrace_symbols(frames, n);
+		char line[1000] = "";
+		for (int i = 1; i < n && sy; i++) {
+			char *p = strchr(sy[i], '('), *q = p ? strchr(p, '+') : NULL;
+			if (p && q && q > p + 1) { strncat(line, " <- ", sizeof line - strlen(line) - 1); strncat(line, p + 1, q - p - 1 < 60 ? q - p - 1 : 60); }
+		}
+		LOGI("watch path %s vb %llu:%s", write ? "W" : "R", (unsigned long long)g_vblank_count, line);
+		free(sy);
+		return;
+	}
 	for (int i = 0; i < nseen; i++)
 		if (seen[i].fn == fn && seen[i].a == a && seen[i].w == write) {
 			if ((++seen[i].n & 63) == 0) LOGI("watch: %s %s %08x (+%x) = %x  [x%u]", fn, write ? "WRITE" : "read ", a, a - g_watch_lo, val, seen[i].n);

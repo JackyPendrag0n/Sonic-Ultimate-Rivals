@@ -140,6 +140,20 @@ moving the GE viewport centre (XPOS/YPOS) and, for the second, the scissor; the 
 the whole screen, since leaving part of the screen empty during it washes out the colours. The HUD is
 still player 1's.
 
+Four players: `SR2_EXTRA_RACER` takes up to three files separated by `:`, each built for its own free load
+slot and address (Blue Coast leaves slots 9-13 empty; levels with more sections use more of them), e.g.
+
+    tools/racergen.py <game> SONIC 13 0a000000 0a200000 RACER_SONIC_13.STR
+    tools/racergen.py <game> SHADOW 12 0a400000 0a600000 RACER_SHADOW_12.STR
+    tools/racergen.py <game> KNUCKLES 11 0a800000 0aa00000 RACER_KNUCKLES_11.STR
+
+Extra racer k reads controller k+2 (or the `press2`..`press4` ctl commands) through its own pad device
+(0x0A1F0000 + k*0x100) and gets its own camera; the screen splits in four. The race has two seats: the
+first extra racer keeps the empty one (Free Play), the others are stepped after the seated racers with
+seat 0 lent to them (hook 12, F_b2e48). The race only starts the seated racers: the race state change
+(hook 13, F_592cc) sends its events (F_16c388, hook 14) to the two seats, so the ones the local player
+gets are passed on to the extra racers without a seat.
+
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
   (all 253 in this game), and `.init` is merged into the code range across alignment padding.
