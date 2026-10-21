@@ -301,6 +301,7 @@ static void poll_input(void) {
 static float fps_shown, game_fps_shown;
 static u64 fps_t0, fps_frames, fps_flips0;
 
+unsigned *g_fcount;   // test aid: calls per function (build/sr2recomp_fc), see "fcount"
 int fe_game_rect[4];   // where the game image is in the window (x, y, w, h; y from the top), for the overlay
 static bool overlay_headless;
 
@@ -422,6 +423,13 @@ static void ctl_poll(void) {
 			float d = 0; const char *v = strchr(buf + strlen(cmd) + 1, ' ');
 			if (v) d = strtof(v, NULL);
 			game_request_warp(atoi(arg), d);
+		} else if (!strcmp(cmd, "fcount")) {   // "fcount PATH" (build/sr2recomp_fc): function calls since the last one
+			extern unsigned *g_fcount;
+			if (!g_fcount) g_fcount = calloc(0x400000 / 4, sizeof *g_fcount);
+			FILE *f = fopen(arg, "w");
+			for (u32 i = 0; f && i < 0x400000 / 4; i++) if (g_fcount[i]) fprintf(f, "%06x %u\n", i * 4, g_fcount[i]);
+			if (f) fclose(f);
+			memset(g_fcount, 0, 0x400000 / 4 * sizeof *g_fcount);
 		} else if (!strcmp(cmd, "dump")) {
 			FILE *f = fopen(arg, "wb");
 			if (f) { fwrite(PTR(0x08000000), 1, 0x04000000, f); fclose(f); }

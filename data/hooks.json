@@ -385,6 +385,51 @@
     "afb50014",
     "afb40010"
    ]
+  },
+  {
+   "id": 26,
+   "name": "SLOT_ACTIVE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_160724(world, slot): whether a load slot is live (section slots near the player; 14, 15 and 63 always). Gates sounds and effects of what is in the slot; the extra racers' slots count as live.",
+   "pattern": [
+    "24030001",
+    "10a3002a",
+    "00803021",
+    "28a30002",
+    "14600022",
+    "28a7000e"
+   ]
+  },
+  {
+   "id": 27,
+   "name": "ENTITY_HANDLE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_15f84(entity): an entity's handle (load slot, pool index), which F_15e8c turns back into the entity. Slots 14 and up share slot 0's pools; an extra racer's body is in slot 0's pool but says slot 13-11, so its handle is made as for slot 15.",
+   "pattern": [
+    "27bdfff0",
+    "afb10004",
+    "00808821",
+    "afbf0008",
+    "10800016",
+    "afb00000"
+   ]
+  },
+  {
+   "id": 28,
+   "name": "VOICE_PICK",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_126efc(voice, kind, ...): a racer's voice object (racer+0x4ec) picks a random line of that kind to say.",
+   "pattern": [
+    "27bdffe0",
+    "afb10014",
+    "3c02001b",
+    "00808821",
+    "afb00010",
+    "00a08021"
+   ]
   }
  ]
 }

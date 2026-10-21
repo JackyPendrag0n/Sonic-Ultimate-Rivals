@@ -109,7 +109,8 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW,
        HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP,
        HOOK_HUD_ELEM, HOOK_HUD_PART_A, HOOK_HUD_PART_B, HOOK_HUD_PART_C, HOOK_HUD_PART_D,
-       HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE, HOOK_RACER_FINISH };
+       HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE, HOOK_RACER_FINISH, HOOK_SLOT_ACTIVE,
+       HOOK_ENTITY_HANDLE, HOOK_VOICE_PICK };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -845,6 +846,41 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				*c = save; c->r[5] = extra_racer[k]; orig(c);
 			}
 			*c = out;
+			return;
+		}
+		break;
+	case HOOK_SLOT_ACTIVE: {   // F_160724(world, slot): whether a load slot is live (14, 15 and 63 always). Sounds
+		// start and keep playing only for what is in a live slot; for the sound code an extra racer's slot counts as
+		// live, so players 2-4 are heard, voices too. Only there: other callers take a live slot for a loaded course
+		// section (and stop drawing the racer).
+		u32 ra = c->r[31];
+		if (ra != 0x0883d15c && ra != 0x0883d330 && ra != 0x0883d564   // the play calls (F_3d0xx, F_3d294, F_3d48c)
+		    && ra != 0x0896252c) break;                                  // F_162514, from the sound update
+		for (int k = 0; k < n_extra; k++)
+			if (!extra_pending[k] && A(1) == LW(LW(extra_racer[k] + 4) + 0x10)) { c->r[2] = 1; return; }
+		break;
+	}
+	case HOOK_VOICE_PICK:   // F_126efc(voice, kind, ...): at the start (kind 7, from F_e1xxx) player 1 says a line;
+		// players 2-4 say one of theirs too, one after another (voice+0x204: seconds until it is said)
+		if (n_extra && !race_ending && A(1) == 7 && LW(c->r[29]) == 0x088e2194 && LW(A(0)) == p1_racer) {
+			orig(c);
+			Ctx save = *c;
+			for (int k = 0; k < n_extra; k++) {
+				u32 v = extra_pending[k] ? 0 : LW(extra_racer[k] + 0x4ec);
+				if (!v) continue;
+				c->r[4] = v; c->r[5] = 7; c->r[6] = save.r[6]; c->r[7] = save.r[7];
+				orig(c);
+				*c = save;
+				float d = 1.2f * (k + 1);
+				if (LW(v + 0x208)) memcpy(PTR(v + 0x204), &d, 4);
+			}
+			return;
+		}
+		break;
+	case HOOK_ENTITY_HANDLE:   // F_15f84(entity): see hooks.json; the handle of an extra racer as for slot 15
+		if (A(0) && extra_index(A(0)) >= 0) {
+			u32 b = LW(A(0) + 4), s = LW(b + 0x10);
+			SW(b + 0x10, 15); orig(c); SW(b + 0x10, s);
 			return;
 		}
 		break;
