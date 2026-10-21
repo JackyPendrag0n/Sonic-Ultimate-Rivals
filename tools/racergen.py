@@ -42,10 +42,10 @@ def mask(f):
     """the image with slot-dependent words blanked, for lining the two images up"""
     g = f.copy()
     a = g & 0x3fffffff
-    g[(a >= 0x08000000) & (a < 0x0a000000)] = 1
+    g[(a >= 0x08000000) & (a < 0x0a000000)] = 0xfffffff1   # values no data word has, so a 1 never lines up with a pointer
     s = (g >> 16) & 0xff
-    g[((g >> 24) <= 2) & (s >= 13) & (s <= 16) & (g != 0)] = 2
-    g[(g == 14) | (g == 15)] = 3
+    g[((g >> 24) <= 2) & (s >= 13) & (s <= 16) & (g != 0)] = 0xfffffff2
+    g[(g == 14) | (g == 15)] = 0xfffffff3
     return g
 
 

@@ -2,6 +2,7 @@
 // power and utility HLE.
 #define _GNU_SOURCE
 #include "kernel.h"
+#include "config.h"
 #include <sys/stat.h>
 #include <time.h>
 
@@ -157,9 +158,11 @@ extern u32 fe_buttons;
 extern u8 fe_lx, fe_ly;
 extern u32 fe_pbuttons[4]; extern u8 fe_plx[4], fe_ply[4];
 int g_ctrl_port;   // 1-3 while the game reads player 2-4's pad (game.c, extra racers)
+static int pad_port(void) { return g_cfg.pad_all ? 0 : g_ctrl_port & 3; }   // debug: player 1's pad drives everyone
 static void write_ctrl(u32 p, int n) {
-	u32 b = g_ctrl_port ? fe_pbuttons[g_ctrl_port] : fe_buttons;
-	u8 lx = g_ctrl_port ? fe_plx[g_ctrl_port] : fe_lx, ly = g_ctrl_port ? fe_ply[g_ctrl_port] : fe_ly;
+	int port = pad_port();
+	u32 b = port ? fe_pbuttons[port] : fe_buttons;
+	u8 lx = port ? fe_plx[port] : fe_lx, ly = port ? fe_ply[port] : fe_ly;
 	for (int i = 0; i < n; i++) {
 		u32 q = p + i * 16;
 		SW(q, (u32)now_us()); SW(q + 4, b); SB(q + 8, lx); SB(q + 9, ly);
@@ -172,7 +175,7 @@ static void h_CtrlReadBufferPositive(Ctx *c) { int n = A(1) ? A(1) : 1; write_ct
 static void h_CtrlPeekBufferPositive(Ctx *c) { int n = A(1) ? A(1) : 1; write_ctrl(A(0), n); RET(n); }
 static void h_CtrlReadLatch(Ctx *c) {
 	static u32 prevs[4];
-	u32 *prev = &prevs[g_ctrl_port & 3], cur = g_ctrl_port ? fe_pbuttons[g_ctrl_port & 3] : fe_buttons;
+	u32 *prev = &prevs[g_ctrl_port & 3], cur = pad_port() ? fe_pbuttons[pad_port()] : fe_buttons;
 	SW(A(0), cur & ~*prev); SW(A(0) + 4, *prev & ~cur); SW(A(0) + 8, cur); SW(A(0) + 12, ~cur);
 	*prev = cur;
 	RET(1);

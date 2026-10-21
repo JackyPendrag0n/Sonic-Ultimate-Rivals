@@ -154,6 +154,12 @@ seat 0 lent to them (hook 12, F_b2e48). The race only starts the seated racers: 
 (hook 13, F_592cc) sends its events (F_16c388, hook 14) to the two seats, so the ones the local player
 gets are passed on to the extra racers without a seat.
 
+Without `SR2_EXTRA_RACER`, the PC settings (F1) tab "Split screen" sets this up: the player count
+(`mp_players`) and the characters of players 2-4 (`mp_char2`..`mp_char4`). During the race load the runtime
+builds each racer file itself (runtime/racergen.c, the same rules as `racergen.py`, byte for byte) for the
+highest load slot the level leaves empty, at 0x0A000000 + k*4 MB with its heap block 2 MB in. The debug
+switch `pad_all` makes every player read controller 1 and the keyboard.
+
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
   (all 253 in this game), and `.init` is merged into the code range across alignment padding.

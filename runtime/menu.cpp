@@ -120,6 +120,28 @@ static void players_tab() {
 	ImGui::TextDisabled("Player 2 has its own save data, first copied from yours. Its sound is muted.");
 }
 
+static void split_tab() {
+	ImGui::TextWrapped("Up to four players in one game, each with their own controller and part of the screen. "
+	                   "Player 1 picks a character in the game as usual; pick the others here.");
+	ImGui::Spacing();
+	const char *counts[] = {"1 (off)", "2", "3", "4"};
+	int n = g_cfg.mp_players - 1;
+	if (ImGui::Combo("Players", &n, counts, 4)) { g_cfg.mp_players = n + 1; changed(); }
+	int *chars[] = {&g_cfg.mp_char2, &g_cfg.mp_char3, &g_cfg.mp_char4};
+	for (int p = 2; p <= g_cfg.mp_players; p++) {
+		char l[32]; snprintf(l, sizeof l, "Player %d", p);
+		if (ImGui::Combo(l, chars[p - 2], mp_char_names, MP_CHARS)) changed();
+	}
+	if (ImGui::Checkbox("Debug: player 1's controller drives everyone", &g_cfg.pad_all)) changed();
+	help("For testing on your own: every player copies controller 1 (and the keyboard).");
+	ImGui::Separator();
+	ImGui::TextDisabled("How to play");
+	ImGui::BulletText("Changes take effect at the next race load.");
+	ImGui::BulletText("Start a Free Play race. Players 2-4 use controllers 2-4.");
+	ImGui::BulletText("Two players split the screen top and bottom; three or four, into quarters.");
+	ImGui::TextDisabled("Experimental: the HUD and placings only follow player 1.");
+}
+
 extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 	if (!g_ready) return;
 	ImGui_ImplOpenGL3_NewFrame();
@@ -141,7 +163,8 @@ extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 		if (ImGui::BeginTabBar("tabs")) {
 			if (ImGui::BeginTabItem("Graphics", nullptr, fl(0))) { graphics_tab(); ImGui::EndTabItem(); }
 			if (ImGui::BeginTabItem("Controls", nullptr, fl(1))) { controls_tab(); ImGui::EndTabItem(); }
-			if (ImGui::BeginTabItem("2 Players", nullptr, fl(3))) { players_tab(); ImGui::EndTabItem(); }
+			if (ImGui::BeginTabItem("Split screen", nullptr, fl(4))) { split_tab(); ImGui::EndTabItem(); }
+			if (ImGui::BeginTabItem("Two windows", nullptr, fl(3))) { players_tab(); ImGui::EndTabItem(); }
 			if (ImGui::BeginTabItem("Audio", nullptr, fl(2))) { if (ImGui::SliderInt("Volume", &g_cfg.volume, 0, 100, "%d%%")) changed(); ImGui::EndTabItem(); }
 			ImGui::EndTabBar();
 		}

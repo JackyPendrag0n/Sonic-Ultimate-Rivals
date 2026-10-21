@@ -10,7 +10,10 @@
 GameConfig g_cfg = {
 	.renderer = 1, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
 	.window_scale = 2, .keep_aspect = true, .fps = 60, .show_fps = false, .stick_deadzone = 15, .volume = 100,
+	.mp_players = 1, .mp_char2 = 1, .mp_char3 = 3, .mp_char4 = 4,
 };
+const char *const mp_char_names[MP_CHARS] = {"Sonic", "Shadow", "Silver", "Knuckles", "Rouge", "Tails", "Espio", "Metal Sonic"};
+const char *const mp_char_files[MP_CHARS] = {"SONIC", "SHADOW", "SILVER", "KNUCKLES", "ROUGE", "TAILS", "ESPIO", "METALSONIC"};
 
 // ---------------------------------------------------------------- config file
 static char cfg_path[600];
@@ -30,7 +33,8 @@ const char *config_path(void) {
 
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(fullscreen, b) \
-	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i)
+	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
+	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
@@ -71,6 +75,10 @@ void config_load(void) {
 	g_cfg.window_scale = clampi(g_cfg.window_scale, 1, 6);
 	g_cfg.stick_deadzone = clampi(g_cfg.stick_deadzone, 0, 50);
 	g_cfg.volume = clampi(g_cfg.volume, 0, 100);
+	g_cfg.mp_players = clampi(g_cfg.mp_players, 1, 4);
+	g_cfg.mp_char2 = clampi(g_cfg.mp_char2, 0, MP_CHARS - 1);
+	g_cfg.mp_char3 = clampi(g_cfg.mp_char3, 0, MP_CHARS - 1);
+	g_cfg.mp_char4 = clampi(g_cfg.mp_char4, 0, MP_CHARS - 1);
 	int best = 60;
 	for (unsigned i = 0; i < sizeof fps_steps / sizeof fps_steps[0]; i++) if (g_cfg.fps >= fps_steps[i]) best = fps_steps[i];
 	g_cfg.fps = best;
@@ -346,32 +354,53 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 // it), takes the empty rival seat (Free Play), and is set up as a human racer reading player 2's pad.
 // Up to three files, separated by ':' (each made for its own slot and address, e.g. slots 13, 12, 11 at
 // 0x0A000000, 0x0A400000, 0x0A800000), give players 2-4; the ones without a seat are stepped right after
-// the seated racers (HOOK_RACER_STEP).
+// the seated racers (HOOK_RACER_STEP). Without SR2_EXTRA_RACER the settings (mp_players, mp_char2-4) pick the
+// characters, and their files are built during the load (racergen.c) for the level slots left empty.
 #define WORLD        0x089ABD10
 #define WORLD_SLOT(k) (WORLD + 0x90 + (k) * 0x4c0)
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
 #define MAX_EXTRA 3
 static int n_extra;                                         // extra racers built for this race
 static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
+u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresolved);
+static bool slot_free(int k) { return !LW(WORLD_SLOT(k) + 0xd0) && !LW(WORLD_SLOT(k) + 0x438); }
 static bool extra_racer_prepare(int k) {
-	const char *list = getenv("SR2_EXTRA_RACER");
-	if (!list) return false;
-	char path[1024];
-	for (int i = 0; ; i++) {   // the k-th of the ':'-separated files
-		const char *e = strchr(list, ':');
-		size_t len = e ? (size_t)(e - list) : strlen(list);
-		if (i == k) { if (!len || len >= sizeof path) return false; memcpy(path, list, len); path[len] = 0; break; }
-		if (!e) return false;
-		list = e + 1;
-	}
-	FILE *f = fopen(path, "rb");
-	if (!f) { LOGI("extra racer: cannot open %s", path); return false; }
 	static u8 buf[0x200000];
-	size_t n = fread(buf, 1, sizeof buf, f); fclose(f);
+	size_t n;
+	const char *list = getenv("SR2_EXTRA_RACER");
+	if (list) {
+		char path[1024];
+		for (int i = 0; ; i++) {   // the k-th of the ':'-separated files
+			const char *e = strchr(list, ':');
+			size_t len = e ? (size_t)(e - list) : strlen(list);
+			if (i == k) { if (!len || len >= sizeof path) return false; memcpy(path, list, len); path[len] = 0; break; }
+			if (!e) return false;
+			list = e + 1;
+		}
+		FILE *f = fopen(path, "rb");
+		if (!f) { LOGI("extra racer: cannot open %s", path); return false; }
+		n = fread(buf, 1, sizeof buf, f); fclose(f);
+		LOGI("extra racer: %s (%zu bytes)", path, n);
+	} else {
+		// Players 2-4 from the settings: build the character's racer file for the highest level slot
+		// this race leaves empty (below the extras already built), at 0x0A000000 + k * 4 MB, its heap block 2 MB in.
+		if (k + 1 >= g_cfg.mp_players) return false;
+		static int used_slot[MAX_EXTRA];
+		int slot = k ? used_slot[k - 1] - 1 : 13;
+		while (slot > 0 && !slot_free(slot)) slot--;
+		if (slot <= 0) { LOGE("extra racer %d: no free load slot in this level", k + 1); return false; }
+		used_slot[k] = slot;
+		int ci = k == 0 ? g_cfg.mp_char2 : k == 1 ? g_cfg.mp_char3 : g_cfg.mp_char4;
+		u32 base = 0x0A000000 + k * 0x400000, heap = base + 0x200000;
+		u32 hs = racergen(mp_char_files[ci], slot, base, heap, buf, NULL);
+		if (!hs) return false;
+		memset(PTR(heap), 0, 0x200000);
+		n = 0x166670;
+		LOGI("extra racer %d: %s, slot %d", k + 1, mp_char_names[ci], slot);
+	}
 	u32 start; memcpy(&start, buf + FILE_SLOT_HDR + 0x410, 4);   // the file's own address (+0x10)
 	extra_base = start - 0x10;
 	memcpy(PTR(extra_base), buf, n);
-	LOGI("extra racer: %s (%zu bytes) at %08x", path, n, extra_base);
 	return true;
 }
 static void extra_racer_build(Ctx *c, u32 loader) {

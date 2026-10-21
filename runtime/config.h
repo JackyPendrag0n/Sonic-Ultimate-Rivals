@@ -24,12 +24,18 @@ typedef struct GameConfig {
 	int volume;            // 0..100
 	// local 2 players
 	int split_layout;      // 0 side by side, 1 top and bottom
+	// local 2-4 players in one game (game.c, extra racers)
+	int mp_players;        // 1..4
+	int mp_char2, mp_char3, mp_char4;   // characters of players 2-4 (index into mp_char_names)
+	bool pad_all;          // debug: player 1's controller drives all players
 } GameConfig;
 
 extern GameConfig g_cfg;
 void config_load(void);
 void config_save(void);
 const char *config_path(void);
+#define MP_CHARS 8
+extern const char *const mp_char_names[MP_CHARS], *const mp_char_files[MP_CHARS];
 
 #ifdef __cplusplus
 }
