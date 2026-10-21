@@ -301,6 +301,9 @@ static void poll_input(void) {
 static float fps_shown, game_fps_shown;
 static u64 fps_t0, fps_frames, fps_flips0;
 
+int fe_game_rect[4];   // where the game image is in the window (x, y, w, h; y from the top), for the overlay
+static bool overlay_headless;
+
 static void present(void) {
 	if (!have_gl) return;
 	int w, h;
@@ -321,9 +324,10 @@ static void present(void) {
 		int vw = w, vh = h;
 		if (g_cfg.keep_aspect) { vh = w * 272 / 480; if (vh > h) { vh = h; vw = h * 480 / 272; } }
 		ge_present((w - vw) / 2, (h - vh) / 2, vw, vh);
+		fe_game_rect[0] = (w - vw) / 2; fe_game_rect[1] = (h - vh) / 2; fe_game_rect[2] = vw; fe_game_rect[3] = vh;
 		if (split_is_child()) split_child_frame();
 	}
-	if (!headless) menu_draw(w, h, fps_shown, game_fps_shown);
+	if (!headless || overlay_headless) menu_draw(w, h, fps_shown, game_fps_shown);
 	if (want_winshot && p_glReadPixels) {
 		// test aid: capture the whole window (game + overlay) as presented
 		u32 *px = malloc((size_t)w * h * 4), *fl = malloc((size_t)w * h * 4);
@@ -413,6 +417,11 @@ static void ctl_poll(void) {
 		} else if (!strcmp(cmd, "track")) {   // "track ADDR": log that float every vblank to <fifo>.track ("track 0" clears)
 			u32 a = strtoul(arg, NULL, 16);
 			if (!a) ntrack = 0; else if (ntrack < 8) track[ntrack++] = a;
+		} else if (!strcmp(cmd, "warp")) {   // "warp K DIST": player K+1 to that distance along the course
+			extern void game_request_warp(int k, float dist);
+			float d = 0; const char *v = strchr(buf + strlen(cmd) + 1, ' ');
+			if (v) d = strtof(v, NULL);
+			game_request_warp(atoi(arg), d);
 		} else if (!strcmp(cmd, "dump")) {
 			FILE *f = fopen(arg, "wb");
 			if (f) { fwrite(PTR(0x08000000), 1, 0x04000000, f); fclose(f); }
@@ -582,6 +591,8 @@ void fe_init(void) {
 	SDL_GL_SetSwapInterval(headless ? 0 : (g_cfg.vsync ? 1 : 0));
 	ge_gl_init(SDL_GL_GetProcAddress, g_cfg.internal_scale);
 	ge_gl_set_options(g_cfg.tex_filter, g_cfg.anisotropy, 0);
+	overlay_headless = headless && getenv("SR2_OVERLAY");   // test aid: the overlay in winshots
+	if (overlay_headless) menu_init(win, glctx);
 	if (!headless) {
 		if (g_cfg.fullscreen) set_fullscreen(true);
 		menu_init(win, glctx);

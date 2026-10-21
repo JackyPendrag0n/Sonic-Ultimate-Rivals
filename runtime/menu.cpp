@@ -142,11 +142,64 @@ static void split_tab() {
 	ImGui::TextDisabled("Experimental: the HUD and placings only follow player 1.");
 }
 
+extern "C" int mp_placings(int *place, float (*view)[4], int *over);
+extern "C" int mp_player_char(int k);
+
+// split screen races: each player's place in their view once they finish, and all of them when the race is over
+static void placings_draw(const int *game) {   // game: the game image in the window (x, y, w, h)
+	int place[4], over = 0; float view[4][4];
+	int n = mp_placings(place, view, &over);
+	if (!n) return;
+	static const char *const ord[] = {"", "1st", "2nd", "3rd", "4th"};
+	static const ImU32 col[] = {0, IM_COL32(255, 215, 40, 255), IM_COL32(220, 225, 235, 255), IM_COL32(225, 140, 70, 255), IM_COL32(150, 190, 255, 255)};
+	ImDrawList *dl = ImGui::GetForegroundDrawList();
+	ImFont *font = ImGui::GetFont();
+	auto text = [&](float cx, float cy, float size, ImU32 c, const char *t) {   // centred, outlined
+		ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0, t);
+		ImVec2 p(cx - ts.x / 2, cy - ts.y / 2);
+		for (int d = 0; d < 8; d++) {
+			static const int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1}, dy[] = {-1, -1, -1, 0, 0, 1, 1, 1};
+			float o = size / 16;
+			dl->AddText(font, size, ImVec2(p.x + dx[d] * o, p.y + dy[d] * o), IM_COL32(0, 0, 0, 220), t);
+		}
+		dl->AddText(font, size, p, c, t);
+	};
+	if (!over) {
+		for (int k = 0; k < n; k++) {
+			if (place[k] < 1 || place[k] > 4) continue;
+			float vx = game[0] + view[k][0] * game[2], vy = game[1] + view[k][1] * game[3];
+			float vw = view[k][2] * game[2], vh = view[k][3] * game[3];
+			text(vx + vw / 2, vy + vh * 0.38f, vh * 0.3f, col[place[k]], ord[place[k]]);
+		}
+		return;
+	}
+	// the results: one line per place, right of the game's own results box
+	float size = game[3] * 0.06f, y = game[1] + game[3] * 0.56f - size * (n - 1) * 0.6f, cx = game[0] + game[2] * 0.74f;
+	for (int p = 1; p <= 4; p++)
+		for (int k = 0; k < n; k++) {
+			if (place[k] != p) continue;
+			int ch = mp_player_char(k);
+			char line[64];
+			if (ch >= 0) snprintf(line, sizeof line, "%s  P%d %s", ord[p], k + 1, mp_char_names[ch]);
+			else snprintf(line, sizeof line, "%s  P%d", ord[p], k + 1);
+			text(cx, y, size, col[p], line);
+			y += size * 1.2f;
+		}
+	for (int k = 0; k < n; k++) if (!place[k]) {   // did not finish in time
+		char line[64]; snprintf(line, sizeof line, "--   P%d", k + 1);
+		text(cx, y, size, IM_COL32(170, 170, 170, 255), line);
+		y += size * 1.2f;
+	}
+}
+
+extern "C" int fe_game_rect[4];
+
 extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 	if (!g_ready) return;
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
+	placings_draw(fe_game_rect);
 	if (g_cfg.show_fps) {
 		ImGui::SetNextWindowPos(ImVec2(8, 8));
 		ImGui::SetNextWindowBgAlpha(0.45f);

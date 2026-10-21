@@ -369,6 +369,22 @@
     "00808021",
     "afbf00b4"
    ]
+  },
+  {
+   "id": 25,
+   "name": "RACER_FINISH",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_b2530(racer): a racer crosses the finish line (sets race state 7, the race is over).",
+   "pattern": [
+    "27bdffd0",
+    "afb20008",
+    "00809021",
+    "afbf001c",
+    "afb60018",
+    "afb50014",
+    "afb40010"
+   ]
   }
  ]
 }

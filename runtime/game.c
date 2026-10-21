@@ -109,7 +109,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW,
        HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP,
        HOOK_HUD_ELEM, HOOK_HUD_PART_A, HOOK_HUD_PART_B, HOOK_HUD_PART_C, HOOK_HUD_PART_D,
-       HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE };
+       HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE, HOOK_RACER_FINISH };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -365,8 +365,9 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
 #define MAX_EXTRA 3
 static int n_extra;                                         // extra racers built for this race
-static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];
-static int extra_char[MAX_EXTRA] = {-1, -1, -1};   // index into mp_char_names (-1: a racer file given by SR2_EXTRA_RACER)   // and whether each waits to be switched on
+static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
+static int extra_char[MAX_EXTRA] = {-1, -1, -1};   // index into mp_char_names (-1: a racer file given by SR2_EXTRA_RACER)
+static bool race_ending;   // with extra racers: everyone is in, the game's finish runs (see placings)
 u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresolved);
 static bool slot_free(int k) { return !LW(WORLD_SLOT(k) + 0xd0) && !LW(WORLD_SLOT(k) + 0x438); }
 static bool extra_racer_prepare(int k) {
@@ -435,17 +436,11 @@ static void extra_racer_build(Ctx *c, u32 loader) {
 // Put the extra racer at the start next to racer pr, the way F_159194 puts racers 0/1 at their start
 // (racer+0xb0): move the body (+0x20) and the previous position (+0xe0), telling the racer's collision
 // object (F_15e3c/F_15e64 take the offset), face the same way (+0xc0, body +0x30), then F_a2430.
-static void extra_racer_place(Ctx *c, u32 r, u32 pr, int k) {
-	float t[4], cur[4], d[4];
-	// beside the player (x is across the track, y along it, z up): in a row ahead, the ones still standing
-	// block the others; behind, there may be a wall
-	float d0[3] = { -0.6f * (k + 1), 0, 0 };
-	const char *e = getenv("SR2_EXTRA_DXYZ");
-	if (e && sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]) == 3) for (int j = 0; j < 3; j++) d0[j] *= k + 1;
-	memcpy(t, PTR(pr + 0xb0), 16);
-	for (int j = 0; j < 3; j++) t[j] += d0[j];
+// put racer r at t (x, y, z, w), moving its body and itself as the game's moves do, facing like racer `like`
+static void racer_place_at(Ctx *c, u32 r, const float *t, u32 like) {
+	float d[4], cur[4];
 	memcpy(PTR(r + 0xb0), t, 16);
-	memcpy(PTR(r + 0xc0), PTR(pr + 0xc0), 16);
+	memcpy(PTR(r + 0xc0), PTR(like + 0xc0), 16);
 	u32 eb = LW(r + 4), tmp = c->r[29] - 0x200;   // scratch below the guest stack
 	Ctx save = *c;
 	static const u16 at[2] = { 0x20, 0xe0 };   // body +0x20 (base eb), racer +0xe0 (base r)
@@ -460,10 +455,50 @@ static void extra_racer_place(Ctx *c, u32 r, u32 pr, int k) {
 		*c = save;
 		memcpy(PTR(a), t, 16);
 	}
-	memcpy(PTR(eb + 0x30), PTR(LW(pr + 4) + 0x30), 16);
+	if (like != r) memcpy(PTR(eb + 0x30), PTR(LW(like + 4) + 0x30), 16);
 	SW(eb + 8, LW(eb + 8) | 0xc000);
 	c->r[4] = r; rt_call(c, 0x08800000 + 0xa2430);
 	*c = save;
+}
+
+static void extra_racer_place(Ctx *c, u32 r, u32 pr, int k) {
+	float t[4];
+	// beside the player (x is across the track, y along it, z up): in a row ahead, the ones still standing
+	// block the others; behind, there may be a wall
+	float d0[3] = { -0.6f * (k + 1), 0, 0 };
+	const char *e = getenv("SR2_EXTRA_DXYZ");
+	if (e && sscanf(e, "%f,%f,%f", &d0[0], &d0[1], &d0[2]) == 3) for (int j = 0; j < 3; j++) d0[j] *= k + 1;
+	memcpy(t, PTR(pr + 0xb0), 16);
+	for (int j = 0; j < 3; j++) t[j] += d0[j];
+	racer_place_at(c, r, t, pr);
+}
+
+// test aid ("warp K DIST" on the control fifo): put player K+1 on the course's path at that distance (or,
+// with DIST < 0, beside player 1)
+// (the path: each section slot's node list, slot header +0x444, a node's position at +0, its distance at +0x34)
+static volatile int warp_k = -1; static volatile float warp_dist;
+void game_request_warp(int k, float dist) { warp_dist = dist; warp_k = k; }
+static void warp_pending(Ctx *c) {
+	int k = warp_k; if (k < 0) return;
+	warp_k = -1;
+	u32 r = k ? (k <= n_extra ? extra_racer[k - 1] : 0) : LW(WORLD + 0x5024);
+	if (!r) return;
+	if (warp_dist < 0 && k) { extra_racer_place(c, r, LW(WORLD + 0x5024), k - 1); LOGI("warp: player %d beside player 1", k + 1); return; }
+	for (int s = 0; s < 16; s++) {
+		u32 arr = LW(WORLD_SLOT(s) + 0x444);
+		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		for (int i = 0; i < 4096; i++) {
+			u32 n = LW(arr + i * 4);
+			if (n < 0x08800000 || n >= 0x0A000000) break;
+			float d; memcpy(&d, PTR(n + 0x34), 4);
+			if (d >= warp_dist) {
+				float t[4]; memcpy(t, PTR(n), 16); t[2] += 1; t[3] = 1;
+				racer_place_at(c, r, t, r);
+				LOGI("warp: player %d to %.1f (slot %d node %d) at %.2f %.2f %.2f", k + 1, d, s, i, t[0], t[1], t[2]);
+				return;
+			}
+		}
+	}
 }
 
 // Players 2-4 steer the extra racers. Every racer has an input block (source at +0x1c) that F_17d58 fills
@@ -495,7 +530,7 @@ static bool split_view_on(void) {
 		const char *e = getenv("SR2_SPLIT_VIEW");
 		split_view = !e ? 1 : !strcmp(e, "0") ? 0 : !strcmp(e, "lr") ? 2 : 1;
 	}
-	return split_view && n_extra && !extra_pending[n_extra - 1] && LW(CAM_MAIN);
+	return split_view && n_extra && !extra_pending[n_extra - 1] && LW(CAM_MAIN) && !race_ending;   // the results: whole screen
 }
 
 static void swap_bytes(u8 *a, u8 *b, u32 n) { for (u32 i = 0; i < n; i++) { u8 t = a[i]; a[i] = b[i]; b[i] = t; } }
@@ -551,13 +586,22 @@ static void ge_region_scaled(int k, bool whole) {
 
 static void ge_region(int k) { ge_region_scaled(k, false); }
 
-#define HUD_TIMER_DY 212   // split screen: the timer moves from the top of the screen to just above the race meter
-static void ge_offset(int dx, int dy) {   // the whole screen, drawn moved by (dx, dy)
-	float px = 2048.0f + dx, py = 2048.0f + dy;
-	u32 bx, by; memcpy(&bx, &px, 4); memcpy(&by, &py, 4);
-	ge_put(0x45000000 | bx >> 8);
-	ge_put(0x46000000 | by >> 8);
+// split screen: the shared race meter and timer, smaller than the game draws them so the bottom views keep
+// more room, kept at the bottom of the screen; the timer moves from the top to just above the meter
+#define HUD_SHARED_SCALE 0.65f
+#define HUD_TIMER_Y  20.0f    // the timer's middle, from the top of the screen
+#define HUD_TIMER_TO 232.0f   // where it goes (full size), just above the meter
+static void ge_place(float scale, float dy) {   // the whole screen at that scale, about its middle, moved down by dy
+	float px = 2048.0f, py = 2048.0f + dy, sx = 240 * scale, sy = -136 * scale;
+	u32 b;
+	memcpy(&b, &px, 4); ge_put(0x45000000 | b >> 8);
+	memcpy(&b, &py, 4); ge_put(0x46000000 | b >> 8);
+	memcpy(&b, &sx, 4); ge_put(0x42000000 | b >> 8);
+	memcpy(&b, &sy, 4); ge_put(0x43000000 | b >> 8);
 }
+// the meter keeps its bottom edge where it is; the timer goes to HUD_TIMER_TO measured up from the bottom, scaled
+#define HUD_METER_DY (136 * (1 - HUD_SHARED_SCALE))
+#define HUD_TIMER_DY (136 - (272 - HUD_TIMER_TO) * HUD_SHARED_SCALE + (136 - HUD_TIMER_Y) * HUD_SHARED_SCALE)
 
 // one draw call of the race render, once per view: the first camera's view, then each extra racer's (with
 // that racer as the local player, whose section picks the scenery), then the first camera's state back
@@ -618,6 +662,50 @@ static int input_extra(u32 in) {   // which extra racer an input block belongs t
 	return -1;
 }
 
+// Placings, with players 2-4 in the race: each player's first crossing of the finish line (F_b2530) takes the
+// next place, and the race goes on; it ends (the game's own finish, for player 1) once everyone is in, or
+// MP_FINISH_GRACE seconds after the first. Without extra racers the finish is the game's own.
+#define GOAL_CONTACT_RA  0x105310   // F_105238, the goal line's contact with a racer, calls F_b2530 here
+#define GOAL_TRIGGERED   0x1bc      // goal line: crossed already (no one else counts after that)
+#define MP_FINISH_GRACE  90
+static int finish_place[1 + MAX_EXTRA], n_finished;
+static u64 first_finish_vb;
+static u32 p1_racer;   // player 1's racer (the local player is swapped while extra racers are stepped)
+static int player_index(u32 r) { if (r && r == p1_racer) return 0; int k = extra_index(r); return k >= 0 ? k + 1 : -1; }
+static int p1_char = -1;   // player 1's character, from their meter icon's head (at the start of the race)
+static int head_char(void);
+static void placings_reset(u32 p1) { memset(finish_place, 0, sizeof finish_place); n_finished = 0; race_ending = false; p1_racer = p1; p1_char = head_char(); }
+static void race_end(Ctx *c) {   // the game's finish for player 1: the results
+	race_ending = true;
+	Ctx save = *c;
+	c->r[4] = p1_racer; rt_call(c, 0x08800000 + 0xb2530);
+	*c = save;
+}
+
+// for the overlay (menu.cpp): each player's place (0: still racing), the players' count (0: no placings shown),
+// each player's view in the game image (x, y, w, h as fractions), and whether the race is over
+int mp_placings(int *place, float (*view)[4], int *over) {
+	if (!n_extra || !p1_racer) return 0;
+	int n = n_extra + 1;
+	for (int k = 0; k < n; k++) {
+		place[k] = finish_place[k];
+		float x = 0, y = 0, w = 1, h = 1;
+		if (n_extra >= 2) { w = h = 0.5f; x = (k & 1) * 0.5f; y = (k >> 1) * 0.5f; }
+		else if (split_view == 2) { w = 0.5f; x = k * 0.5f; }
+		else { h = 0.5f; y = k * 0.5f; }
+		view[k][0] = x; view[k][1] = y; view[k][2] = w; view[k][3] = h;
+	}
+	*over = race_ending;
+	return n;
+}
+static int head_char(void) {
+	u32 img = LW(HUD_BASE + HUD_METER_ICON + HUD_ICON_IMAGE);
+	if (img < 0x08800000 || img >= 0x0A000000) return -1;
+	for (int i = 0; i < MP_CHARS; i++) if (!strncmp((const char *)PTR(img + 0x34 + 0x10), hud_heads[i], 32)) return i;
+	return -1;
+}
+int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
+
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	switch (id) {
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
@@ -670,6 +758,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (split_view_on()) { split_draw_views(c, orig); return; }
 		break;
 	case HOOK_RACE_STATE: {   // F_592cc(race, state)
+		if (getenv("SR2_EV_TRACE")) LOGI("race %08x state %u (was %u) from %08x vb %llu", A(0), A(1), LW(A(0) + 0x24), c->r[31], (unsigned long long)g_vblank_count);
 		if (!n_extra) break;
 		static int depth;
 		depth++; race_state_depth = depth;
@@ -759,6 +848,20 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
+	case HOOK_RACER_FINISH: {   // F_b2530(racer)
+		if (!n_extra || race_ending) break;
+		int k = player_index(A(0));
+		if (k < 0) break;
+		if (!finish_place[k]) {
+			finish_place[k] = ++n_finished;
+			if (n_finished == 1) first_finish_vb = g_vblank_count;
+			LOGI("finish: player %d is %d of %d", k + 1, n_finished, n_extra + 1);
+		}
+		if (c->r[31] == 0x08800000 + GOAL_CONTACT_RA) SB(c->r[16] + GOAL_TRIGGERED, 0);   // for the others still to come
+		if (n_finished == n_extra + 1) { race_ending = true; c->r[4] = p1_racer; break; }
+		c->r[2] = 0;
+		return;
+	}
 	case HOOK_RACER_UPDATE:   // F_af53c(racer, ...)
 		if (getenv("SR2_UPDATE_AS_P1") && extra_index(A(0)) >= 0) {
 			u32 p1 = LW(WORLD + 0x5024), f = LW(WORLD + 0x5028);
@@ -785,6 +888,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			}
 			SW(WORLD + 0x5024, p1); SW(hud + HUD_RINGS, rings);
 			ge_region(-1);
+			ge_place(HUD_SHARED_SCALE, HUD_METER_DY);
 			hud_pass = HUD_PASS_METER; orig(c);   // the race meter
 			rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
 			*c = save;
@@ -803,7 +907,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
 				*c = save;
 			}
-			ge_offset(0, HUD_TIMER_DY);   // the timer, just above the meter
+			ge_place(HUD_SHARED_SCALE, HUD_TIMER_DY);   // the timer, just above the meter
 			hud_pass = HUD_PASS_TIMER; orig(c);
 			rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
 			*c = save;
@@ -864,6 +968,11 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		break;
 	case HOOK_RACER_MOVE:
+		warp_pending(c);
+		if (n_finished && !race_ending && g_vblank_count - first_finish_vb > MP_FINISH_GRACE * 60) {
+			LOGI("finish: %d s since the first, ending the race", MP_FINISH_GRACE);
+			race_end(c);
+		}
 		for (int k = 0; k < n_extra; k++) if (extra_pending[k]) {   // the race is running: switch the extra racer on
 			u32 r = extra_pending[k]; extra_pending[k] = 0;            // like the world update does (F_15aafc)
 			cam_ready[k] = false;
@@ -877,6 +986,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			rt_call(c, 0x08800000 + 0x16c0b0);
 			*c = save;
 			extra_racer_place(c, r, pr, k);
+			if (k == 0) placings_reset(pr);
 			u32 ctl = LW(r + 0x480);   // its controller: reset it, as the racer's start step (F_aff70) does first
 			c->r[4] = ctl; rt_call(c, LW(LW(ctl) + 8));
 			*c = save;
