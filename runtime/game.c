@@ -365,7 +365,8 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
 #define MAX_EXTRA 3
 static int n_extra;                                         // extra racers built for this race
-static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
+static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];
+static int extra_char[MAX_EXTRA] = {-1, -1, -1};   // index into mp_char_names (-1: a racer file given by SR2_EXTRA_RACER)   // and whether each waits to be switched on
 u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresolved);
 static bool slot_free(int k) { return !LW(WORLD_SLOT(k) + 0xd0) && !LW(WORLD_SLOT(k) + 0x438); }
 static bool extra_racer_prepare(int k) {
@@ -400,6 +401,7 @@ static bool extra_racer_prepare(int k) {
 		if (!hs) return false;
 		memset(PTR(heap), 0, 0x200000);
 		n = 0x166670;
+		extra_char[k] = ci;
 		LOGI("extra racer %d: %s, slot %d", k + 1, mp_char_names[ci], slot);
 	}
 	u32 start; memcpy(&start, buf + FILE_SLOT_HDR + 0x410, 4);   // the file's own address (+0x10)
@@ -549,6 +551,14 @@ static void ge_region_scaled(int k, bool whole) {
 
 static void ge_region(int k) { ge_region_scaled(k, false); }
 
+#define HUD_TIMER_DY 212   // split screen: the timer moves from the top of the screen to just above the race meter
+static void ge_offset(int dx, int dy) {   // the whole screen, drawn moved by (dx, dy)
+	float px = 2048.0f + dx, py = 2048.0f + dy;
+	u32 bx, by; memcpy(&bx, &px, 4); memcpy(&by, &py, 4);
+	ge_put(0x45000000 | bx >> 8);
+	ge_put(0x46000000 | by >> 8);
+}
+
 // one draw call of the race render, once per view: the first camera's view, then each extra racer's (with
 // that racer as the local player, whose section picks the scenery), then the first camera's state back
 static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
@@ -569,6 +579,37 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 }
 
 #define HUD_RINGS    0x30    // HUD (F_12ad44's argument): the ring count shown, a float
+#define HUD_BASE        0x08A7DF30   // the HUD; its elements (F_12f280) are at these offsets:
+#define HUD_TIMER       0x2c0        // the timer (box and digits)
+#define HUD_METER       0x1550       // the race meter's bar, at the bottom
+#define HUD_METER_ICON  0x1600       // the local player's icon on it
+#define HUD_RIVAL_ICON  0x16b0       // the rival's
+#define HUD_DRAW_TEXT   0x12d868     // F_12d868 (part A): draws the text the elements queued (rings, timer digits)
+// split screen draws the HUD in passes: each view's own (rings, boost), then once for the whole screen the
+// race meter (again per player for its icon) and the timer
+enum { HUD_PASS_ALL, HUD_PASS_VIEW, HUD_PASS_METER, HUD_PASS_ICON, HUD_PASS_TIMER };
+static int hud_pass, hud_in_elem;
+#define HUD_ICON_X      0x60   // a meter icon: its x (-1..1), and its image (a HUD texture)
+#define HUD_ICON_IMAGE  0x74
+#define HUD_METER_LENGTH (285.0f / 272)   // the icon's x per unit of race progress (F_129380)
+// the HUD's textures are in a list (node at +0x34: next, previous, ..., the name at +0x10); the heads by character
+static const char *const hud_heads[MP_CHARS] = {"head sonic", "head shadow", "head silver", "head knuckles",
+	"rouge_head", "Tails_head", "espio_head", "head metalsonic"};
+static u32 hud_texture(u32 from, const char *name) {
+	u32 node = from + 0x34;
+	for (int i = 0; i < 512 && node >= 0x08800000 && node < 0x0A000000; i++, node = LW(node)) {
+		if (!strncmp((const char *)PTR(node + 0x10), name, 32)) return node - 0x34;
+		if (i && node == from + 0x34) break;
+	}
+	return 0;
+}
+static float race_progress(Ctx *c, u32 racer) {   // F_b070c: how far along the race a racer is, 0..1
+	Ctx save = *c;
+	c->r[4] = racer; rt_call(c, 0x08800000 + 0xb070c);
+	float p = c->f[0];
+	*c = save;
+	return p;
+}
 #define RACER_RINGS  0x72c   // racer: rings held
 static int race_state_depth;   // inside F_592cc
 static int extra_index(u32 r) { for (int k = 0; k < n_extra; k++) if (extra_racer[k] == r) return k; return -1; }
@@ -650,10 +691,29 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		return;
 	}
 	case HOOK_HUD_ELEM: case HOOK_HUD_PART_A: case HOOK_HUD_PART_B: case HOOK_HUD_PART_C: case HOOK_HUD_PART_D: {
+		if (hud_pass) {   // split screen: which pieces this pass of the HUD draws
+			u32 e = id == HOOK_HUD_ELEM ? A(0) - HUD_BASE : ~0u;
+			bool shared = e == HUD_TIMER || e == HUD_METER || e == HUD_METER_ICON || e == HUD_RIVAL_ICON;
+			if (id == HOOK_HUD_PART_A) break;   // the text queued by the elements this pass draws
+			if (hud_pass == HUD_PASS_VIEW) { if (shared) return; }
+			else if (id == HOOK_HUD_ELEM) {
+				bool want = hud_pass == HUD_PASS_TIMER ? e == HUD_TIMER
+				          : hud_pass == HUD_PASS_METER ? e == HUD_METER || e == HUD_RIVAL_ICON : e == HUD_METER_ICON;
+				if (!want) return;
+				hud_in_elem++; orig(c); hud_in_elem--;
+				return;
+			} else if (!hud_in_elem) return;   // parts outside the wanted elements
+		}
 		// test aid: SR2_HUD_HIDE="a".."d" (parts) or element offsets (hex), or SR2_HUD_HIDE_FILE, read again every frame
 		static char hide[256]; static int got;
-		if (!got) { const char *e = getenv("SR2_HUD_HIDE"); snprintf(hide, sizeof hide, "%s", e ? e : ""); got = 1; }
-		const char *hf = getenv("SR2_HUD_HIDE_FILE");
+		static int list_on = -1; if (list_on < 0) list_on = getenv("SR2_HUD_LIST") != NULL;
+		if (list_on) {   // test aid: each element or part drawn, once per call site
+			static u32 seen[256][2]; static int ns; u32 e = id == HOOK_HUD_ELEM ? A(0) - 0x08A7DF30 : 0xa00000 + id, ra = c->r[31]; int i = 0;
+			while (i < ns && !(seen[i][0] == (id == HOOK_HUD_ELEM ? e : A(0)) && seen[i][1] == ra)) i++;
+			if (i == ns && ns < 256) { seen[ns][0] = id == HOOK_HUD_ELEM ? e : A(0); seen[ns][1] = ra; ns++; LOGI("hud %s %x a0 %08x ra %06x", id == HOOK_HUD_ELEM ? "elem" : "part", e, A(0), ra - 0x08800000); }
+		}
+		static const char *hf;
+		if (!got) { const char *e = getenv("SR2_HUD_HIDE"); snprintf(hide, sizeof hide, "%s", e ? e : ""); hf = getenv("SR2_HUD_HIDE_FILE"); got = 1; }
 		static u64 read_at;
 		if (hf && read_at != g_vblank_count) {
 			read_at = g_vblank_count; hide[0] = 0;
@@ -664,6 +724,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		char key[16];
 		if (id == HOOK_HUD_ELEM) snprintf(key, sizeof key, ",%x,", A(0) - 0x08A7DF30); else snprintf(key, sizeof key, ",%c,", 'a' + id - HOOK_HUD_PART_A);
 		char list[256]; snprintf(list, sizeof list, ",%s,", hide);
+		if (strstr(list, key)) return;
+		snprintf(key, sizeof key, ",r%x,", c->r[31] - 0x08800000);   // or by call site
+		if (strstr(list, key)) return;
+		snprintf(key, sizeof key, ",p%x,", A(0));   // or by argument
 		if (strstr(list, key)) return;
 		break;
 	}
@@ -714,10 +778,36 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 					float n = (float)(s32)LW(r + RACER_RINGS);
 					SW(WORLD + 0x5024, r); memcpy(PTR(hud + HUD_RINGS), &n, 4);
 				}
+				hud_pass = HUD_PASS_VIEW;
 				ge_region_scaled(k, true); orig(c);   // halves too get the whole HUD, at half size
+				rt_call(c, 0x08800000 + HUD_DRAW_TEXT);   // its text now, in its view (the HUD draws it next time)
 				*c = save;
 			}
 			SW(WORLD + 0x5024, p1); SW(hud + HUD_RINGS, rings);
+			ge_region(-1);
+			hud_pass = HUD_PASS_METER; orig(c);   // the race meter
+			rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
+			*c = save;
+			// each player's icon on it, player 1's on top: the icon moved along by that player's progress
+			// (as F_129380 places it), with their character's head
+			u32 icon = HUD_BASE + HUD_METER_ICON, x0 = LW(icon + HUD_ICON_X), img0 = LW(icon + HUD_ICON_IMAGE);
+			float p0 = race_progress(c, p1), xf; memcpy(&xf, &x0, 4);
+			for (int k = n_extra; k >= 0; k--) {
+				if (k) {
+					float x = xf + (race_progress(c, extra_racer[k - 1]) - p0) * HUD_METER_LENGTH;
+					u32 xb; memcpy(&xb, &x, 4); SW(icon + HUD_ICON_X, xb);
+					u32 head = extra_char[k - 1] >= 0 ? hud_texture(img0, hud_heads[extra_char[k - 1]]) : 0;
+					SW(icon + HUD_ICON_IMAGE, head ? head : img0);
+				} else { SW(icon + HUD_ICON_X, x0); SW(icon + HUD_ICON_IMAGE, img0); }
+				hud_pass = HUD_PASS_ICON; orig(c);
+				rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
+				*c = save;
+			}
+			ge_offset(0, HUD_TIMER_DY);   // the timer, just above the meter
+			hud_pass = HUD_PASS_TIMER; orig(c);
+			rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
+			*c = save;
+			hud_pass = HUD_PASS_ALL;
 			ge_region(-1);
 			return;
 		}

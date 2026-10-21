@@ -162,8 +162,12 @@ switch `pad_all` makes every player read controller 1 and the keyboard.
 
 Each view also gets its own HUD: the HUD (F_12ad44, hook 15) is drawn once per view, scaled to half size
 into it, with that player as the local player (the boost bar reads it as it draws) and that player's rings
-(racer +0x72C) put into the HUD's ring count (HUD +0x30) for the draw. The timer and race meter are still
-player 1's in every view.
+(racer +0x72C) put into the HUD's ring count (HUD +0x30) for the draw. The timer and the race meter are
+shared: the views' passes leave out those elements (hooks 17-21 filter what each pass draws), and the meter and
+timer are drawn once for the whole screen, the timer moved down to just above the meter. Every player gets an
+icon on the meter: player 1's icon element (HUD +0x1600) is drawn again per player, moved by the difference in
+race progress (F_B070C) and showing that character's head (the HUD's "head ..." textures). Text the elements
+queue (ring and timer digits) is drawn after each pass (F_12D868), so it lands in that pass's view.
 
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
