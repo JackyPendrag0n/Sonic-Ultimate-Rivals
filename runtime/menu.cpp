@@ -108,9 +108,12 @@ static void split_tab() {
 	ImGui::BulletText("Main Menu > Multiplayer opens the setup screen.");
 	ImGui::BulletText("Players 2-4: press A on your controller to join, left / right to pick a character.");
 	ImGui::BulletText("Player 1: A or Start, then pick the stage and your character as in Free Play.");
+	ImGui::BulletText("Act 1 stages are races, Act 2 stages are battles (all six modes), Act 4 are bosses.");
+	ImGui::BulletText("Battles: every player keeps their own score; the first to the goal wins, or the best at time-up.");
+	ImGui::BulletText("Bosses: every player has their own six hits to land; the first to land them wins.");
 	ImGui::BulletText("Two players split the screen top and bottom; three or four, into quarters.");
 	ImGui::BulletText("Before the start each player gets a camera shot and says a line.");
-	ImGui::BulletText("The race goes on until everyone is in (or 90 s after the winner): 1st, 2nd, 3rd, 4th.");
+	ImGui::BulletText("A race goes on until everyone is in (or 90 s after the winner): 1st, 2nd, 3rd, 4th.");
 	ImGui::Separator();
 	if (ImGui::Checkbox("Debug: player 1's controller drives everyone", &g_cfg.pad_all)) changed();
 	help("For testing on your own: every player copies controller 1 (and the keyboard).");
@@ -139,7 +142,7 @@ static void lobby_draw(int w, int h) {
 	dl->AddRectFilled(ImVec2(0, 0), ImVec2((float)w, (float)h), IM_COL32(10, 16, 44, 240));
 	float u = h / 24.0f;
 	text(w / 2.0f, u * 1.4f, u * 1.8f, white, "MULTIPLAYER");
-	text(w / 2.0f, u * 3.4f, u * 0.8f, grey, "A local race for up to four players");
+	text(w / 2.0f, u * 3.4f, u * 0.8f, grey, "Races, battles and bosses for up to four players");
 	bool wide = w > h * 1.3f;
 	int cols = wide ? 4 : 2;
 	float gap = u * 0.8f, top = u * 5.2f, cw = (w - gap * (cols + 1)) / cols, chh = wide ? u * 12 : u * 6.6f;
@@ -187,6 +190,8 @@ static void lobby_draw(int w, int h) {
 extern "C" int mp_placings(int *place, float *time, float (*view)[4], int *over);
 extern "C" int mp_player_char(int k);
 extern "C" int mp_split_lead(void);
+extern "C" int mp_boss_hits(int k);
+extern "C" int mp_score_text(int k, char *out, int n);
 
 // split screen races: each player's place in their view once they finish, and all of them when the race is over
 static void placings_draw(const int *game) {   // game: the game image in the window (x, y, w, h)
@@ -234,7 +239,13 @@ static void placings_draw(const int *game) {   // game: the game image in the wi
 			if (place[k] != p) continue;
 			int ch = mp_player_char(k), cs = (int)(time[k] * 100 + 0.5f);
 			char line[96];
-			snprintf(line, sizeof line, "%s  P%d %-11s %d:%02d.%02d", ord[p], k + 1, ch >= 0 ? mp_char_names[ch] : "", cs / 6000, cs / 100 % 60, cs % 100);
+			char score[32];
+			if (mp_boss_hits(k) >= 0)   // the bosses: hits, not times
+				snprintf(line, sizeof line, "%s  P%d %-11s %d hits", ord[p], k + 1, ch >= 0 ? mp_char_names[ch] : "", mp_boss_hits(k));
+			else if (mp_score_text(k, score, sizeof score))   // the battles: their scores
+				snprintf(line, sizeof line, "%s  P%d %-11s %s", ord[p], k + 1, ch >= 0 ? mp_char_names[ch] : "", score);
+			else
+				snprintf(line, sizeof line, "%s  P%d %-11s %d:%02d.%02d", ord[p], k + 1, ch >= 0 ? mp_char_names[ch] : "", cs / 6000, cs / 100 % 60, cs % 100);
 			text(cx, y, size, col[p], line);
 			y += size * 1.2f;
 		}

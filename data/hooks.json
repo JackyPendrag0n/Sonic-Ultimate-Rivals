@@ -475,6 +475,248 @@
     "00003021",
     "8c865024"
    ]
+  },
+  {
+   "id": 32,
+   "name": "STORY_PROGRESS",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_13a63c(profile): the furthest any character has got in story mode (a stage id, 255 none), which unlocks zones and acts in Single Event. Test aid: SR2_UNLOCK_ALL=1 answers 255 (everything open).",
+   "pattern": [
+    "27bdffe0",
+    "afbf0010",
+    "3c030000/ffff0000",
+    "afb3000c",
+    "24730000/ffff0000",
+    "afb20008"
+   ]
+  },
+  {
+   "id": 33,
+   "name": "BOSS_INIT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "A boss's start (F_c0044(boss), shared by the six bosses' classes): it takes its two contenders, the local player (+0x6d0, hits at byte +0x6d4) and the other racer (+0x6dc, hits at +0x6e0).",
+   "pattern": [
+    "27bdfff0",
+    "afbf0008",
+    "3c020000/ffff0000",
+    "24050001",
+    "afb10004",
+    "00808821"
+   ]
+  },
+  {
+   "id": 34,
+   "name": "BOSS_HIT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_c0164(boss, racer): the racer hit the boss. Only the two contenders count; the first to the boss's number of hits (vt+0x158, 6) wins. Players 3 and 4 have hit counts of their own, swapped in as the local player's while their hit is counted.",
+   "pattern": [
+    "27bdfff0",
+    "afb10004",
+    "00a08821",
+    "afb00000",
+    "afbf000c",
+    "afb20008",
+    "8c8306d0"
+   ]
+  },
+  {
+   "id": 35,
+   "name": "BOSS_MOST_HITS",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_c0d30(boss): the most hits either contender has, which sets how hard the boss fights. With players 3 and 4 it is the most of anyone's.",
+   "pattern": [
+    "908606d4",
+    "908206e0",
+    "0046202b",
+    "03e00008",
+    "00c4100b",
+    "908606d4"
+   ]
+  },
+  {
+   "id": 36,
+   "name": "BT_START",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_80ec4(battle): a battle room's start (its rules object's init for the mode, the rival the computer's). The extra players get their own scores from here.",
+   "pattern": [
+    "27bdfff0",
+    "afb00000",
+    "00808021",
+    "afbf0008",
+    "afb10004",
+    "8c830004"
+   ]
+  },
+  {
+   "id": 37,
+   "name": "BT_RESTART",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_80fa8(battle): the battle again from the start (Retry): the rules object's reset.",
+   "pattern": [
+    "27bdfff0",
+    "afbf0000",
+    "8c850004",
+    "ac800024",
+    "00051880",
+    "00641021"
+   ]
+  },
+  {
+   "id": 38,
+   "name": "BT_UPDATE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_81080(battle, f12 = dt): the battle's frame, the rules object's update (slot 6): who wins and when. Players 3 and 4's King of the Hill time and Tag time are counted here.",
+   "pattern": [
+    "27bdfff0",
+    "afbf0000",
+    "8c850004",
+    "00051880",
+    "00642821",
+    "8ca30008"
+   ]
+  },
+  {
+   "id": 39,
+   "name": "BT_SCORE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_812a0(battle, racer, kind): the score of that racer (slot 11), by its index: the local player 1, the other racer 0, anyone else -1.",
+   "pattern": [
+    "27bdffe0",
+    "afb50014",
+    "00c0a821",
+    "2406ffff",
+    "afb40010",
+    "afb00000"
+   ]
+  },
+  {
+   "id": 40,
+   "name": "BT_PARAM",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_813c8(battle, racer, a2, a3): the rules' slot 9 for that racer.",
+   "pattern": [
+    "27bdffe0",
+    "afb60018",
+    "00c0b021",
+    "afb50014",
+    "00e0a821",
+    "afb3000c"
+   ]
+  },
+  {
+   "id": 41,
+   "name": "BT_EVENT13",
+   "kind": "entry",
+   "index": 6,
+   "_doc": "F_814f4(battle, racer, kind): slot 13 for that racer: Knock Out's knock-out, Laps Race's lap.",
+   "pattern": [
+    "8c6a0000",
+    "8d490034",
+    "0120f809",
+    "00000000",
+    "08000000/fc000000",
+    "8fbf0000",
+    "27bdffe0",
+    "afb50014",
+    "00c0a821",
+    "afb20008",
+    "afb00000",
+    "00808021"
+   ]
+  },
+  {
+   "id": 42,
+   "name": "BT_EVENT14",
+   "kind": "entry",
+   "index": 6,
+   "_doc": "F_81610(battle, racer, a2): slot 14 for that racer.",
+   "pattern": [
+    "8c6a0000",
+    "8d490038",
+    "0120f809",
+    "00000000",
+    "08000000/fc000000",
+    "8fbf0000",
+    "27bdffe0",
+    "afb50014",
+    "00c0a821",
+    "afb20008",
+    "afb00000",
+    "00808021"
+   ]
+  },
+  {
+   "id": 43,
+   "name": "BT_EVENT12",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_81730(battle, racer, kind): slot 12 for that racer: King of the Hill's on the hill, Tag's is it.",
+   "pattern": [
+    "27bdffe0",
+    "afb50014",
+    "00c0a821",
+    "00003021",
+    "afb3000c",
+    "afb00000",
+    "00808021",
+    "afbf0018"
+   ]
+  },
+  {
+   "id": 44,
+   "name": "BT_EVENT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_81858(battle, racer, event, a3): the rules' event handler (slot 10) for that racer: Tag's tagged (11), Capture the Chao's picked up and brought home (14 to 17).",
+   "pattern": [
+    "27bdffe0",
+    "afb50014",
+    "30f500ff",
+    "afb3000c",
+    "00a09821",
+    "afb10004",
+    "afb00000",
+    "00808021"
+   ]
+  },
+  {
+   "id": 45,
+   "name": "HUD_UPDATE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_129380(hud, f12, f13 = dt): the HUD's frame (the scores it shows, the heads of the local player and the other racer by F_3731c). In a battle with players 2-4 it runs once more per view, as that view's player.",
+   "pattern": [
+    "27bdffb0",
+    "afbf0034",
+    "2482352a",
+    "24030001",
+    "afbe0030",
+    "afb7002c"
+   ]
+  },
+  {
+   "id": 46,
+   "name": "CTC_BASE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_103fc0(base, racer): Capture the Chao: a racer at a base brings its Chao home if the base is its own (+0x1a8, one each for the local player and the other racer). Players 3 and 4 can bring theirs to either base.",
+   "pattern": [
+    "27bdfff0",
+    "afb10004",
+    "3c030000/ffff0000",
+    "24710000/ffff0000",
+    "afb00000",
+    "2406000e"
+   ]
   }
  ]
 }

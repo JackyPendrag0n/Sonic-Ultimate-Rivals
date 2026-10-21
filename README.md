@@ -176,6 +176,18 @@ icon on the meter: player 1's icon element (HUD +0x1600) is drawn again per play
 race progress (F_B070C) and showing that character's head (the HUD's "head ..." textures). Text the elements
 queue (ring and timer digits) is drawn after each pass (F_12D868), so it lands in that pass's view.
 
+Bosses (Act 4) and battles (Act 2, all six modes) also take 2-4 players. A boss counts its hits per racer
+(hooks 32-35): every player has their own six hits and the first to land them wins. A battle keeps its rules in
+the battle object (0x08A8561C: mode at +4, a rules object per mode at +8+4*mode), which only knows two racers:
+index 1 (the local player) and index 0 (the rival). The rules' calls (start, restart, update and the six
+dispatchers F_812a0..F_81858, hooks 36-44) seat the player they are about: the rival stays in index 0, and
+index 1 holds player 1 or, for the length of the call, another player, whose score, flags and Tag clock are
+kept per player in between. A player who reaches the goal is seated for good, so the game's own end runs for
+them; at time-up the results rank everyone by score. King of the Hill's points and contesting and Tag's clock
+for an unseated player are worked out per frame (hook 38), and a Chao can be brought to any base (hook 46,
+F_103fc0, lends the base to the player). Each view has its own copy of the HUD (hook 45 runs the HUD update
+once per view, with that view's player seated), so scores, laps, clocks and heads are per player.
+
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found
   (all 253 in this game), and `.init` is merged into the code range across alignment padding.
@@ -211,7 +223,8 @@ queue (ring and timer digits) is drawn after each pass (F_12D868), so it lands i
 `SR2_WINSHOT_EVERY=N SR2_SHOT_DIR=dir` (screenshots), `SR2_FPS=120`, `SR2_GL_SCALE=N`,
 `SR2_2P=1` (start player 2), `SR2_CTL=fifo` (live control: `press`, `press2` for player 2, `shot`,
 `winshot`, `dump`, `poke ADDR hex|float`, `track ADDR` (append those words to `<fifo>.track` every
-vblank) commands, see `runtime/frontend.c`), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
+vblank), `bosshit K` (player K+1 lands a boss hit), `btcall K FN A2 A3 [N]` (call battle rules function
+0x08800000+FN for player K+1) commands, see `runtime/frontend.c`), `SR2_UNLOCK_ALL=1` (every stage open), `SR2_MP_CPU=1` (players 2-4 are left to the computer), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
 the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
 backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
 `SR2_WATCH=lo-hi` memory watches (VFPU stores included). `SR2_GPU=soft SR2_DRAW_EVERY=N` draws only every

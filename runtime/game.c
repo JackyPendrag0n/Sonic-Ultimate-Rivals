@@ -111,7 +111,10 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_HUD_ELEM, HOOK_HUD_PART_A, HOOK_HUD_PART_B, HOOK_HUD_PART_C, HOOK_HUD_PART_D,
        HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE, HOOK_RACER_FINISH, HOOK_SLOT_ACTIVE,
        HOOK_ENTITY_HANDLE, HOOK_VOICE_PICK, HOOK_MENU_GOTO,
-       HOOK_BANTER_CHECK, HOOK_WORLD_RACER };
+       HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
+       HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
+       HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -371,11 +374,12 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 static int n_extra;                                         // extra racers built for this race
 static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
 static int extra_char[MAX_EXTRA] = {-1, -1, -1};   // index into mp_char_names (-1: a racer file given by SR2_EXTRA_RACER)
+static bool extra_seated[MAX_EXTRA];   // player 2 drives the race's own rival (Single Event): seated, not one of ours
 bool mp_active(void);   // players 2-4 join this race (the Multiplayer screen, see below)
 static bool race_ending;   // with extra racers: everyone is in, the game's finish runs (see placings)
 u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresolved);
 static bool slot_free(int k) { return !LW(WORLD_SLOT(k) + 0xd0) && !LW(WORLD_SLOT(k) + 0x438); }
-static bool extra_racer_prepare(int k) {
+static bool extra_racer_prepare(int k, int player) {   // the k-th racer file we add, for player (1..3) + 1
 	static u8 buf[0x200000];
 	size_t n;
 	const char *list = getenv("SR2_EXTRA_RACER");
@@ -395,20 +399,20 @@ static bool extra_racer_prepare(int k) {
 	} else {
 		// Players 2-4 from the settings: build the character's racer file for the highest level slot
 		// this race leaves empty (below the extras already built), at 0x0A000000 + k * 4 MB, its heap block 2 MB in.
-		if (!mp_active() || k + 1 >= g_cfg.mp_players) return false;
+		if (!mp_active() || player + 1 > g_cfg.mp_players || player > MAX_EXTRA) return false;
 		static int used_slot[MAX_EXTRA];
 		int slot = k ? used_slot[k - 1] - 1 : 13;
 		while (slot > 0 && !slot_free(slot)) slot--;
 		if (slot <= 0) { LOGE("extra racer %d: no free load slot in this level", k + 1); return false; }
 		used_slot[k] = slot;
-		int ci = k == 0 ? g_cfg.mp_char2 : k == 1 ? g_cfg.mp_char3 : g_cfg.mp_char4;
+		int ci = player == 1 ? g_cfg.mp_char2 : player == 2 ? g_cfg.mp_char3 : g_cfg.mp_char4;
 		u32 base = 0x0A000000 + k * 0x400000, heap = base + 0x200000;
 		u32 hs = racergen(mp_char_files[ci], slot, base, heap, buf, NULL);
 		if (!hs) return false;
 		memset(PTR(heap), 0, 0x200000);
 		n = 0x166670;
-		extra_char[k] = ci;
-		LOGI("extra racer %d: %s, slot %d", k + 1, mp_char_names[ci], slot);
+		extra_char[player - 1] = ci;
+		LOGI("extra racer %d: %s, slot %d (player %d)", k + 1, mp_char_names[ci], slot, player + 1);
 	}
 	u32 start; memcpy(&start, buf + FILE_SLOT_HDR + 0x410, 4);   // the file's own address (+0x10)
 	extra_base = start - 0x10;
@@ -483,7 +487,26 @@ static void extra_racer_place(Ctx *c, u32 r, u32 pr, int k) {
 // (the path: each section slot's node list, slot header +0x444, a node's position at +0, its distance at +0x34)
 static volatile int warp_k = -1; static volatile float warp_dist;
 void game_request_warp(int k, float dist) { warp_dist = dist; warp_k = k; }
+static volatile int bosshit_k = -1;   // test aid ("bosshit K"): player K+1 hits the boss
+void game_request_bosshit(int k) { bosshit_k = k; }
+static volatile int btcall_k = -1, btcall_n; static volatile u32 btcall_fn, btcall_a2, btcall_a3;   // test aid ("btcall K FN A2 A3 N"):
+void game_request_btcall(int k, u32 fn, u32 a2, u32 a3, int n) { btcall_fn = fn; btcall_a2 = a2; btcall_a3 = a3; btcall_n = n; btcall_k = k; }   // a battle dispatcher for player K+1, N frames
 static void warp_pending(Ctx *c) {
+	extern u32 boss_obj_get(void);
+	if (btcall_k >= 0) {
+		int k = btcall_k; if (--btcall_n <= 0) btcall_k = -1;
+		u32 r = k ? (k <= n_extra ? extra_racer[k - 1] : 0) : LW(WORLD + 0x5024);
+		Ctx save = *c;
+		if (r) { c->r[4] = 0x08A8561C; c->r[5] = r; c->r[6] = btcall_a2; c->r[7] = btcall_a3; rt_call(c, 0x08800000 + btcall_fn); }
+		*c = save;
+	}
+	if (bosshit_k >= 0 && boss_obj_get()) {
+		int k = bosshit_k; bosshit_k = -1;
+		u32 r = k ? (k <= n_extra ? extra_racer[k - 1] : 0) : LW(WORLD + 0x5024);
+		Ctx save = *c;
+		if (r) { c->r[4] = boss_obj_get(); c->r[5] = r; rt_call(c, 0x08800000 + 0xc0164); }
+		*c = save;
+	}
 	int k = warp_k; if (k < 0) return;
 	warp_k = -1;
 	u32 r = k ? (k <= n_extra ? extra_racer[k - 1] : 0) : LW(WORLD + 0x5024);
@@ -531,6 +554,10 @@ static u32 cam_of[MAX_EXTRA];
 static u8 cam_obj[MAX_EXTRA][CAM_SIZE], cam_node[MAX_EXTRA][CAM_NODE_SZ];   // the cameras of extra racers 0..2
 
 static bool banter_on;   // the racers' shots before the start (whole screen)
+static bool boss_mp(void);   // a boss with players 2-4 (see the bosses below)
+static int boss_player_hits(int k);
+static bool bt_mp(void);   // a battle room with players 2-4 (see the battles below)
+static float bt_score(int p);
 static bool split_view_on(void) {
 	if (split_view < 0) {
 		const char *e = getenv("SR2_SPLIT_VIEW");
@@ -617,7 +644,7 @@ static int split_leader(Ctx *c, u32 p1) {   // the player furthest along who has
 	int lead = 0; float best = -1;
 	for (int k = 0; k <= n_extra; k++) {
 		if (finish_place[k] && n_finished <= n_extra) continue;
-		float p = race_progress(c, k ? extra_racer[k - 1] : p1);
+		float p = boss_mp() ? boss_player_hits(k) : bt_mp() ? bt_score(k) : race_progress(c, k ? extra_racer[k - 1] : p1);
 		if (p > best) { best = p; lead = k; }
 	}
 	return split_lead = lead;
@@ -705,6 +732,8 @@ static int head_char(void);
 static float finish_time[1 + MAX_EXTRA];
 static void title_restore(void);
 int mp_player_char(int k);
+static int boss_winner = -1;   // the bosses: who got the hits first (see below)
+static bool hudv_ok;   // the battles: the views' HUDs are set up (see hud_merge)
 static void placings_reset(u32 p1) { title_restore(); memset(finish_place, 0, sizeof finish_place); n_finished = 0; race_ending = false; p1_racer = p1; p1_char = head_char(); }
 static float race_time(Ctx *c) {   // F_12e7ac(the HUD's timer): the race time now
 	Ctx save = *c;
@@ -723,6 +752,7 @@ static int title_char = -1;   // player 1's (the game's order) while the tables 
 static u32 title_was[2];
 static int race_winner(void) {   // the player in first place, or -1
 	if (getenv("SR2_TEST_WINNER")) return atoi(getenv("SR2_TEST_WINNER"));   // test aid
+	if (boss_mp() && boss_winner >= 0) return boss_winner;
 	for (int k = 0; k <= n_extra; k++) if (finish_place[k] == 1) return k;
 	return -1;
 }
@@ -748,7 +778,10 @@ static void title_set(void) {
 static void p1_finish(Ctx *c, void (*orig)(Ctx *c)) {   // the game's finish for player 1 (the results), with their own time
 	title_set();
 	race_ending = true;
-	c->r[4] = p1_racer; orig(c);
+	// the game's own finish is player 1's win, or (Single Event, someone else won) the rival's, so player 1 is not
+	// given the win's unlocks
+	c->r[4] = race_winner() > 0 && extra_seated[0] ? extra_racer[0] : p1_racer;
+	orig(c);
 	if (finish_place[0]) memcpy(PTR(p1_racer + RACER_TIME), &finish_time[0], 4);
 }
 static void finish_call(Ctx *c) { rt_call(c, 0x08800000 + 0xb2530); }   // F_b2530 (the hook lets it through now)
@@ -780,6 +813,369 @@ static int head_char(void) {
 	for (int i = 0; i < MP_CHARS; i++) if (!strncmp((const char *)PTR(img + 0x34 + 0x10), hud_heads[i], 32)) return i;
 	return -1;
 }
+// The bosses (Act 4): the first to land the boss's number of hits (6) wins. The boss counts the local player's
+// hits (+0x6d4) and the other racer's (+0x6e0, the rival: player 2); players 3 and 4 have counts of their own here.
+// A hit of theirs is counted with them in the local player's place, and every hit is weighed against the best of
+// everyone else, so the boss gets harder (and someone wins) as it would with two.
+#define BOSS_P1       0x6d0   // the local player, its hits (byte), and a second count (word)
+#define BOSS_P1_HITS  0x6d4
+#define BOSS_P1_HITS2 0x6d8
+#define BOSS_RIVAL    0x6dc
+#define BOSS_RIVAL_HITS 0x6e0
+#define BOSS_WON      0x7a4   // someone has the hits
+static u32 boss_obj;
+static int boss_hits[1 + MAX_EXTRA];
+static int boss_player_hits(int k) {   // player k's hits now
+	if (!boss_obj) return 0;
+	if (k == 0) return PTR(boss_obj + BOSS_P1_HITS)[0];
+	if (k <= n_extra && extra_seated[k - 1]) return PTR(boss_obj + BOSS_RIVAL_HITS)[0];
+	return boss_hits[k];
+}
+static int boss_best_but(int skip) {   // the most hits of anyone but player skip, and who (into *who)
+	int best = 0;
+	for (int k = 0; k <= n_extra; k++) if (k != skip && boss_player_hits(k) > best) best = boss_player_hits(k);
+	return best;
+}
+static int boss_leader_but(int skip) {
+	int who = -1, best = -1;
+	for (int k = 0; k <= n_extra; k++) if (k != skip && boss_player_hits(k) > best) { best = boss_player_hits(k); who = k; }
+	return who;
+}
+static bool boss_mp(void) { return boss_obj && n_extra && p1_racer; }
+static void boss_hit(Ctx *c, void (*orig)(Ctx *c)) {   // F_c0164(boss, racer)
+	u32 b = A(0), r = A(1);
+	int k = player_index(r);
+	if (b != boss_obj || !n_extra || k < 0) { orig(c); return; }
+	u8 *p1h = PTR(b + BOSS_P1_HITS), *rh = PTR(b + BOSS_RIVAL_HITS);
+	u8 p1h0 = *p1h, rh0 = *rh;
+	u32 p10 = LW(b + BOSS_P1), p1w0 = LW(b + BOSS_P1_HITS2);
+	bool rival = k > 0 && extra_seated[k - 1];
+	int best = boss_best_but(k);
+	if (k == 0) { *rh = best; orig(c); *rh = rh0; }
+	else if (rival) { *p1h = best; orig(c); *p1h = p1h0; }
+	else {
+		SW(b + BOSS_P1, r); *p1h = boss_hits[k]; *rh = best;
+		orig(c);
+		boss_hits[k] = *p1h;
+		SW(b + BOSS_P1, p10); *p1h = p1h0; SW(b + BOSS_P1_HITS2, p1w0); *rh = rh0;
+	}
+	LOGI("boss: P%d hits (%d)", k + 1, boss_player_hits(k));
+	if (boss_winner < 0 && PTR(b + BOSS_WON)[0]) { boss_winner = k; LOGI("boss: P%d wins", k + 1); }
+}
+
+// each view's boss counters: its player's hits and head on the left, the best of the others' on the right
+// (the HUD's update, F_129380, prints the two counters into these strings, "<hits> / <needed>")
+#define BOSS_TEXT_P1    0x08AA9994
+#define BOSS_TEXT_RIVAL 0x08AA99A0
+#define BOSS_TEXT_LEN   12
+static void boss_text(u32 at, int hits) {
+	char *t = (char *)PTR(at), buf[BOSS_TEXT_LEN];
+	const char *rest = memchr(t, '/', BOSS_TEXT_LEN) ? strchr(t, ' ') : NULL;
+	if (!rest) return;
+	snprintf(buf, sizeof buf, "%d%s", hits, rest);
+	memcpy(t, buf, BOSS_TEXT_LEN);
+}
+static void boss_view(int k, bool on) {
+	static u32 img[2]; static char txt[2][BOSS_TEXT_LEN];
+	u32 i1 = HUD_BASE + HUD_METER_ICON + HUD_ICON_IMAGE, i2 = HUD_BASE + HUD_RIVAL_ICON + HUD_ICON_IMAGE;
+	if (!on) { SW(i1, img[0]); SW(i2, img[1]); memcpy(PTR(BOSS_TEXT_P1), txt[0], BOSS_TEXT_LEN); memcpy(PTR(BOSS_TEXT_RIVAL), txt[1], BOSS_TEXT_LEN); return; }
+	img[0] = LW(i1); img[1] = LW(i2);
+	memcpy(txt[0], PTR(BOSS_TEXT_P1), BOSS_TEXT_LEN); memcpy(txt[1], PTR(BOSS_TEXT_RIVAL), BOSS_TEXT_LEN);
+	int o = boss_leader_but(k);
+	boss_text(BOSS_TEXT_P1, boss_player_hits(k)); boss_text(BOSS_TEXT_RIVAL, o >= 0 ? boss_player_hits(o) : 0);
+	int ck = mp_player_char(k), co = o >= 0 ? mp_player_char(o) : -1;
+	u32 hk = ck >= 0 ? hud_texture(img[0], hud_heads[ck]) : 0, ho = co >= 0 ? hud_texture(img[0], hud_heads[co]) : 0;
+	if (hk) SW(i1, hk);
+	if (ho) SW(i2, ho);
+}
+
+// the end of a boss with players 2-4: the winner first, then the others by their hits
+static void boss_placings(Ctx *c) {
+	float t = race_time(c);
+	int w = boss_winner, n = 0;
+	for (int k = 0; k <= n_extra; k++) finish_place[k] = 0;
+	if (w >= 0) { finish_place[w] = ++n; finish_time[w] = t; }
+	for (int h = 6 * 4; h >= 0; h--)
+		for (int k = 0; k <= n_extra; k++)
+			if (!finish_place[k] && boss_player_hits(k) == h) { finish_place[k] = ++n; finish_time[k] = t; }
+	n_finished = n;
+}
+u32 boss_obj_get(void) { return boss_obj; }
+int mp_boss_hits(int k) { return boss_mp() ? boss_player_hits(k) : -1; }   // for the overlay: -1 not a boss
+
+// The battle rooms (Act 2). The battle (BATTLE) has a rules object per mode, which keeps the score of two racers
+// by index: the local player 1 and the other racer 0 (F_3731c), and is asked about a racer through the battle's
+// dispatchers (F_812a0 ... F_81858: that racer's index, then the mode's method; anyone else gets -1). Each
+// player's part of the rules object is kept here while they are not in an index ("seated"): the rival (player 2)
+// is in index 0 and player 1 in index 1, and players 3 and 4 are seated in index 1 for the time the rules object
+// handles them (their knock-outs, laps, Chao, time on the hill, tags). Whoever reaches the score first stays
+// seated, so the game's own end of the battle is theirs. Each view has a HUD of its own, updated with its player
+// in index 1 and the leader of the others in index 0 (HOOK_HUD_UPDATE), and the results rank everyone.
+#define BATTLE      0x08A8561C   // +0 on, +4 the mode (1-6), +8 the rules object of each mode
+#define BT_TIME     0x8          // rules: the time limit (float; Tag: the time as it that loses)
+#define BT_TARGET   0xc          // the score that wins (int)
+#define BT_RACERS   0x14         // the racers of index 0 and 1
+#define BT_TIMED    0x5          // King of the Hill: to the time limit (not to a score)
+#define BT_RULES_SIZE 0x70
+#define TAG_IT      0x44         // Tag: the index that is it (-1: no one, or a player who is not seated)
+#define TAG_CLOCK   0x4d0        // Tag: each index's time as it, in the HUD's clocks (elements, F_12e7ac)
+#define KOTH_RATE   0x08992908   // King of the Hill: the hill time per frame's weight and second (F_821b8)
+#define RACER_RING_COUNT 0x72c   // a racer's rings (Ring Battle's score; Knock Out's lives)
+#define RACER_KO_OUT 0x74e
+#define HUD_SIZE    0x3560
+#define CTC_BASE_OWNER 0x1a8   // Capture the Chao: a base's racer (HOOK_CTC_BASE)
+enum { BT_RING = 1, BT_KO, BT_KOTH, BT_CTC, BT_TAG, BT_LAPS };
+typedef struct { u8 o0, o1, n; } BtField;   // a part of the rules object: its offset for index 0 and 1, its size
+static const struct { BtField f[3]; int nf; bool fscore; const char *unit; } bt_modes[7] = {   // the first is the score
+	[BT_RING] = {{{0}}, 0, false, "rings"},
+	[BT_KO]   = {{{0x44, 0x48, 4}, {0x52, 0x53, 1}}, 2, false, "KOs"},
+	[BT_KOTH] = {{{0x4c, 0x50, 4}, {0x48, 0x49, 1}, {0x54, 0x58, 4}}, 3, true, "pts"},   // points on the hill, on it, since the last update
+	[BT_CTC]  = {{{0x4c, 0x50, 4}, {0x48, 0x49, 1}}, 2, false, "Chao"},   // Chao brought home, carrying one
+	[BT_TAG]  = {{{0x48, 0x4c, 4}}, 1, true, "s it"},   // (the time as it, copied from the HUD's clocks)
+	[BT_LAPS] = {{{0x48, 0x4c, 4}}, 1, false, "laps"},
+};
+static u8 bt_st[1 + MAX_EXTRA][16];   // each player's part, while not seated
+static float bt_tag[1 + MAX_EXTRA];   // Tag: each player's time as it, while not seated
+static int bt_s[2] = {1, 0};          // the players seated in index 0 and 1
+static int bt_home = 0;               // the player seated in index 1 between events (player 1, or who has won)
+static int bt_tag_x = -1;             // Tag: who is it when the index says no one
+static u32 bt_rl;                     // the rules object these are for
+static int bt_mode(void) { u32 m = LBU(BATTLE) ? LW(BATTLE + 4) : 0; return m >= 1 && m <= 6 && LW(BATTLE + 8 + 4 * m) ? m : 0; }
+static u32 bt_rules(void) { int m = bt_mode(); return m ? LW(BATTLE + 8 + 4 * m) : 0; }
+static bool bt_mp(void) { return n_extra && extra_seated[0] && p1_racer && in_race && bt_rl && bt_rules() == bt_rl; }
+static u32 bt_racer(int p) { return p ? extra_racer[p - 1] : p1_racer; }
+static void bt_slot_io(int idx, u8 *buf, bool put) {
+	int m = bt_mode(), at = 0;
+	for (int i = 0; i < bt_modes[m].nf; i++) {
+		const BtField *f = &bt_modes[m].f[i];
+		u8 *g = PTR(bt_rl + (idx ? f->o1 : f->o0));
+		if (put) memcpy(g, buf + at, f->n); else memcpy(buf + at, g, f->n);
+		at += f->n;
+	}
+}
+static float bt_clock(int idx) {   // F_12e7ac: the clock's start minus what is left
+	u32 e = HUD_BASE + TAG_CLOCK + idx * 0xb0; float a, b;
+	memcpy(&a, PTR(e + 0x2c), 4); memcpy(&b, PTR(e + 0x30), 4);
+	return a != 0 ? a - b : b;
+}
+static void bt_clock_set(int idx, float t) {
+	u32 e = HUD_BASE + TAG_CLOCK + idx * 0xb0; float a, b;
+	memcpy(&a, PTR(e + 0x2c), 4); b = a != 0 ? a - t : t;
+	memcpy(PTR(e + 0x30), &b, 4);
+}
+static int tag_it(void) { s32 i = LW(bt_rl + TAG_IT); return i == 0 || i == 1 ? bt_s[i] : bt_tag_x; }
+static void tag_it_set(int who) { bt_tag_x = who; SW(bt_rl + TAG_IT, who < 0 ? -1 : who == bt_s[1] ? 1 : who == bt_s[0] ? 0 : -1); }
+// seat players n0 and n1 (clocks: and their Tag clocks)
+static void bt_seat(int n0, int n1, bool clocks) {
+	if (n0 == bt_s[0] && n1 == bt_s[1]) return;
+	int it = bt_mode() == BT_TAG ? tag_it() : -1;
+	for (int i = 0; i < 2; i++) { bt_slot_io(i, bt_st[bt_s[i]], false); if (clocks) bt_tag[bt_s[i]] = bt_clock(i); }
+	bt_s[0] = n0; bt_s[1] = n1;
+	for (int i = 0; i < 2; i++) {
+		bt_slot_io(i, bt_st[bt_s[i]], true);
+		if (clocks) bt_clock_set(i, bt_tag[bt_s[i]]);
+		SW(bt_rl + BT_RACERS + 4 * i, bt_racer(bt_s[i]));
+	}
+	if (bt_mode() == BT_TAG) tag_it_set(it);
+}
+static void bt_get(int p, u8 *s) {
+	for (int i = 0; i < 2; i++) if (bt_s[i] == p) { bt_slot_io(i, s, false); return; }
+	memcpy(s, bt_st[p], 16);
+}
+static float bt_tag_time(int p) {
+	for (int i = 0; i < 2; i++) if (bt_s[i] == p) return bt_clock(i);
+	return bt_tag[p];
+}
+static float bt_score(int p) {   // player p's score now (Tag: minus their time as it)
+	int m = bt_mode();
+	if (m == BT_RING) return (s32)LW(bt_racer(p) + RACER_RING_COUNT);
+	if (m == BT_TAG) return -bt_tag_time(p);
+	u8 s[16]; bt_get(p, s);
+	if (bt_modes[m].fscore) { float f; memcpy(&f, s, 4); return f; }
+	s32 v; memcpy(&v, s, 4); return v;
+}
+static int bt_other(int k) {   // who is shown beside player k: the leader of the others (Tag: who is it, else the closest to losing)
+	if (bt_mode() == BT_TAG) { int it = tag_it(); if (it >= 0 && it != k) return it; }
+	int o = -1; float best = 0;
+	for (int p = 0; p <= n_extra; p++) {
+		if (p == k) continue;
+		float s = bt_mode() == BT_TAG ? -bt_score(p) : bt_score(p);
+		if (o < 0 || s > best) { best = s; o = p; }
+	}
+	return o;
+}
+static void bt_reset(void) {
+	bt_rl = bt_rules();
+	bt_s[0] = 1; bt_s[1] = 0; bt_home = 0; bt_tag_x = -1;
+	memset(bt_st, 0, sizeof bt_st); memset(bt_tag, 0, sizeof bt_tag);
+	hudv_ok = false;
+	if (!bt_rl || !n_extra) return;
+	u32 r1 = LW(bt_rl + BT_RACERS + 4);
+	if (bt_mode() == BT_KO && r1)   // everyone's lives, as the rules object's init gives the two
+		for (int k = 1; k < n_extra; k++) { SW(extra_racer[k] + RACER_RING_COUNT, LW(r1 + RACER_RING_COUNT)); SB(extra_racer[k] + RACER_KO_OUT, 0); }
+	LOGI("battle: mode %d, %d players", bt_mode(), n_extra + 1);
+}
+static void bt_win(int p) {   // player p has the score: they stay seated, and the game ends the battle (theirs)
+	if (p == bt_home || p == 1) return;
+	LOGI("battle: P%d decides it", p + 1);
+	bt_home = p; bt_seat(1, p, true);
+}
+static bool bt_reached(int p) {   // player p has the score to win (the modes played to a score)
+	int m = bt_mode(); float s = bt_score(p), t = (s32)LW(bt_rl + BT_TARGET);
+	if (m == BT_KO || m == BT_CTC || m == BT_LAPS) return s >= t;
+	if (m == BT_KOTH) return !LBU(bt_rl + BT_TIMED) && s >= t;
+	if (m == BT_TAG) { float lim; memcpy(&lim, PTR(bt_rl + BT_TIME), 4); return -s >= lim; }   // (to lose)
+	return false;
+}
+static void bt_world_seat(u32 *save) {   // the local player and the other racer as F_3731c tells them: the seated two
+	save[0] = LW(WORLD + 0x5024); save[1] = LW(WORLD + 0x502c); save[2] = LW(WORLD + 0x5030);
+	SW(WORLD + 0x5024, bt_racer(bt_s[1])); SW(WORLD + 0x502c, bt_racer(bt_s[0])); SW(WORLD + 0x5030, bt_racer(bt_s[0]));
+}
+static void bt_world_back(const u32 *save) { SW(WORLD + 0x5024, save[0]); SW(WORLD + 0x502c, save[1]); SW(WORLD + 0x5030, save[2]); }
+// a dispatcher, for racer A(1): a player who is not seated is, for the call (in index 1, or the rival's partner),
+// and in Tag whoever is it is seated too
+static void bt_dispatch(Ctx *c, void (*orig)(Ctx *c)) {
+	int p = player_index(A(1));
+	if (!bt_mp() || p < 0 || race_ending) { orig(c); return; }
+	int it = bt_mode() == BT_TAG ? tag_it() : -1, n0 = bt_s[0], n1 = bt_s[1];
+	if (p != n0 && p != n1) n1 = p;
+	if (it >= 0 && it != n0 && it != n1) { if (p == n1) n0 = it; else n1 = it; }
+	if (n0 == n1) { orig(c); return; }
+	if (n0 == bt_s[0] && n1 == bt_s[1]) { orig(c); return; }
+	int s0 = bt_s[0], s1 = bt_s[1]; u32 w[3];
+	bt_seat(n0, n1, false); bt_world_seat(w);
+	orig(c);
+	bt_world_back(w); bt_seat(s0, s1, false);
+	if (p >= 2 && bt_reached(p)) bt_win(p);
+}
+// the battle's frame: players 3 and 4's time on the hill (King of the Hill: only one on it gets the time) and
+// time as it (Tag), before the rules object's update
+static void bt_frame(Ctx *c) {
+	int m = bt_mode(); float dt = c->f[12];
+	if (m == BT_TAG) {
+		int it = tag_it();
+		if (it >= 2 && it != bt_s[0] && it != bt_s[1]) { bt_tag[it] += dt; if (bt_reached(it)) bt_win(it); }
+	}
+	if (m != BT_KOTH) return;
+	float w[1 + MAX_EXTRA] = {0}; int n_in = 0, in = -1;
+	for (int p = 0; p <= n_extra; p++) {
+		u8 s[16]; bt_get(p, s); memcpy(&w[p], s + 5, 4);
+		if (w[p] > 0) { n_in++; in = p; }
+	}
+	bool seated_in = (w[bt_s[0]] > 0) + (w[bt_s[1]] > 0) == 1;
+	if (n_in == 1 && in != bt_s[0] && in != bt_s[1]) {
+		u8 *s = bt_st[in]; float t, k; memcpy(&t, s, 4); memcpy(&k, PTR(KOTH_RATE), 4);
+		t += w[in] * dt * k; memcpy(s, &t, 4);
+		if (bt_reached(in)) bt_win(in);
+	} else if (n_in > 1 && seated_in) {   // someone else is on the hill too: the seated one gets nothing either
+		int i = w[bt_s[0]] > 0 ? 1 : 0; float tiny = 1e-6f;
+		const BtField *on = &bt_modes[m].f[1], *wt = &bt_modes[m].f[2];
+		SB(bt_rl + (i ? on->o1 : on->o0), 1); memcpy(PTR(bt_rl + (i ? wt->o1 : wt->o0)), &tiny, 4);
+	}
+	for (int p = 2; p <= n_extra; p++) if (p != bt_s[0] && p != bt_s[1]) {   // as the update does for the two
+		u8 *s = bt_st[p]; if (w[p] <= 0) s[4] = 0;
+		float z = 0; memcpy(s + 5, &z, 4);
+	}
+}
+// the end: everyone by their score, the game's winner first of those level with them
+static void bt_placings(Ctx *c, int w0) {
+	float t = race_time(c), sc[1 + MAX_EXTRA];
+	int n = 0;
+	for (int k = 0; k <= n_extra; k++) { sc[k] = bt_score(k); finish_place[k] = 0; }
+	while (n <= n_extra) {
+		int b = -1;
+		for (int k = 0; k <= n_extra; k++)
+			if (!finish_place[k] && (b < 0 || sc[k] > sc[b] || (sc[k] == sc[b] && k == w0))) b = k;
+		finish_place[b] = ++n; finish_time[b] = t;
+	}
+	n_finished = n;
+	for (int k = 0; k <= n_extra; k++) LOGI("battle: P%d %g %s, place %d", k + 1, bt_mode() == BT_TAG ? -sc[k] : sc[k], bt_modes[bt_mode()].unit, finish_place[k]);
+}
+// for the overlay: player k's score as text (0: not a battle)
+int mp_score_text(int k, char *out, int n) {
+	if (!bt_mp() || k < 0 || k > n_extra) return 0;
+	float s = bt_score(k); int m = bt_mode();
+	if (m == BT_TAG) snprintf(out, n, "%.1f %s", -s, bt_modes[m].unit);
+	else if (m == BT_KOTH) snprintf(out, n, "%.0f %s", s, bt_modes[m].unit);
+	else snprintf(out, n, "%d %s", (int)s, bt_modes[m].unit);
+	return 1;
+}
+
+// A HUD per view in the battles: each view's own copy (hudv), which its update runs on, as its player with the
+// leader of the others beside them. What the game writes to the HUD itself (outside its update) goes to every
+// copy, a word at a time (hud_merge).
+static u8 hudv[1 + MAX_EXTRA][HUD_SIZE], hud_ref[HUD_SIZE];
+static void hud_merge(void) {
+	u32 *cur = (u32 *)PTR(HUD_BASE), *ref = (u32 *)hud_ref;
+	if (!hudv_ok) {
+		for (int k = 0; k <= MAX_EXTRA; k++) memcpy(hudv[k], cur, HUD_SIZE);
+		memcpy(hud_ref, cur, HUD_SIZE); hudv_ok = true;
+		return;
+	}
+	for (int i = 0; i < HUD_SIZE / 4; i++)
+		if (cur[i] != ref[i]) { for (int k = 0; k <= MAX_EXTRA; k++) ((u32 *)hudv[k])[i] = cur[i]; ref[i] = cur[i]; }
+}
+// the heads beside the scores: index 1's and index 0's (the HUD sets them up for the two racers; its own
+// tables of the heads, by the game's character order, normal and hit)
+#define HUD_HEAD1      (0x6e0 + HUD_ICON_IMAGE)
+#define HUD_HEAD0      (0x630 + HUD_ICON_IMAGE)
+#define HUD_HEADS      0x32ac
+#define HUD_HEADS_HIT  0x3330   // rows of 8
+#define HUD_HEADS_HIT_ROWS 8
+static void bt_head(u32 at, int p) {
+	int ch = mp_player_char(p);
+	if (ch < 0 || ch >= MP_CHARS) return;
+	int want = game_char_of[ch];
+	u32 img = LW(HUD_BASE + at);
+	for (int i = 0; i < 8; i++) {
+		if (img == LW(HUD_BASE + HUD_HEADS + 4 * i)) { SW(HUD_BASE + at, LW(HUD_BASE + HUD_HEADS + 4 * want)); return; }
+		for (int r = 0; r < HUD_HEADS_HIT_ROWS; r++)
+			if (img == LW(HUD_BASE + HUD_HEADS_HIT + r * 0x20 + 4 * i)) { SW(HUD_BASE + at, LW(HUD_BASE + HUD_HEADS_HIT + r * 0x20 + 4 * want)); return; }
+	}
+}
+static void bt_heads(int k, int o) {
+	bt_head(HUD_HEAD1, k); bt_head(HUD_HEAD0, o);
+	bt_head(HUD_METER_ICON + HUD_ICON_IMAGE, k); bt_head(HUD_RIVAL_ICON + HUD_ICON_IMAGE, o);   // (Laps Race: on its meter)
+}
+// the rules object and the world as view k's HUD sees them (its update and its draw both read them): player k
+// seated in index 1, the one beside them in index 0; returns that one (-1: nothing changed)
+static u8 bt_view_rules[BT_RULES_SIZE]; static int bt_view_s[3]; static u32 bt_view_w[3]; static bool bt_view_on;
+static int bt_view_begin(int k) {
+	int o = bt_other(k);
+	if (o < 0) return -1;
+	memcpy(bt_view_rules, PTR(bt_rl), BT_RULES_SIZE);
+	bt_view_s[0] = bt_s[0]; bt_view_s[1] = bt_s[1]; bt_view_s[2] = bt_tag_x;
+	bt_seat(o, k, false);
+	bt_world_seat(bt_view_w);
+	bt_view_on = true;
+	return o;
+}
+static void bt_view_end(void) {
+	if (!bt_view_on) return;
+	bt_world_back(bt_view_w);
+	memcpy(PTR(bt_rl), bt_view_rules, BT_RULES_SIZE); bt_s[0] = bt_view_s[0]; bt_s[1] = bt_view_s[1]; bt_tag_x = bt_view_s[2];
+	bt_view_on = false;
+}
+static void bt_hud_update(Ctx *c, void (*orig)(Ctx *c)) {
+	Ctx save = *c;
+	hud_merge();
+	orig(c);
+	memcpy(hud_ref, PTR(HUD_BASE), HUD_SIZE);
+	float tt[1 + MAX_EXTRA];
+	for (int p = 0; p <= n_extra; p++) tt[p] = bt_tag_time(p);
+	for (int k = 0; k <= n_extra; k++) {
+		memcpy(PTR(HUD_BASE), hudv[k], HUD_SIZE);
+		int o = bt_view_begin(k);
+		if (o >= 0 && bt_mode() == BT_TAG) { bt_clock_set(0, tt[o]); bt_clock_set(1, tt[k]); }
+		*c = save; orig(c);
+		if (o >= 0) bt_heads(k, o);
+		bt_view_end();
+		memcpy(hudv[k], PTR(HUD_BASE), HUD_SIZE);
+	}
+	memcpy(PTR(HUD_BASE), hud_ref, HUD_SIZE);
+	*c = save;
+}
+
 int mp_split_lead(void) { return n_extra == 2 && p1_racer && in_race && split_view_on() ? split_lead : -1; }   // see split_leader
 int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
 
@@ -802,6 +1198,9 @@ u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 #define SCR_SINGLE  0xa69d1022
 #define SCR_MULTI   0x8d082f86
 #define SCR_STAGES  0x8898eb5a
+#define SCR_CHARS   0x17ed40a4   // Single Event: Select Character
+#define SCR_RIVAL   0xc76ff34b   // Single Event: Select Rival
+#define RIVAL_CHOICE 0x08AA9F9C  // the rival picked there (the game's character order)
 #define BTN_Y       0x14         // a menu button's height on screen (larger is higher)
 enum { B_START = 0x8, B_TRIANGLE = 0x1000, B_SQUARE = 0x8000, LOBBY_EMPTY = -100 };
 int fe_pads(int *ids, u32 *buttons, const char **names, int max);
@@ -813,7 +1212,9 @@ static struct { bool open; int pad[4], ch[4]; } lobby;   // pad: controller id (
 static struct { int ids[16]; u32 prev[16]; int n; } lobby_pads;
 static int lobby_last[4] = {LOBBY_EMPTY, LOBBY_EMPTY, LOBBY_EMPTY, LOBBY_EMPTY};   // the last race's players, seated again
 const char *fe_pad_name(int id);
-static enum { MAC_IDLE, MAC_SETTLE, MAC_UP, MAC_UP_WAIT, MAC_CROSS, MAC_WAIT_STAGES, MAC_BACK, MAC_WAIT_MAIN } mac;
+static enum { MAC_IDLE, MAC_SETTLE, MAC_UP, MAC_UP_WAIT, MAC_DOWN, MAC_DOWN_WAIT, MAC_CROSS, MAC_WAIT_STAGES, MAC_BACK, MAC_WAIT_MAIN,
+              MAC_RIVAL } mac;
+static u32 rival_from;   // the screen Select Rival was entered from
 static int mac_t, mac_tries, mac_hold; static u32 mac_button, mac_sel; static float mac_y;
 
 static u32 menu_screen(void) { return LW(MENUS + 0x9f4); }
@@ -858,7 +1259,7 @@ static void lobby_end(bool start) {
 	config_save();
 	fe_set_seats(ids);
 	mac = MAC_SETTLE; mac_t = 0; mac_tries = 0;
-	LOGI("multiplayer: %d players, to Free Play", n);
+	LOGI("multiplayer: %d players, to Single Event", n);
 }
 
 static int lobby_players(void) { int n = 1; for (int k = 1; k < 4; k++) n += lobby.pad[k] != LOBBY_EMPTY; return n; }
@@ -911,8 +1312,8 @@ int mp_lobby(int *pad, int *ch) {
 static void mac_press(u32 b) { mac_button = b; mac_hold = 4; }
 static void mac_abort(const char *why) { LOGE("multiplayer: could not reach Free Play (%s)", why); mac = MAC_IDLE; mp_mode = false; }
 
-// Free Play is the Single Player menu's last button: up from the top wraps to it, so up is pressed until the
-// chosen button moves down the screen
+// Single Event is the Single Player menu's second button: up from the top wraps to the last one (Free Play), so up
+// is pressed until the chosen button moves down the screen, then down twice (wrapping to the top, then the second)
 static void macro_vblank(void) {
 	if (mac_hold) { fe_buttons = mac_button; mac_hold--; return; }
 	fe_buttons = 0;
@@ -932,19 +1333,36 @@ static void macro_vblank(void) {
 		u32 sel = LW(s + 0x20);
 		if (sel == mac_sel) { if (mac_t > 30) mac = MAC_UP; break; }
 		float y; memcpy(&y, PTR(sel + BTN_Y), 4);
-		if (y < mac_y) { mac = MAC_CROSS; mac_t = 0; }
+		if (y < mac_y) { mac = MAC_DOWN; mac_t = 0; mac_tries = 0; }
 		else if (++mac_tries > 6) mac_abort("no Free Play button");
 		else mac = MAC_UP;
 		break;
 	}
+	case MAC_DOWN:
+		if (mac_t < 6) break;
+		mac_sel = LW(s + 0x20);
+		mac_press(B_DOWN); mac = MAC_DOWN_WAIT; mac_t = 0;
+		break;
+	case MAC_DOWN_WAIT:
+		if (h != SCR_SINGLE) { mac_abort("left the Single Player menu"); break; }
+		if (LW(s + 0x20) == mac_sel) { if (mac_t > 30) mac = MAC_DOWN; break; }
+		mac = ++mac_tries == 2 ? MAC_CROSS : MAC_DOWN; mac_t = 0;
+		break;
 	case MAC_CROSS:
 		if (mac_t < 10) break;
 		mp_mode = true;
 		mac_press(B_CROSS); mac = MAC_WAIT_STAGES; mac_t = 0;
 		break;
-	case MAC_WAIT_STAGES:
-		if (h == SCR_STAGES) { mac = MAC_IDLE; LOGI("multiplayer: in Free Play"); }
-		else if (mac_t > 600) mac_abort("no stage select");
+	case MAC_WAIT_STAGES:   // Single Event opens on Select Character
+		if (h == SCR_CHARS) { mac = MAC_IDLE; LOGI("multiplayer: in Single Event"); }
+		else if (mac_t > 600) mac_abort("no character select");
+		break;
+	case MAC_RIVAL:   // Select Rival is skipped: player 2 is the rival. Coming back from the stages goes on back.
+		if (h != SCR_RIVAL) { if (mac_t > 600 || (mac_tries && h != SCR_RIVAL)) mac = MAC_IDLE; break; }
+		if (mac_t < 20 || mac_t % 40) break;
+		if (rival_from == SCR_STAGES) { mac_press(B_CIRCLE); mac_tries++; break; }
+		if (mac_tries++ & 1) { mac_press(B_RIGHT); mac_t = 10; break; }   // still here: a greyed one (player 1's), try the next
+		mac_press(B_CROSS);
 		break;
 	case MAC_BACK:   // the setup was closed: back to the Main Menu
 		if (h != SCR_SINGLE) { if (mac_t > 600) mac = MAC_IDLE; break; }
@@ -961,7 +1379,11 @@ static void macro_vblank(void) {
 static void mp_menu_vblank(void) {
 	if (lobby.open) { lobby_input(fe_buttons); fe_buttons = 0; }
 	else if (mac != MAC_IDLE) macro_vblank();
-	else if (mp_mode) {   // back in the Single Player or Main Menu: the multiplayer Free Play is over
+	if (mp_mode && mac == MAC_IDLE && g_cfg.mp_players > 1) {   // player 2 is the rival
+		static const int game_char[MP_CHARS] = {0, 1, 3, 2, 7, 5, 6, 4};
+		if (menu_hash() == SCR_STAGES) SW(RIVAL_CHOICE, game_char[g_cfg.mp_char2]);
+	}
+	if (!lobby.open && mac == MAC_IDLE && mp_mode) {   // back in the Single Player or Main Menu: the multiplayer Single Event is over
 		u32 h = menu_hash();
 		if (h == SCR_SINGLE || h == SCR_MAIN) { mp_mode = false; fe_set_seats(NULL); title_restore(); LOGI("multiplayer: ended"); }
 	}
@@ -992,8 +1414,17 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		u32 loader = A(0), slot = A(1);
 		orig(c);
 		if (slot == WORLD_SLOT(15)) {
-			n_extra = 0;
-			for (int k = 0; k < MAX_EXTRA && extra_racer_prepare(k); k++) extra_racer_build(c, loader);
+			n_extra = 0; boss_obj = 0;
+			memset(extra_seated, 0, sizeof extra_seated);
+			// Single Event has the race's own rival (slot 14): with players 2-4 it is player 2's, and the
+			// racers we add are players 3 and 4
+			u32 rival = LW(WORLD_SLOT(14) + 0xd0);
+			if (mp_active() && !getenv("SR2_EXTRA_RACER") && g_cfg.mp_players > 1 && rival) {
+				extra_racer[0] = extra_pending[0] = rival; extra_seated[0] = true; extra_char[0] = g_cfg.mp_char2;
+				n_extra = 1;
+				LOGI("player 2: the rival seat, racer %08x (%s)", rival, mp_char_names[g_cfg.mp_char2]);
+			}
+			for (int k = 0, first = n_extra; k < MAX_EXTRA - first && extra_racer_prepare(k, k + 1 + first); k++) extra_racer_build(c, loader);
 		}
 		return;
 	}
@@ -1035,7 +1466,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			if (banter_next < banter_n) c->r[5] = 3;   // the next player's shot
 			else banter_stop();
 		}
-		if (A(1) < 3) banter_stop();
+		if (A(1) < 3 || (banter_on && A(1) >= 5 && c->r[31] != BANTER_END_RA)) banter_stop();   // (the bosses go on without the shots)
 		if (!n_extra) break;
 		static int depth;
 		depth++; race_state_depth = depth;
@@ -1059,7 +1490,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_HUD_ELEM: case HOOK_HUD_PART_A: case HOOK_HUD_PART_B: case HOOK_HUD_PART_C: case HOOK_HUD_PART_D: {
 		if (hud_pass) {   // split screen: which pieces this pass of the HUD draws
 			u32 e = id == HOOK_HUD_ELEM ? A(0) - HUD_BASE : ~0u;
-			bool shared = e == HUD_TIMER || e == HUD_METER || e == HUD_METER_ICON || e == HUD_RIVAL_ICON;
+			bool shared = e == HUD_TIMER || (!boss_mp() && !bt_mp() && (e == HUD_METER || e == HUD_METER_ICON || e == HUD_RIVAL_ICON));
 			if (id == HOOK_HUD_PART_A) break;   // the text queued by the elements this pass draws
 			if (hud_pass == HUD_PASS_VIEW) { if (shared) return; }
 			else if (id == HOOK_HUD_ELEM) {
@@ -1142,7 +1573,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			orig(c);
 			Ctx save = *c;
 			for (int k = 0; k < n_extra; k++) {
-				u32 v = extra_pending[k] ? 0 : LW(extra_racer[k] + 0x4ec);
+				u32 v = extra_pending[k] || extra_seated[k] ? 0 : LW(extra_racer[k] + 0x4ec);
 				if (!v) continue;
 				c->r[4] = v; c->r[5] = 7; c->r[6] = save.r[6]; c->r[7] = save.r[7];
 				orig(c);
@@ -1188,9 +1619,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_MENU_GOTO:   // F_14cb34(menus, hash, transition): Main Menu > Multiplayer goes to the local race setup
 		if (getenv("SR2_EV_TRACE")) LOGI("menus: %08x -> %08x", menu_hash(), A(1));
 		if (A(1) == SCR_MULTI && menu_hash() == SCR_MAIN && !lobby.open) { c->r[5] = SCR_SINGLE; lobby_begin(); }
+		if (A(1) == SCR_RIVAL && mp_mode && g_cfg.mp_players > 1 && mac == MAC_IDLE) { rival_from = menu_hash(); mac = MAC_RIVAL; mac_t = 0; mac_tries = 0; }
 		break;
 	case HOOK_ENTITY_HANDLE:   // F_15f84(entity): see hooks.json; the handle of an extra racer as for slot 15
-		if (A(0) && extra_index(A(0)) >= 0) {
+		if (A(0) && extra_index(A(0)) >= 0 && !extra_seated[extra_index(A(0))]) {
 			u32 b = LW(A(0) + 4), s = LW(b + 0x10);
 			SW(b + 0x10, 15); orig(c); SW(b + 0x10, s);
 			return;
@@ -1198,6 +1630,18 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_RACER_FINISH: {   // F_b2530(racer)
 		if (!n_extra || race_ending) break;
+		if (bt_mp()) {   // the battle is over for everyone
+			bt_placings(c, player_index(A(0)));
+			p1_finish(c, orig);
+			return;
+		}
+		if (boss_mp()) {   // someone has the hits: the fight is over for everyone
+			if (boss_winner < 0) boss_winner = player_index(A(0)) >= 0 ? player_index(A(0)) : 0;
+			boss_placings(c);
+			LOGI("boss over: P%d wins", boss_winner + 1);
+			p1_finish(c, orig);
+			return;
+		}
 		int k = player_index(A(0));
 		if (k < 0) break;
 		if (!finish_place[k]) {
@@ -1223,20 +1667,31 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_HUD_DRAW:   // F_12ad44(hud)
 		if (split_view_on()) {   // one HUD per view, scaled into it like the view
 			Ctx save = *c;
+			bool own = bt_mp() && hudv_ok;   // the battles: each view's own HUD
+			static u8 canon[HUD_SIZE];
+			if (own) { hud_merge(); memcpy(canon, PTR(HUD_BASE), HUD_SIZE); }
 			u32 p1 = LW(WORLD + 0x5024), hud = A(0), rings = LW(hud + HUD_RINGS);
 			for (int k = 0; k <= n_extra; k++) {
+				if (own) memcpy(PTR(HUD_BASE), hudv[k], HUD_SIZE);
+				bool seated = own && bt_view_begin(k) >= 0;
 				if (k) {   // the boost bar reads the local player as it draws; the ring count is kept by the HUD
 					u32 r = extra_racer[k - 1];
 					float n = (float)(s32)LW(r + RACER_RINGS);
 					SW(WORLD + 0x5024, r); memcpy(PTR(hud + HUD_RINGS), &n, 4);
 				}
 				hud_pass = HUD_PASS_VIEW;
+				if (boss_mp()) boss_view(k, true);
 				ge_region_scaled(k, true); orig(c);   // halves too get the whole HUD, at half size
 				rt_call(c, 0x08800000 + HUD_DRAW_TEXT);   // its text now, in its view (the HUD draws it next time)
+				if (boss_mp()) boss_view(k, false);
+				if (seated) bt_view_end();
+				if (own) memcpy(hudv[k], PTR(HUD_BASE), HUD_SIZE);
 				*c = save;
 			}
+			if (own) memcpy(PTR(HUD_BASE), canon, HUD_SIZE);
 			SW(WORLD + 0x5024, p1); SW(hud + HUD_RINGS, rings);
 			ge_region(-1);
+			if (boss_mp() || bt_mp()) goto hud_timer;   // the bosses and battles: each view has its own counters, no race meter
 			ge_place(HUD_SHARED_SCALE, HUD_METER_DY);
 			hud_pass = HUD_PASS_METER; orig(c);   // the race meter
 			rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
@@ -1256,12 +1711,14 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
 				*c = save;
 			}
+		hud_timer:
 			ge_place(HUD_SHARED_SCALE, HUD_TIMER_DY);   // the timer, just above the meter
 			hud_pass = HUD_PASS_TIMER; orig(c);
 			rt_call(c, 0x08800000 + HUD_DRAW_TEXT);
 			*c = save;
 			hud_pass = HUD_PASS_ALL;
 			ge_region(-1);
+			if (own) memcpy(hud_ref, PTR(HUD_BASE), HUD_SIZE);
 			return;
 		}
 		break;
@@ -1304,7 +1761,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		return;
 	}
 	case HOOK_TRACK_ENTITY_SECTION:   // F_1691b4(entity): racers are exempt, so is the extra one
-		if (extra_index(A(0)) >= 0) {   // keep its section index current (the start of F_1691b4)
+		if (extra_index(A(0)) >= 0 && !extra_seated[extra_index(A(0))]) {   // keep its section index current (the start of F_1691b4)
 			u32 e = A(0), body = LW(e + 4);
 			Ctx save = *c;
 			c->r[4] = WORLD; c->r[5] = e; c->r[6] = 0; c->r[7] = 0;
@@ -1331,6 +1788,18 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			if (!pr) pr = A(0);
 			u32 pb = LW(pr + 4);
 			Ctx save = *c;
+			bool cpu = getenv("SR2_MP_CPU") != NULL;   // test aid: players 2-4 are left to the computer
+			if (extra_seated[k]) {   // the rival: already in the race, only its driver changes to player 2
+				if (k == 0) placings_reset(pr);
+				if (cpu) continue;
+				memcpy(PTR(PAD_DEVN(k)), PTR(PAD_DEV), PAD_DEV_SIZE);
+				u32 in = LW(r + 0x8c) ? LW(LW(r + 0x8c) + 4) : 0;
+				if (in) { c->r[4] = in; c->r[5] = 2; c->r[6] = 1; rt_call(c, 0x08800000 + 0x17138); *c = save; }
+				c->r[4] = r; c->r[5] = 0; rt_call(c, 0x08800000 + 0xade6c);
+				*c = save;
+				LOGI("player 2 drives the rival %08x, input %08x", r, in);
+				continue;
+			}
 			u32 seat0 = LW(WORLD + 0x502c), info0 = LW(WORLD + 0x4f84);
 			SW(WORLD + 0x502c, r); SW(WORLD + 0x4f84, r);   // seated while it is switched on (kept by the first one in Free Play)
 			c->r[4] = r; c->r[5] = 1; c->r[6] = 2;
@@ -1348,7 +1817,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				rt_call(c, 0x08800000 + 0x17138);
 				*c = save;
 			}
-			c->r[4] = r; c->r[5] = 0; rt_call(c, 0x08800000 + 0xade6c);   // not computer-driven (F_ade6c, as F_159194)
+			c->r[4] = r; c->r[5] = cpu; rt_call(c, 0x08800000 + 0xade6c);   // not computer-driven (F_ade6c, as F_159194)
 			*c = save;
 			c->r[4] = r; c->r[5] = 0; c->r[6] = 0; rt_call(c, LW(LW(r) + 0x38));   // its race-start step (F_aff70)
 			*c = save;
@@ -1358,6 +1827,37 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			LOGI("extra racer %d: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", k, r, eb, pb, in, PTR(0x08A7C69C)[0]);
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
+		break;
+	case HOOK_BOSS_INIT:   // F_c0044(boss)
+		boss_obj = A(0); boss_winner = -1;
+		orig(c); memset(boss_hits, 0, sizeof boss_hits);
+		LOGI("boss %08x: %08x and %08x", boss_obj, LW(boss_obj + BOSS_P1), LW(boss_obj + BOSS_RIVAL));
+		return;
+	case HOOK_BOSS_HIT: boss_hit(c, orig); return;
+	case HOOK_BT_START: case HOOK_BT_RESTART:   // F_80ec4, F_80fa8 (battle)
+		orig(c); bt_reset();
+		return;
+	case HOOK_BT_UPDATE:   // F_81080(battle, f12 = dt)
+		if (bt_mp()) bt_frame(c);
+		break;
+	case HOOK_BT_SCORE: case HOOK_BT_PARAM: case HOOK_BT_EVENT13: case HOOK_BT_EVENT14: case HOOK_BT_EVENT12: case HOOK_BT_EVENT:
+		bt_dispatch(c, orig);
+		return;
+	case HOOK_CTC_BASE:   // F_103fc0(base, racer)
+		if (bt_mp() && player_index(A(1)) >= 2) {
+			u32 b = A(0), own = LW(b + CTC_BASE_OWNER);
+			SW(b + CTC_BASE_OWNER, A(1)); orig(c); SW(b + CTC_BASE_OWNER, own);
+			return;
+		}
+		break;
+	case HOOK_HUD_UPDATE:   // F_129380(hud, f12, f13 = dt)
+		if (bt_mp() && split_view_on()) { bt_hud_update(c, orig); return; }
+		break;
+	case HOOK_BOSS_MOST_HITS:   // F_c0d30(boss)
+		if (A(0) == boss_obj && boss_obj && n_extra) { orig(c); int m = boss_best_but(-1); if ((int)c->r[2] < m) c->r[2] = m; return; }
+		break;
+	case HOOK_STORY_PROGRESS:   // F_13a63c(profile): test aid, every zone and act open in Single Event
+		if (getenv("SR2_UNLOCK_ALL")) { c->r[2] = 255; return; }
 		break;
 	case HOOK_SET_SWAP_INTERVAL:   // F_073c4(disp, interval)
 		if ((s32)A(1) > 0) {

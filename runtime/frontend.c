@@ -465,6 +465,14 @@ static void ctl_poll(void) {
 			float d = 0; const char *v = strchr(buf + strlen(cmd) + 1, ' ');
 			if (v) d = strtof(v, NULL);
 			game_request_warp(atoi(arg), d);
+		} else if (!strcmp(cmd, "bosshit")) {   // "bosshit K": player K+1 hits the boss
+			extern void game_request_bosshit(int k);
+			game_request_bosshit(atoi(arg));
+		} else if (!strcmp(cmd, "btcall")) {   // "btcall K FN A2 A3 [N]": battle dispatcher FN (hex) for player K+1, with A2 and A3, N frames
+			extern void game_request_btcall(int k, u32 fn, u32 a2, u32 a3, int n);
+			unsigned k = 0, fn = 0, a2 = 0, a3 = 0; int n = 1;
+			sscanf(buf + strlen(cmd), "%u %x %u %u %d", &k, &fn, &a2, &a3, &n);
+			game_request_btcall(k, fn, a2, a3, n);
 		} else if (!strcmp(cmd, "fcount")) {   // "fcount PATH" (build/sr2recomp_fc): function calls since the last one
 			extern unsigned *g_fcount;
 			if (!g_fcount) g_fcount = calloc(0x400000 / 4, sizeof *g_fcount);
