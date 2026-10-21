@@ -107,7 +107,7 @@ int config_fps_next(int fps, int dir) {
 // above 30 fps we ask for 1 instead, and above 60 we also speed up the emulated vblank during races.
 enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_RACER_MOVE, HOOK_BUILD_RACER_SLOT, HOOK_TRACK_ENTITY_SECTION, HOOK_RACER_INPUT,
        HOOK_CAMERA_UPDATE, HOOK_WORLD_DRAW, HOOK_SHADOW_DRAW, HOOK_EFFECT_DRAW,
-       HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT };
+       HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -353,7 +353,7 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 // races leave empty) at 0x0A000000. SR2_EXTRA_RACER=<that file> loads it during the race load, copies its
 // slot header into world slot 13 like the game does for slots 14/15, and builds its scene nodes. On the
 // first frame of the race it is switched on, put next to the local player (SR2_EXTRA_DXYZ=x,y,z offsets
-// it), takes the empty rival seat (Free Play), and is set up as a human racer reading player 2's pad.
+// it), and is set up as a human racer reading player 2's pad.
 // Up to three files, separated by ':' (each made for its own slot and address, e.g. slots 13, 12, 11 at
 // 0x0A000000, 0x0A400000, 0x0A800000), give players 2-4; the ones without a seat are stepped right after
 // the seated racers (HOOK_RACER_STEP). Without SR2_EXTRA_RACER the settings (mp_players, mp_char2-4) pick the
@@ -526,7 +526,7 @@ static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p
 // on its own part), and the other views are drawn over the rest. Drawing the first view into only part of
 // the screen leaves the colours washed out, as if something later in the frame weighs in the parts nothing
 // was drawn to.
-static void ge_region(int k) {
+static void ge_region_scaled(int k, bool whole) {
 	int x0 = 0, y0 = 0, w = 480, h = 272;
 	if (k >= 0 && n_extra >= 2) { w = 240; h = 136; x0 = (k & 1) * 240; y0 = (k >> 1) * 136; }
 	else if (k >= 0) { if (split_view == 2) { w = 240; x0 = k * 240; } else { h = 136; y0 = k * 136; } }
@@ -536,7 +536,7 @@ static void ge_region(int k) {
 	ge_put(0x46000000 | by >> 8);
 	// quarters show the whole view at half size (viewport scale, XSCALE/YSCALE); halves show its middle
 	float sx = 240, sy = -136;
-	if (k >= 0 && n_extra >= 2) { sx = 120; sy = -68; }
+	if (k >= 0 && (n_extra >= 2 || whole)) { sx = 120; sy = -68; }
 	memcpy(&bx, &sx, 4); memcpy(&by, &sy, 4);
 	ge_put(0x42000000 | bx >> 8);
 	ge_put(0x43000000 | by >> 8);
@@ -544,6 +544,8 @@ static void ge_region(int k) {
 	ge_put(0xD4000000 | x0 | y0 << 10);
 	ge_put(0xD5000000 | (x0 + w - 1) | (y0 + h - 1) << 10);
 }
+
+static void ge_region(int k) { ge_region_scaled(k, false); }
 
 // one draw call of the race render, once per view: the first camera's view, then each extra racer's (with
 // that racer as the local player, whose section picks the scenery), then the first camera's state back
@@ -564,6 +566,8 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 	*c = out;
 }
 
+#define HUD_RINGS    0x30    // HUD (F_12ad44's argument): the ring count shown, a float
+#define RACER_RINGS  0x72c   // racer: rings held
 static int race_state_depth;   // inside F_592cc
 static int extra_index(u32 r) { for (int k = 0; k < n_extra; k++) if (extra_racer[k] == r) return k; return -1; }
 static int input_extra(u32 in) {   // which extra racer an input block belongs to
@@ -634,7 +638,40 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				SW(extra_racer[k] + 0x548, LW(p1 + 0x548));
 		return;
 	}
+	case HOOK_RING_PICKUP: {   // F_16b90(rings, racer)
+		static int tr = -1; if (tr < 0) tr = getenv("SR2_EV_TRACE") != NULL;
+		if (!tr) break;
+		u32 rl = A(0), r = A(1);
+		orig(c);
+		static u32 last[8]; int k = extra_index(r) + 1;
+		if (k >= 0 && k < 8 && (last[k] != rl || c->r[2])) { last[k] = rl; LOGI("rings %08x (n %u) racer %08x (p%d): took %u", rl, LW(rl + 0x10), r, k + 1, c->r[2]); }
+		return;
+	}
+	case HOOK_HUD_DRAW:   // F_12ad44(hud)
+		if (split_view_on()) {   // one HUD per view, scaled into it like the view
+			Ctx save = *c;
+			u32 p1 = LW(WORLD + 0x5024), hud = A(0), rings = LW(hud + HUD_RINGS);
+			for (int k = 0; k <= n_extra; k++) {
+				if (k) {   // the boost bar reads the local player as it draws; the ring count is kept by the HUD
+					u32 r = extra_racer[k - 1];
+					float n = (float)(s32)LW(r + RACER_RINGS);
+					SW(WORLD + 0x5024, r); memcpy(PTR(hud + HUD_RINGS), &n, 4);
+				}
+				ge_region_scaled(k, true); orig(c);   // halves too get the whole HUD, at half size
+				*c = save;
+			}
+			SW(WORLD + 0x5024, p1); SW(hud + HUD_RINGS, rings);
+			ge_region(-1);
+			return;
+		}
+		break;
 	case HOOK_SEND_EVENT:   // F_16c388(manager, target, source, hash, ...)
+		if (getenv("SR2_EV_TRACE") && A(1) && A(1) == LW(WORLD + 0x5024)) {   // test aid: events the local player gets
+			static u32 seen[256][2]; static int ns;
+			int i = 0; while (i < ns && !(seen[i][0] == A(3) && seen[i][1] == c->r[31])) i++;
+			if (i == ns && ns < 256) { seen[ns][0] = A(3); seen[ns][1] = c->r[31]; ns++;
+				LOGI("event to player: hash %08x source %08x (vt %08x) from %08x vb %llu", A(3), A(2), A(2) ? LW(A(2)) : 0, c->r[31], (unsigned long long)g_vblank_count); }
+		}
 		if (race_state_depth && A(1) && A(1) == LW(WORLD + 0x5024)) {   // the race tells the local player: tell the
 			Ctx save = *c;                                                // extra racers without a seat too
 			orig(c);
@@ -707,9 +744,9 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			*c = save;
 			c->r[4] = r; c->r[5] = 0; c->r[6] = 0; rt_call(c, LW(LW(r) + 0x38));   // its race-start step (F_aff70)
 			*c = save;
-			if (seat0 || k) {   // the first one keeps the empty rival seat
-				SW(WORLD + 0x502c, seat0); SW(WORLD + 0x4f84, info0);                              // (Free Play); the others borrow it
-			}
+			// None keeps a seat: with player 2 in Free Play's empty rival seat, player 1 could not move. All are
+			// stepped after the seated racers instead (HOOK_RACER_STEP).
+			SW(WORLD + 0x502c, seat0); SW(WORLD + 0x4f84, info0);
 			LOGI("extra racer %d: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", k, r, eb, pb, in, PTR(0x08A7C69C)[0]);
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }

@@ -123,8 +123,7 @@ Experimental: `SR2_EXTRA_RACER=<file>` loads a file made by `racergen.py` (for e
 0x0A000000, heap block 0x0A200000) during the race load and builds its scene nodes right after the
 game's own racers (hook 5), adding it to world slot 0 as a third racer. On the race's first frame it is
 switched on (F_16c0b0), placed next to the local player the way F_159194 places racers (`SR2_EXTRA_DXYZ`
-moves it), takes the empty rival seat at world +0x502C (Free Play only has the player; the race code only
-moves seated racers), its computer driver is turned off (F_ade6c) and its input block is set up like a
+moves it), its computer driver is turned off (F_ade6c) and its input block is set up like a
 human racer's (F_17138) with source 1. Its section index is kept current by hook 6. Hook 7 (F_17d58, a
 racer's input step) reads source 1 from a second pad device (0x0A1F0000) that is updated from the second
 controller (or the `press2` ctl command) when split screen is off. So with two controllers, player 2 runs
@@ -148,9 +147,10 @@ slot and address (Blue Coast leaves slots 9-13 empty; levels with more sections 
     tools/racergen.py <game> KNUCKLES 11 0a800000 0aa00000 RACER_KNUCKLES_11.STR
 
 Extra racer k reads controller k+2 (or the `press2`..`press4` ctl commands) through its own pad device
-(0x0A1F0000 + k*0x100) and gets its own camera; the screen splits in four. The race has two seats: the
-first extra racer keeps the empty one (Free Play), the others are stepped after the seated racers with
-seat 0 lent to them (hook 12, F_b2e48). The race only starts the seated racers: the race state change
+(0x0A1F0000 + k*0x100) and gets its own camera; the screen splits in four. The race has two seats (world
++0x502C/+0x5030) and only steps seated racers, so the extra racers are stepped after them with seat 0 lent
+to them (hook 12, F_b2e48). None keeps a seat: with player 2 in Free Play's empty rival seat, player 1
+could not move. The race only starts the seated racers: the race state change
 (hook 13, F_592cc) sends its events (F_16c388, hook 14) to the two seats, so the ones the local player
 gets are passed on to the extra racers without a seat.
 
@@ -159,6 +159,11 @@ Without `SR2_EXTRA_RACER`, the PC settings (F1) tab "Split screen" sets this up:
 builds each racer file itself (runtime/racergen.c, the same rules as `racergen.py`, byte for byte) for the
 highest load slot the level leaves empty, at 0x0A000000 + k*4 MB with its heap block 2 MB in. The debug
 switch `pad_all` makes every player read controller 1 and the keyboard.
+
+Each view also gets its own HUD: the HUD (F_12ad44, hook 15) is drawn once per view, scaled to half size
+into it, with that player as the local player (the boost bar reads it as it draws) and that player's rings
+(racer +0x72C) put into the HUD's ring count (HUD +0x30) for the draw. The timer and race meter are still
+player 1's in every view.
 
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found

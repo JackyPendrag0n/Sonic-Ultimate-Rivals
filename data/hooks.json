@@ -227,6 +227,34 @@
     "afb60018",
     "0120b021"
    ]
+  },
+  {
+   "id": 15,
+   "name": "HUD_DRAW",
+   "kind": "call",
+   "index": 0,
+   "_doc": "Race render, after the frame's 3D lists are closed: the HUD (F_12ad44(0x08A7DF30)), drawn with a 2D projection through the viewport. Split screen draws it once per view.",
+   "pattern": [
+    "0c000000/fc000000",
+    "02202021",
+    "3c190000/ffff0000",
+    "8f240000/ffff0000"
+   ]
+  },
+  {
+   "id": 16,
+   "name": "RING_PICKUP",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_16b90(rings, racer): the rings a racer touches this frame (a section's ring list; returns how many it took).",
+   "pattern": [
+    "27bdffb0",
+    "afb50034",
+    "0000a821",
+    "afb3002c",
+    "00a09821",
+    "afb20028"
+   ]
   }
  ]
 }

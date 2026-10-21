@@ -456,7 +456,7 @@ void fe_vblank(void) {
 	{	// test aid: SR2_GE_TRACE=vblank traces one frame of GE commands into <shot dir>/getrace_<vb>.bin
 		static long tv = -2;
 		if (tv == -2) { const char *e = getenv("SR2_GE_TRACE"); tv = e ? atol(e) : -1; }
-		if (tv >= 0 && g_vblank_count == (u64)tv) { char p[300]; snprintf(p, sizeof p, "%s/getrace_%ld.bin", shot_dir, tv); ge_trace(p); }
+		if (tv >= 0 && g_vblank_count == (u64)tv) { char p[300]; mkdir(shot_dir, 0755); snprintf(p, sizeof p, "%s/getrace_%ld.bin", shot_dir, tv); ge_trace(p); }
 		if (tv >= 0 && g_vblank_count == (u64)tv + 2) ge_trace(NULL);
 	}
 	if (script_ax || script_ay) { fe_lx = (u8)(script_ax + 128); fe_ly = (u8)(script_ay + 128); }
