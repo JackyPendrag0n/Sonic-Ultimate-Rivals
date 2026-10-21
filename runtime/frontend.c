@@ -62,7 +62,12 @@ static int kb_ax, kb_ay;
 static SDL_Window *win;
 static SDL_GLContext glctx;
 static SDL_AudioDeviceID audio_dev;
-static SDL_GameController *pad, *pad2, *pad34[2];   // pad2: player 2 (split screen too); pad34: players 3 and 4
+#define MAX_PADS 8
+static SDL_GameController *pads[MAX_PADS];   // the connected controllers, in the order they came
+static int npads;
+static bool seats_set;                        // the Multiplayer screen handed out the controllers:
+static int seat_pad[4] = {-1, -1, -1, -1};    // each player's (SDL instance id; -1: none), else the k-th connected
+static int last_pad = -1;                     // the controller last pressed (player 1 when the Multiplayer screen opens)
 static bool headless, have_gl;
 static u32 fb_top, fb_stride, fb_fmt;
 static bool fb_set;
@@ -101,8 +106,8 @@ static void parse_stick(const char *s, int *ax, int *ay) {
 // ---------------------------------------------------------------- frames, screenshots
 static bool want_winshot;
 static char winshot_path[300];   // SR2_CTL "winshot": where the next window capture goes
-static u32 p2b; static int p2x, p2y;   // SR2_CTL "press2": player 2 test input
-static u32 pnb[2]; static int pnx[2], pny[2], releasen_in[2];   // "press3", "press4"
+static int p2x, p2y;   // SR2_CTL "press2": player 2 test input (p2b)
+static int pnx[2], pny[2], releasen_in[2];   // "press3", "press4" (pnb)
 static void convert_fb(void) {
 	if (have_gl) { if (ge_read_display((uint8_t *)rgba, 480, 272) != 0) memset(rgba, 0, sizeof rgba); return; }
 	if (!fb_set) { memset(rgba, 0, sizeof rgba); return; }
@@ -227,6 +232,54 @@ static u32 read_pad(SDL_GameController *g, int *ax, int *ay) {
 	return b;
 }
 
+static int pad_id(SDL_GameController *g) { return SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(g)); }
+static SDL_GameController *pad_by_id(int id) {
+	for (int i = 0; i < npads; i++) if (pad_id(pads[i]) == id) return pads[i];
+	return NULL;
+}
+static void pad_add(SDL_GameController *g) {
+	if (!g) return;
+	for (int i = 0; i < npads; i++) if (pads[i] == g) return;
+	if (npads < MAX_PADS) pads[npads++] = g; else SDL_GameControllerClose(g);
+}
+static void pads_prune(void) {
+	int n = 0;
+	for (int i = 0; i < npads; i++)
+		if (SDL_GameControllerGetAttached(pads[i])) pads[n++] = pads[i]; else SDL_GameControllerClose(pads[i]);
+	npads = n;
+}
+// player k's controller (0-3): the one the Multiplayer screen gave them, else the k-th connected
+static SDL_GameController *player_pad(int k) {
+	if (seats_set && seat_pad[k] >= 0) return pad_by_id(seat_pad[k]);
+	if (seats_set && k) return NULL;
+	return k < npads ? pads[k] : NULL;
+}
+
+// for the Multiplayer screen (game.c): every controller's id, name and buttons, test inputs "press2".."press4" as
+// ids -2..-4; the controller last pressed; and handing them out (ids per player, NULL: by connection order)
+static u32 p2b, pnb[2];
+int fe_pads(int *ids, u32 *buttons, const char **names, int max) {
+	int n = 0;
+	for (int i = 0; i < npads && n < max; i++) {
+		int x = 0, y = 0;
+		ids[n] = pad_id(pads[i]); names[n] = SDL_GameControllerName(pads[i]);
+		buttons[n++] = read_pad(pads[i], &x, &y) | (x < -80 ? B_LEFT : x > 80 ? B_RIGHT : 0);
+	}
+	for (int k = 0; k < 3 && n < max; k++) {
+		ids[n] = -2 - k; names[n] = "test input"; buttons[n++] = k ? pnb[k - 1] : p2b;
+	}
+	return n;
+}
+int fe_last_pad(void) { return last_pad; }
+const char *fe_pad_name(int id) {
+	SDL_GameController *g = pad_by_id(id);
+	return g ? SDL_GameControllerName(g) : NULL;
+}
+void fe_set_seats(const int *ids) {
+	seats_set = ids != NULL;
+	for (int k = 0; k < 4; k++) seat_pad[k] = ids ? ids[k] : -1;
+}
+
 static void poll_input(void) {
 	SDL_Event e;
 	while (SDL_PollEvent(&e)) {
@@ -240,20 +293,9 @@ static void poll_input(void) {
 			if (k == SDLK_F9) { if (split_active()) split_stop(); else split_start(); continue; }
 		}
 		if (e.type == SDL_CONTROLLERBUTTONDOWN && e.cbutton.button == SDL_CONTROLLER_BUTTON_GUIDE) { menu_set_open(!menu_is_open()); continue; }
-		if (e.type == SDL_CONTROLLERDEVICEADDED) {
-			SDL_GameController *g = SDL_GameControllerOpen(e.cdevice.which);
-			if (g && g != pad && g != pad2 && g != pad34[0] && g != pad34[1]) {
-				if (!pad) pad = g; else if (!pad2) pad2 = g; else if (!pad34[0]) pad34[0] = g; else if (!pad34[1]) pad34[1] = g;
-			}
-			continue;
-		}
-		if (e.type == SDL_CONTROLLERDEVICEREMOVED) {
-			for (int i = 0; i < 2; i++)
-				if (pad34[i] && !SDL_GameControllerGetAttached(pad34[i])) { SDL_GameControllerClose(pad34[i]); pad34[i] = NULL; }
-			if (pad2 && !SDL_GameControllerGetAttached(pad2)) { SDL_GameControllerClose(pad2); pad2 = NULL; }
-			if (pad && !SDL_GameControllerGetAttached(pad)) { SDL_GameControllerClose(pad); pad = pad2; pad2 = NULL; }
-			continue;
-		}
+		if (e.type == SDL_CONTROLLERDEVICEADDED) { pad_add(SDL_GameControllerOpen(e.cdevice.which)); continue; }
+		if (e.type == SDL_CONTROLLERDEVICEREMOVED) { pads_prune(); continue; }
+		if (e.type == SDL_CONTROLLERBUTTONDOWN) last_pad = e.cbutton.which;
 		if (menu_is_open()) { menu_event(&e); continue; }
 		if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
 			bool down = e.type == SDL_KEYDOWN;
@@ -269,8 +311,8 @@ static void poll_input(void) {
 	kb_ax = (kb_d - kb_a) * 127;
 	kb_ay = (kb_s - kb_w) * 127;
 	// Split screen: player 2 plays on the second controller, or on the only one while player 1 uses the keyboard.
-	SDL_GameController *p1pad = pad, *p2pad = NULL;
-	if (split_active()) { if (pad2) p2pad = pad2; else { p2pad = pad; p1pad = NULL; } }
+	SDL_GameController *p1pad = player_pad(0), *p2pad = NULL;
+	if (split_active()) { if (player_pad(1)) p2pad = player_pad(1); else { p2pad = p1pad; p1pad = NULL; } }
 	int ax = kb_ax, ay = kb_ay;
 	pad_buttons = menu_is_open() ? 0 : read_pad(p1pad, &ax, &ay);
 	if (ax < -128) ax = -128; if (ax > 127) ax = 127;
@@ -286,7 +328,7 @@ static void poll_input(void) {
 	} else {   // no split screen: controllers 2-4 (or "press2".."press4") are players 2-4 inside this game
 		for (int k = 1; k < 4; k++) {
 			int bx = 0, by = 0;
-			SDL_GameController *g = k == 1 ? pad2 : pad34[k - 2];
+			SDL_GameController *g = player_pad(k);
 			u32 sb = k == 1 ? p2b : pnb[k - 2]; int sx = k == 1 ? p2x : pnx[k - 2], sy = k == 1 ? p2y : pny[k - 2];
 			fe_pbuttons[k] = (menu_is_open() ? 0 : read_pad(g, &bx, &by)) | sb;
 			if (sx || sy) { bx = sx; by = sy; }
@@ -610,10 +652,7 @@ void fe_init(void) {
 		if (audio_dev) SDL_PauseAudioDevice(audio_dev, 0);
 		else LOGI("no audio device (%s)", SDL_GetError());
 		for (int i = 0; i < SDL_NumJoysticks(); i++)
-			if (SDL_IsGameController(i)) {
-				if (!pad) pad = SDL_GameControllerOpen(i); else if (!pad2) pad2 = SDL_GameControllerOpen(i);
-				else if (!pad34[0]) pad34[0] = SDL_GameControllerOpen(i); else if (!pad34[1]) pad34[1] = SDL_GameControllerOpen(i);
-			}
+			if (SDL_IsGameController(i)) pad_add(SDL_GameControllerOpen(i));
 		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
 		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
 	}

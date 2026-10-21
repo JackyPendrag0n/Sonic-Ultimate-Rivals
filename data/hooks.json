@@ -430,6 +430,21 @@
     "afb00010",
     "00a08021"
    ]
+  },
+  {
+   "id": 29,
+   "name": "MENU_GOTO",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_14cb34(menus, hash, transition): the menus (0x08A842BC) go to the screen with that hash.",
+   "pattern": [
+    "27bdfff0",
+    "3c022aa8",
+    "afb00000",
+    "34475d9e",
+    "00808021",
+    "2cc40011"
+   ]
   }
  ]
 }

@@ -101,55 +101,91 @@ static void controls_tab() {
 	ImGui::BulletText("F1 / Esc: this menu     F11: fullscreen     F12: screenshot");
 }
 
-static void players_tab() {
-	ImGui::TextWrapped("Two players on one PC: a second copy of the game opens next to yours, and you race each other "
-	                   "through the game's own Wireless Play, the same as two PSPs.");
-	ImGui::Spacing();
-	if (!split_active()) { if (ImGui::Button("Start player 2 (F9)")) { split_start(); } }
-	else if (ImGui::Button("Stop player 2 (F9)")) split_stop();
-	const char *layouts[] = {"Side by side", "Top and bottom"};
-	if (ImGui::Combo("Layout", &g_cfg.split_layout, layouts, 2)) { changed(); fe_split_layout_changed(); }
-	ImGui::Separator();
-	ImGui::TextDisabled("How to start a race");
-	ImGui::BulletText("Both players: Multiplayer > Wireless Play.");
-	ImGui::BulletText("Player 1: Create, then pick a character, stage and wager.");
-	ImGui::BulletText("Player 2: Join, pick player 1's game, then a character.");
-	ImGui::TextDisabled("Controls");
-	ImGui::BulletText("Two controllers: one each.");
-	ImGui::BulletText("One controller: player 1 on the keyboard, player 2 on the controller.");
-	ImGui::TextDisabled("Player 2 has its own save data, first copied from yours. Its sound is muted.");
-}
-
 static void split_tab() {
-	ImGui::TextWrapped("Up to four players in one game, each with their own controller and part of the screen. "
-	                   "Player 1 picks a character in the game as usual; pick the others here.");
+	ImGui::TextWrapped("Up to four players in one game, each with their own controller and part of the screen.");
 	ImGui::Spacing();
-	const char *counts[] = {"1 (off)", "2", "3", "4"};
-	int n = g_cfg.mp_players - 1;
-	if (ImGui::Combo("Players", &n, counts, 4)) { g_cfg.mp_players = n + 1; changed(); }
-	int *chars[] = {&g_cfg.mp_char2, &g_cfg.mp_char3, &g_cfg.mp_char4};
-	for (int p = 2; p <= g_cfg.mp_players; p++) {
-		char l[32]; snprintf(l, sizeof l, "Player %d", p);
-		if (ImGui::Combo(l, chars[p - 2], mp_char_names, MP_CHARS)) changed();
-	}
+	ImGui::TextDisabled("How to play");
+	ImGui::BulletText("Main Menu > Multiplayer opens the setup screen.");
+	ImGui::BulletText("Players 2-4: press A on your controller to join, left / right to pick a character.");
+	ImGui::BulletText("Player 1: A or Start, then pick the stage and your character as in Free Play.");
+	ImGui::BulletText("Two players split the screen top and bottom; three or four, into quarters.");
+	ImGui::BulletText("The race goes on until everyone is in (or 90 s after the winner): 1st, 2nd, 3rd, 4th.");
+	ImGui::Separator();
 	if (ImGui::Checkbox("Debug: player 1's controller drives everyone", &g_cfg.pad_all)) changed();
 	help("For testing on your own: every player copies controller 1 (and the keyboard).");
-	ImGui::Separator();
-	ImGui::TextDisabled("How to play");
-	ImGui::BulletText("Changes take effect at the next race load.");
-	ImGui::BulletText("Start a Free Play race. Players 2-4 use controllers 2-4.");
-	ImGui::BulletText("Two players split the screen top and bottom; three or four, into quarters.");
-	ImGui::TextDisabled("Experimental: the HUD and placings only follow player 1.");
 }
 
-extern "C" int mp_placings(int *place, float (*view)[4], int *over);
+// the Multiplayer screen (game.c): who plays, on which controller, as whom
+extern "C" int mp_lobby(int *pad, int *ch);
+extern "C" const char *fe_pad_name(int id);
+
+static void lobby_draw(int w, int h) {
+	int pad[4], ch[4];
+	int st = mp_lobby(pad, ch);
+	if (!st) return;
+	ImDrawList *dl = ImGui::GetForegroundDrawList();
+	ImFont *font = ImGui::GetFont();
+	auto text = [&](float cx, float y, float size, ImU32 c, const char *t) {   // centred on cx
+		ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0, t);
+		dl->AddText(font, size, ImVec2(cx - ts.x / 2, y), c, t);
+	};
+	static const ImU32 pcol[] = {IM_COL32(70, 140, 255, 255), IM_COL32(240, 80, 80, 255), IM_COL32(80, 205, 100, 255), IM_COL32(245, 205, 50, 255)};
+	const ImU32 white = IM_COL32(255, 255, 255, 255), grey = IM_COL32(165, 175, 200, 255);
+	dl->AddRectFilled(ImVec2(0, 0), ImVec2((float)w, (float)h), IM_COL32(10, 16, 44, 240));
+	float u = h / 24.0f;
+	text(w / 2.0f, u * 1.4f, u * 1.8f, white, "MULTIPLAYER");
+	text(w / 2.0f, u * 3.4f, u * 0.8f, grey, "A local race for up to four players");
+	bool wide = w > h * 1.3f;
+	int cols = wide ? 4 : 2;
+	float gap = u * 0.8f, top = u * 5.2f, cw = (w - gap * (cols + 1)) / cols, chh = wide ? u * 12 : u * 6.6f;
+	int players = 0;
+	for (int k = 0; k < 4; k++) players += k == 0 || pad[k] != -100;
+	float pulse = 0.55f + 0.45f * sinf((float)ImGui::GetTime() * 4);
+	for (int k = 0; k < 4; k++) {
+		float x = gap + (k % cols) * (cw + gap), y = top + (k / cols) * (chh + gap), cx = x + cw / 2;
+		bool in = k == 0 || pad[k] != -100;
+		dl->AddRectFilled(ImVec2(x, y), ImVec2(x + cw, y + chh), in ? IM_COL32(28, 40, 88, 255) : IM_COL32(20, 26, 56, 255), u * 0.4f);
+		dl->AddRect(ImVec2(x, y), ImVec2(x + cw, y + chh), in ? pcol[k] : IM_COL32(60, 70, 110, 255), u * 0.4f, 0, in ? u * 0.15f : u * 0.06f);
+		char l[64];
+		snprintf(l, sizeof l, "P%d", k + 1);
+		text(cx, y + u * 0.4f, u * 1.3f, in ? pcol[k] : IM_COL32(90, 100, 140, 255), l);
+		float ty = y + chh * (wide ? 0.32f : 0.36f);
+		const char *pn = in && pad[k] >= 0 ? fe_pad_name(pad[k]) : NULL;
+		if (k == 0) {
+			text(cx, ty, u * 0.95f, white, "Player 1");
+			text(cx, ty + u * 1.5f, u * 0.65f, grey, "picks a character");
+			text(cx, ty + u * 2.3f, u * 0.65f, grey, "after the stage");
+			text(cx, y + chh - u * 1.3f, u * 0.6f, grey, pn ? pn : "keyboard");
+		} else if (in) {
+			text(cx, ty, u * 1.05f, white, mp_char_names[ch[k]]);
+			text(cx, ty + u * 1.6f, u * 0.65f, grey, "< left / right >");
+			text(cx, ty + u * 2.4f, u * 0.65f, grey, "B: leave");
+			text(cx, y + chh - u * 1.3f, u * 0.6f, grey, pn ? pn : pad[k] < -1 ? "test input" : "controller");
+		} else {
+			ImU32 c = IM_COL32(200, 210, 240, (int)(255 * pulse));
+			text(cx, ty, u * 0.8f, c, "Press A");
+			text(cx, ty + u * 1.2f, u * 0.8f, c, "to join");
+		}
+	}
+	float fy = top + (wide ? 1 : 2) * (chh + gap) + u * 0.4f;
+	if (st == 2) text(w / 2.0f, fy, u * 0.9f, white, "Starting...");
+	else {
+		text(w / 2.0f, fy, u * 0.85f, players > 1 ? white : grey,
+		     players > 1 ? "Player 1: A or Start to pick the stage" : "Waiting for player 2: press A on another controller");
+		text(w / 2.0f, fy + u * 1.3f, u * 0.65f, grey, "Player 1: B to go back");
+	}
+}
+
+extern "C" int mp_placings(int *place, float *time, float (*view)[4], int *over);
 extern "C" int mp_player_char(int k);
+extern "C" int mp_split_lead(void);
 
 // split screen races: each player's place in their view once they finish, and all of them when the race is over
 static void placings_draw(const int *game) {   // game: the game image in the window (x, y, w, h)
-	int place[4], over = 0; float view[4][4];
-	int n = mp_placings(place, view, &over);
-	if (!n) return;
+	int place[4], over = 0; float view[4][4], time[4];
+	int n = mp_placings(place, time, view, &over);
+	extern bool currentDialogActive;   // a PSP dialog (saving) is up
+	if (!n || currentDialogActive) return;
 	static const char *const ord[] = {"", "1st", "2nd", "3rd", "4th"};
 	static const ImU32 col[] = {0, IM_COL32(255, 215, 40, 255), IM_COL32(220, 225, 235, 255), IM_COL32(225, 140, 70, 255), IM_COL32(150, 190, 255, 255)};
 	ImDrawList *dl = ImGui::GetForegroundDrawList();
@@ -165,6 +201,16 @@ static void placings_draw(const int *game) {   // game: the game image in the wi
 		dl->AddText(font, size, p, c, t);
 	};
 	if (!over) {
+		int lead = mp_split_lead();
+		if (lead >= 0) {   // three players: the fourth quarter follows the leader
+			static const ImU32 pc[] = {IM_COL32(70, 140, 255, 255), IM_COL32(240, 80, 80, 255), IM_COL32(80, 205, 100, 255)};
+			char l[48]; snprintf(l, sizeof l, "P%d leads", lead + 1);
+			float size = game[3] * 0.05f;
+			ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0, l);
+			float x = game[0] + game[2] * 0.5f + size * 0.5f, y = game[1] + game[3] * 0.5f + size * 0.4f;
+			dl->AddRectFilled(ImVec2(x - size * 0.3f, y - size * 0.15f), ImVec2(x + ts.x + size * 0.3f, y + ts.y + size * 0.15f), IM_COL32(0, 0, 0, 150), size * 0.2f);
+			dl->AddText(font, size, ImVec2(x, y), pc[lead], l);
+		}
 		for (int k = 0; k < n; k++) {
 			if (place[k] < 1 || place[k] > 4) continue;
 			float vx = game[0] + view[k][0] * game[2], vy = game[1] + view[k][1] * game[3];
@@ -174,19 +220,19 @@ static void placings_draw(const int *game) {   // game: the game image in the wi
 		return;
 	}
 	// the results: one line per place, right of the game's own results box
-	float size = game[3] * 0.06f, y = game[1] + game[3] * 0.56f - size * (n - 1) * 0.6f, cx = game[0] + game[2] * 0.74f;
+	float size = game[3] * 0.05f, y = game[1] + game[3] * 0.64f - size * (n - 1) * 0.6f, cx = game[0] + game[2] * 0.75f;
 	for (int p = 1; p <= 4; p++)
 		for (int k = 0; k < n; k++) {
 			if (place[k] != p) continue;
-			int ch = mp_player_char(k);
-			char line[64];
-			if (ch >= 0) snprintf(line, sizeof line, "%s  P%d %s", ord[p], k + 1, mp_char_names[ch]);
-			else snprintf(line, sizeof line, "%s  P%d", ord[p], k + 1);
+			int ch = mp_player_char(k), cs = (int)(time[k] * 100 + 0.5f);
+			char line[96];
+			snprintf(line, sizeof line, "%s  P%d %-11s %d:%02d.%02d", ord[p], k + 1, ch >= 0 ? mp_char_names[ch] : "", cs / 6000, cs / 100 % 60, cs % 100);
 			text(cx, y, size, col[p], line);
 			y += size * 1.2f;
 		}
 	for (int k = 0; k < n; k++) if (!place[k]) {   // did not finish in time
-		char line[64]; snprintf(line, sizeof line, "--   P%d", k + 1);
+		int ch = mp_player_char(k);
+		char line[96]; snprintf(line, sizeof line, "--   P%d %-11s  -:--.--", k + 1, ch >= 0 ? mp_char_names[ch] : "");
 		text(cx, y, size, IM_COL32(170, 170, 170, 255), line);
 		y += size * 1.2f;
 	}
@@ -200,6 +246,7 @@ extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
 	placings_draw(fe_game_rect);
+	lobby_draw(w, h);
 	if (g_cfg.show_fps) {
 		ImGui::SetNextWindowPos(ImVec2(8, 8));
 		ImGui::SetNextWindowBgAlpha(0.45f);
@@ -216,8 +263,7 @@ extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 		if (ImGui::BeginTabBar("tabs")) {
 			if (ImGui::BeginTabItem("Graphics", nullptr, fl(0))) { graphics_tab(); ImGui::EndTabItem(); }
 			if (ImGui::BeginTabItem("Controls", nullptr, fl(1))) { controls_tab(); ImGui::EndTabItem(); }
-			if (ImGui::BeginTabItem("Split screen", nullptr, fl(4))) { split_tab(); ImGui::EndTabItem(); }
-			if (ImGui::BeginTabItem("Two windows", nullptr, fl(3))) { players_tab(); ImGui::EndTabItem(); }
+			if (ImGui::BeginTabItem("Multiplayer", nullptr, fl(4))) { split_tab(); ImGui::EndTabItem(); }
 			if (ImGui::BeginTabItem("Audio", nullptr, fl(2))) { if (ImGui::SliderInt("Volume", &g_cfg.volume, 0, 100, "%d%%")) changed(); ImGui::EndTabItem(); }
 			ImGui::EndTabBar();
 		}

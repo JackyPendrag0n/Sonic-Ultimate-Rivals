@@ -110,7 +110,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP,
        HOOK_HUD_ELEM, HOOK_HUD_PART_A, HOOK_HUD_PART_B, HOOK_HUD_PART_C, HOOK_HUD_PART_D,
        HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE, HOOK_RACER_FINISH, HOOK_SLOT_ACTIVE,
-       HOOK_ENTITY_HANDLE, HOOK_VOICE_PICK };
+       HOOK_ENTITY_HANDLE, HOOK_VOICE_PICK, HOOK_MENU_GOTO };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -299,6 +299,7 @@ static void options_input(void) {
 void charslot_vblank(void);
 
 static void mp_trace(void);
+static void mp_menu_vblank(void);
 void game_vblank(void) {
 	static int last_fps;
 	if (g_cfg.fps != last_fps) { last_fps = g_cfg.fps; apply_frame_rate(); }
@@ -306,6 +307,7 @@ void game_vblank(void) {
 	options_patch();
 	options_input();
 	charslot_vblank();
+	mp_menu_vblank();
 	mp_trace();
 }
 
@@ -368,6 +370,7 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 static int n_extra;                                         // extra racers built for this race
 static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
 static int extra_char[MAX_EXTRA] = {-1, -1, -1};   // index into mp_char_names (-1: a racer file given by SR2_EXTRA_RACER)
+bool mp_active(void);   // players 2-4 join this race (the Multiplayer screen, see below)
 static bool race_ending;   // with extra racers: everyone is in, the game's finish runs (see placings)
 u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresolved);
 static bool slot_free(int k) { return !LW(WORLD_SLOT(k) + 0xd0) && !LW(WORLD_SLOT(k) + 0x438); }
@@ -391,7 +394,7 @@ static bool extra_racer_prepare(int k) {
 	} else {
 		// Players 2-4 from the settings: build the character's racer file for the highest level slot
 		// this race leaves empty (below the extras already built), at 0x0A000000 + k * 4 MB, its heap block 2 MB in.
-		if (k + 1 >= g_cfg.mp_players) return false;
+		if (!mp_active() || k + 1 >= g_cfg.mp_players) return false;
 		static int used_slot[MAX_EXTRA];
 		int slot = k ? used_slot[k - 1] - 1 : 13;
 		while (slot > 0 && !slot_free(slot)) slot--;
@@ -604,6 +607,19 @@ static void ge_place(float scale, float dy) {   // the whole screen at that scal
 #define HUD_METER_DY (136 * (1 - HUD_SHARED_SCALE))
 #define HUD_TIMER_DY (136 - (272 - HUD_TIMER_TO) * HUD_SHARED_SCALE + (136 - HUD_TIMER_Y) * HUD_SHARED_SCALE)
 
+static float race_progress(Ctx *c, u32 racer);
+static int finish_place[1 + MAX_EXTRA], n_finished;
+static int split_lead;   // the player the fourth quarter shows (three players), for the overlay
+static int split_leader(Ctx *c, u32 p1) {   // the player furthest along who has not finished (0: player 1)
+	int lead = 0; float best = -1;
+	for (int k = 0; k <= n_extra; k++) {
+		if (finish_place[k] && n_finished <= n_extra) continue;
+		float p = race_progress(c, k ? extra_racer[k - 1] : p1);
+		if (p > best) { best = p; lead = k; }
+	}
+	return split_lead = lead;
+}
+
 // one draw call of the race render, once per view: the first camera's view, then each extra racer's (with
 // that racer as the local player, whose section picks the scenery), then the first camera's state back
 static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
@@ -617,6 +633,14 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 		ge_region(k + 1); orig(c);
 		*c = save;
 		SW(WORLD + 0x5024, p1); cam_swap(k);
+	}
+	if (n_extra == 2) {   // three players: the fourth quarter follows whoever leads the race
+		int lead = split_leader(c, p1);
+		if (lead) { cam_swap(lead - 1); SW(WORLD + 0x5024, extra_racer[lead - 1]); }
+		view_refresh(c);
+		ge_region(3); orig(c);
+		*c = save;
+		if (lead) { SW(WORLD + 0x5024, p1); cam_swap(lead - 1); }
 	}
 	view_refresh(c);
 	ge_region(-1);
@@ -669,27 +693,40 @@ static int input_extra(u32 in) {   // which extra racer an input block belongs t
 #define GOAL_CONTACT_RA  0x105310   // F_105238, the goal line's contact with a racer, calls F_b2530 here
 #define GOAL_TRIGGERED   0x1bc      // goal line: crossed already (no one else counts after that)
 #define MP_FINISH_GRACE  90
-static int finish_place[1 + MAX_EXTRA], n_finished;
 static u64 first_finish_vb;
 static u32 p1_racer;   // player 1's racer (the local player is swapped while extra racers are stepped)
 static int player_index(u32 r) { if (r && r == p1_racer) return 0; int k = extra_index(r); return k >= 0 ? k + 1 : -1; }
 static int p1_char = -1;   // player 1's character, from their meter icon's head (at the start of the race)
 static int head_char(void);
+#define RACER_TIME  0x750   // a racer's finish time (s), set by F_b2530 from the race timer; the results show it
+static float finish_time[1 + MAX_EXTRA];
 static void placings_reset(u32 p1) { memset(finish_place, 0, sizeof finish_place); n_finished = 0; race_ending = false; p1_racer = p1; p1_char = head_char(); }
-static void race_end(Ctx *c) {   // the game's finish for player 1: the results
-	race_ending = true;
+static float race_time(Ctx *c) {   // F_12e7ac(the HUD's timer): the race time now
 	Ctx save = *c;
-	c->r[4] = p1_racer; rt_call(c, 0x08800000 + 0xb2530);
+	c->r[4] = HUD_BASE + HUD_TIMER; rt_call(c, 0x08800000 + 0x12e7ac);
+	float t = c->f[0];
+	*c = save;
+	return t;
+}
+static void p1_finish(Ctx *c, void (*orig)(Ctx *c)) {   // the game's finish for player 1 (the results), with their own time
+	race_ending = true;
+	c->r[4] = p1_racer; orig(c);
+	if (finish_place[0]) memcpy(PTR(p1_racer + RACER_TIME), &finish_time[0], 4);
+}
+static void finish_call(Ctx *c) { rt_call(c, 0x08800000 + 0xb2530); }   // F_b2530 (the hook lets it through now)
+static void race_end(Ctx *c) {
+	Ctx save = *c;
+	p1_finish(c, finish_call);
 	*c = save;
 }
 
 // for the overlay (menu.cpp): each player's place (0: still racing), the players' count (0: no placings shown),
 // each player's view in the game image (x, y, w, h as fractions), and whether the race is over
-int mp_placings(int *place, float (*view)[4], int *over) {
-	if (!n_extra || !p1_racer) return 0;
+int mp_placings(int *place, float *time, float (*view)[4], int *over) {
+	if (!n_extra || !p1_racer || !in_race) return 0;
 	int n = n_extra + 1;
 	for (int k = 0; k < n; k++) {
-		place[k] = finish_place[k];
+		place[k] = finish_place[k]; time[k] = finish_time[k];
 		float x = 0, y = 0, w = 1, h = 1;
 		if (n_extra >= 2) { w = h = 0.5f; x = (k & 1) * 0.5f; y = (k >> 1) * 0.5f; }
 		else if (split_view == 2) { w = 0.5f; x = k * 0.5f; }
@@ -705,6 +742,7 @@ static int head_char(void) {
 	for (int i = 0; i < MP_CHARS; i++) if (!strncmp((const char *)PTR(img + 0x34 + 0x10), hud_heads[i], 32)) return i;
 	return -1;
 }
+int mp_split_lead(void) { return n_extra == 2 && p1_racer && !race_ending ? split_lead : -1; }   // see split_leader
 int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
@@ -714,6 +752,170 @@ u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	}
 	return v;
 }
+// ---------------------------------------------------------------- the Multiplayer screen
+// Main Menu > Multiplayer (the PSP's Wireless Play and Game Sharing) is replaced by a local race setup: the game
+// goes to the Single Player menu instead, and this screen (drawn by menu.cpp) covers it. Controllers join as
+// players 2-4 with A / cross and pick a character with left / right; player 1 is the controller (and keyboard)
+// that opened it. When player 1 starts, the Single Player menu is driven to Free Play by pressing its buttons, so
+// the game sets that mode up as usual, and player 1 goes on through Free Play's stage and character select. Extra
+// racers are added only in that Free Play (mp_mode), which ends back in the Single Player or Main Menu.
+#define MENUS       0x08A842BC   // the menus: +0x9f4 the current screen (its hash at +0, the chosen button at +0x20)
+#define SCR_MAIN    0x4050d926
+#define SCR_SINGLE  0xa69d1022
+#define SCR_MULTI   0x8d082f86
+#define SCR_STAGES  0x8898eb5a
+#define BTN_Y       0x14         // a menu button's height on screen (larger is higher)
+enum { B_START = 0x8, LOBBY_EMPTY = -100 };
+int fe_pads(int *ids, u32 *buttons, const char **names, int max);
+int fe_last_pad(void);
+void fe_set_seats(const int *ids);
+
+static bool mp_mode;
+static struct { bool open; int pad[4], ch[4]; } lobby;   // pad: controller id (player 1: -1 keyboard only), or empty
+static struct { int ids[16]; u32 prev[16]; int n; } lobby_pads;
+static int lobby_last[4] = {LOBBY_EMPTY, LOBBY_EMPTY, LOBBY_EMPTY, LOBBY_EMPTY};   // the last race's players, seated again
+const char *fe_pad_name(int id);
+static enum { MAC_IDLE, MAC_SETTLE, MAC_UP, MAC_UP_WAIT, MAC_CROSS, MAC_WAIT_STAGES, MAC_BACK, MAC_WAIT_MAIN } mac;
+static int mac_t, mac_tries, mac_hold; static u32 mac_button, mac_sel; static float mac_y;
+
+static u32 menu_screen(void) { return LW(MENUS + 0x9f4); }
+static u32 menu_hash(void) { u32 s = menu_screen(); return s ? LW(s) : 0; }
+bool mp_active(void) { return mp_mode || getenv("SR2_MP_TEST"); }
+
+static u32 pad_pressed(int id, u32 b) {   // buttons newly down on that controller
+	int i = 0;
+	while (i < lobby_pads.n && lobby_pads.ids[i] != id) i++;
+	if (i == lobby_pads.n) { if (i == 16) return 0; lobby_pads.n++; lobby_pads.ids[i] = id; lobby_pads.prev[i] = b; return 0; }
+	u32 e = b & ~lobby_pads.prev[i];
+	lobby_pads.prev[i] = b;
+	return e;
+}
+
+static void lobby_begin(void) {
+	lobby.open = true;
+	lobby.pad[0] = fe_last_pad();
+	const int *def[] = {&g_cfg.mp_char2, &g_cfg.mp_char3, &g_cfg.mp_char4};
+	for (int k = 1; k < 4; k++) {
+		int id = lobby_last[k];
+		bool here = id != LOBBY_EMPTY && id != lobby.pad[0] && (id < -1 || fe_pad_name(id));
+		lobby.pad[k] = here ? id : LOBBY_EMPTY; lobby.ch[k] = *def[k - 1];
+	}
+	int ids[4] = {lobby.pad[0], -1, -1, -1};
+	fe_set_seats(ids);   // only player 1's controller (and the keyboard) drives the menus meanwhile
+	lobby_pads.n = 0;
+	int id[16]; u32 b[16]; const char *nm[16];
+	int n = fe_pads(id, b, nm, 16);
+	for (int i = 0; i < n; i++) pad_pressed(id[i], b[i]);   // what is held now (the A that opened it) is not a press
+	LOGI("multiplayer: setup opened, player 1 on controller %d", lobby.pad[0]);
+}
+
+static void lobby_end(bool start) {
+	lobby.open = false;
+	if (!start) { mac = MAC_BACK; mac_t = 0; return; }
+	int ids[4] = {lobby.pad[0], -1, -1, -1}, *chs[] = {&g_cfg.mp_char2, &g_cfg.mp_char3, &g_cfg.mp_char4}, n = 1;
+	for (int k = 1; k < 4; k++)   // players in the order of their seats, gaps closed
+		if (lobby.pad[k] != LOBBY_EMPTY) { ids[n] = lobby.pad[k]; *chs[n - 1] = lobby.ch[k]; n++; }
+	for (int k = 0; k < 4; k++) lobby_last[k] = k < n ? ids[k] : LOBBY_EMPTY;
+	g_cfg.mp_players = n;
+	config_save();
+	fe_set_seats(ids);
+	mac = MAC_SETTLE; mac_t = 0; mac_tries = 0;
+	LOGI("multiplayer: %d players, to Free Play", n);
+}
+
+static int lobby_players(void) { int n = 1; for (int k = 1; k < 4; k++) n += lobby.pad[k] != LOBBY_EMPTY; return n; }
+
+static void lobby_input(u32 p1) {
+	static u32 p1_prev = ~0u;
+	u32 p1e = p1 & ~p1_prev;
+	p1_prev = p1;
+	int id[16]; u32 b[16]; const char *nm[16];
+	int n = fe_pads(id, b, nm, 16);
+	for (int i = 0; i < n; i++) {
+		u32 e = pad_pressed(id[i], b[i]);
+		if (id[i] == lobby.pad[0]) continue;   // player 1's, read with the keyboard
+		int k = 1;
+		while (k < 4 && lobby.pad[k] != id[i]) k++;
+		if (k == 4) {   // not playing yet: A / cross or Start takes the first free seat
+			if (!(e & (B_CROSS | B_START))) continue;
+			for (k = 1; k < 4 && lobby.pad[k] != LOBBY_EMPTY; k++) {}
+			if (k < 4) { lobby.pad[k] = id[i]; LOGI("multiplayer: controller %d joins as player %d", id[i], k + 1); }
+			continue;
+		}
+		if (e & B_CIRCLE) { lobby.pad[k] = LOBBY_EMPTY; continue; }
+		if (e & B_LEFT) lobby.ch[k] = (lobby.ch[k] + MP_CHARS - 1) % MP_CHARS;
+		if (e & B_RIGHT) lobby.ch[k] = (lobby.ch[k] + 1) % MP_CHARS;
+	}
+	if (p1e & B_CIRCLE) lobby_end(false);
+	else if ((p1e & (B_CROSS | B_START)) && lobby_players() > 1) lobby_end(true);
+}
+
+// for menu.cpp: the setup screen while it is open (per seat: controller id or LOBBY_EMPTY, character)
+int mp_lobby(int *pad, int *ch) {
+	if (!lobby.open && mac != MAC_SETTLE && mac != MAC_UP && mac != MAC_UP_WAIT && mac != MAC_CROSS && mac != MAC_WAIT_STAGES) return 0;
+	for (int k = 0; k < 4; k++) { pad[k] = lobby.pad[k]; ch[k] = lobby.ch[k]; }
+	return lobby.open ? 1 : 2;   // 2: starting
+}
+
+static void mac_press(u32 b) { mac_button = b; mac_hold = 4; }
+static void mac_abort(const char *why) { LOGE("multiplayer: could not reach Free Play (%s)", why); mac = MAC_IDLE; mp_mode = false; }
+
+// Free Play is the Single Player menu's last button: up from the top wraps to it, so up is pressed until the
+// chosen button moves down the screen
+static void macro_vblank(void) {
+	if (mac_hold) { fe_buttons = mac_button; mac_hold--; return; }
+	fe_buttons = 0;
+	mac_t++;
+	u32 s = menu_screen(), h = menu_hash();
+	switch (mac) {
+	case MAC_SETTLE:   // the Single Player menu, still for a moment
+		if (h != SCR_SINGLE || !LW(s + 0x20)) { mac_tries = 0; if (mac_t > 600) mac_abort("no Single Player menu"); break; }
+		if (++mac_tries >= 20) { mac = MAC_UP; mac_tries = 0; }
+		break;
+	case MAC_UP:
+		mac_sel = LW(s + 0x20); memcpy(&mac_y, PTR(mac_sel + BTN_Y), 4);
+		mac_press(B_UP); mac = MAC_UP_WAIT; mac_t = 0;
+		break;
+	case MAC_UP_WAIT: {
+		if (h != SCR_SINGLE) { mac_abort("left the Single Player menu"); break; }
+		u32 sel = LW(s + 0x20);
+		if (sel == mac_sel) { if (mac_t > 30) mac = MAC_UP; break; }
+		float y; memcpy(&y, PTR(sel + BTN_Y), 4);
+		if (y < mac_y) { mac = MAC_CROSS; mac_t = 0; }
+		else if (++mac_tries > 6) mac_abort("no Free Play button");
+		else mac = MAC_UP;
+		break;
+	}
+	case MAC_CROSS:
+		if (mac_t < 10) break;
+		mp_mode = true;
+		mac_press(B_CROSS); mac = MAC_WAIT_STAGES; mac_t = 0;
+		break;
+	case MAC_WAIT_STAGES:
+		if (h == SCR_STAGES) { mac = MAC_IDLE; LOGI("multiplayer: in Free Play"); }
+		else if (mac_t > 600) mac_abort("no stage select");
+		break;
+	case MAC_BACK:   // the setup was closed: back to the Main Menu
+		if (h != SCR_SINGLE) { if (mac_t > 600) mac = MAC_IDLE; break; }
+		if (mac_t < 10) break;
+		mac_press(B_CIRCLE); mac = MAC_WAIT_MAIN; mac_t = 0;
+		break;
+	case MAC_WAIT_MAIN:
+		if (h == SCR_MAIN || mac_t > 600) mac = MAC_IDLE;
+		break;
+	default: break;
+	}
+}
+
+static void mp_menu_vblank(void) {
+	if (lobby.open) { lobby_input(fe_buttons); fe_buttons = 0; }
+	else if (mac != MAC_IDLE) macro_vblank();
+	else if (mp_mode) {   // back in the Single Player or Main Menu: the multiplayer Free Play is over
+		u32 h = menu_hash();
+		if (h == SCR_SINGLE || h == SCR_MAIN) { mp_mode = false; fe_set_seats(NULL); LOGI("multiplayer: ended"); }
+	}
+}
+
 
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	switch (id) {
@@ -877,6 +1079,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
+	case HOOK_MENU_GOTO:   // F_14cb34(menus, hash, transition): Main Menu > Multiplayer goes to the local race setup
+		if (getenv("SR2_EV_TRACE")) LOGI("menus: %08x -> %08x", menu_hash(), A(1));
+		if (A(1) == SCR_MULTI && menu_hash() == SCR_MAIN && !lobby.open) { c->r[5] = SCR_SINGLE; lobby_begin(); }
+		break;
 	case HOOK_ENTITY_HANDLE:   // F_15f84(entity): see hooks.json; the handle of an extra racer as for slot 15
 		if (A(0) && extra_index(A(0)) >= 0) {
 			u32 b = LW(A(0) + 4), s = LW(b + 0x10);
@@ -890,11 +1096,12 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (k < 0) break;
 		if (!finish_place[k]) {
 			finish_place[k] = ++n_finished;
+			finish_time[k] = race_time(c);
 			if (n_finished == 1) first_finish_vb = g_vblank_count;
 			LOGI("finish: player %d is %d of %d", k + 1, n_finished, n_extra + 1);
 		}
 		if (c->r[31] == 0x08800000 + GOAL_CONTACT_RA) SB(c->r[16] + GOAL_TRIGGERED, 0);   // for the others still to come
-		if (n_finished == n_extra + 1) { race_ending = true; c->r[4] = p1_racer; break; }
+		if (n_finished == n_extra + 1) { p1_finish(c, orig); return; }
 		c->r[2] = 0;
 		return;
 	}
@@ -1005,8 +1212,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_RACER_MOVE:
 		warp_pending(c);
-		if (n_finished && !race_ending && g_vblank_count - first_finish_vb > MP_FINISH_GRACE * 60) {
-			LOGI("finish: %d s since the first, ending the race", MP_FINISH_GRACE);
+		static int grace = -1;
+		if (grace < 0) grace = getenv("SR2_MP_GRACE") ? atoi(getenv("SR2_MP_GRACE")) : MP_FINISH_GRACE;   // test aid
+		if (n_finished && !race_ending && g_vblank_count - first_finish_vb > (u64)grace * 60) {
+			LOGI("finish: %d s since the first, ending the race", grace);
 			race_end(c);
 		}
 		for (int k = 0; k < n_extra; k++) if (extra_pending[k]) {   // the race is running: switch the extra racer on
@@ -1072,3 +1281,4 @@ static void mp_trace(void) {
 		LOGI("mp:%s cam target %08x seats %08x %08x", line, cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
 	}
 }
+
