@@ -304,8 +304,15 @@ void charslot_vblank(void);
 
 static void mp_trace(void);
 static void mp_menu_vblank(void);
+// The same runtime also runs Sonic Rivals (1). Everything in this file is for Rivals 2's code.
+bool game_is_sr2(void) {
+	static int v = -1;
+	if (v < 0) v = !memcmp(PTR(0x08800000 + 0x187774), "SG_MEMORY_ZONE", 14);
+	return v;
+}
 void game_vblank(void) {
 	static int last_fps;
+	if (!game_is_sr2()) return;
 	if (g_cfg.fps != last_fps) { last_fps = g_cfg.fps; apply_frame_rate(); }
 	text_patch();
 	options_patch();
@@ -369,6 +376,118 @@ static void racer_move(Ctx *c, void (*orig)(Ctx *c)) {
 // characters, and their files are built during the load (racergen.c) for the level slots left empty.
 #define WORLD        0x089ABD10
 #define WORLD_SLOT(k) (WORLD + 0x90 + (k) * 0x4c0)
+
+// Stages converted from Sonic Rivals 1 (tools: the world header carries 'R1ST' at +0x57f0). Rivals 1 puts a
+// racer on whichever route it lands on; Rivals 2 keeps it on its chain of path records, so after a spring up to
+// a route laid right above another the racer stays on the lower one and stops at its end. When a racer has stood
+// well above or below its current path segment for a moment, look up the nearest segment again (F_9b2a8, as at
+// spawn). The locator is racer +0x114: +0x8 next record, +0xa current record, +0xc slot.
+#define R1_STAGE_MAGIC 0x54535231
+static int resnap_wait[8];
+static void racer_place_at(Ctx *c, u32 r, const float *t, u32 like);
+// A racer falling well below its route on a Rivals 1 stage has dropped through a gap in the converted collision
+// (or into a pit, where the game would put it back too): put it back on the route, on the record of a loaded
+// section that is nearest across the ground and above it.
+static void path_catch(Ctx *c, u32 racer, const float *pos) {
+	float best = 1e9f, at[4] = {0, 0, 0, 1};
+	for (int s = 0; s < 16; s++) {
+		Ctx save = *c;
+		c->r[4] = WORLD; c->r[5] = s; rt_call(c, 0x08800000 + 0x160724);
+		u32 on = c->r[2]; *c = save;
+		if (!on) continue;
+		u32 arr = LW(WORLD_SLOT(s) + 0x444), n = LW(WORLD_SLOT(s) + 0x448) / 2;
+		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		for (u32 k = 0; k < n; k++) {
+			u32 rec = LW(arr + 4 * k);
+			if (rec < 0x08800000 || rec >= 0x0A000000) break;
+			float p0[3], p1[3];
+			memcpy(p0, PTR(rec), sizeof p0); memcpy(p1, PTR(rec + 0x10), sizeof p1);
+			float dx = p1[0] - p0[0], dy = p1[1] - p0[1], l2 = dx * dx + dy * dy;
+			if (l2 < 0.01f) continue;
+			float t = ((pos[0] - p0[0]) * dx + (pos[1] - p0[1]) * dy) / l2;
+			t = t < 0 ? 0 : t > 1 ? 1 : t;
+			float q[3] = { p0[0] + t * dx, p0[1] + t * dy, p0[2] + t * (p1[2] - p0[2]) };
+			if (q[2] < pos[2]) continue;
+			float h = hypotf(q[0] - pos[0], q[1] - pos[1]) * 4 + (q[2] - pos[2]) * 0.1f;
+			if (h < best) { best = h; at[0] = q[0]; at[1] = q[1]; at[2] = q[2] + 1.5f; }
+		}
+	}
+	if (best >= 1e9f) return;
+	racer_place_at(c, racer, at, racer);
+	float zero[3] = {0, 0, 0};
+	memcpy(PTR(racer + RACER_VEL), zero, sizeof zero);
+	LOGI("catch: racer %08x fell to %.1f, back on the route at %.1f %.1f %.1f", racer, pos[2], at[0], at[1], at[2]);
+}
+// Rivals 2 stages carry the race-end screens in their own section 0: five objects (world +0x4fc4, the results
+// panel first) that the goal opens. Rivals 1 stages have none, so a Rivals 1 stage borrows them from a Rivals 2
+// section 0 image (Blue Coast 1 as initialised in a race, r2sec0.bin in a mod folder): it is
+// loaded above the extra racers, its pointers into itself moved along with it. Without the file the stage gets
+// do-nothing objects (zeroed, every virtual function a bare return, F_064f8) and the race ends without a results screen.
+#define R2_SEC0      0x0922E350
+#define R2_SEC0_SIZE 0x390000
+#define R2_UI_AT     0x0AC00000   // above the third extra racer's block (0x0A000000 + 3 * 4 MB)
+#define R1_EVENT_STUBS 0x0A1F8000   // free: between PAD_DEVN and the first extra racer's heap
+int io_mod_count(void);
+const char *io_mod_root(int i);
+static bool r2_ui_load(void) {
+	char path[1024];
+	FILE *f = NULL;
+	for (int i = io_mod_count() - 1; i >= 0 && !f; i--) {   // the highest-priority mod that has one
+		snprintf(path, sizeof path, "%s/r2sec0.bin", io_mod_root(i));
+		f = fopen(path, "rb");
+	}
+	if (!f) return false;
+	size_t n = fread(PTR(R2_UI_AT), 1, R2_SEC0_SIZE, f);
+	fclose(f);
+	if (n != R2_SEC0_SIZE) return false;
+	u32 delta = R2_UI_AT - R2_SEC0, moved = 0;
+	for (u32 a = R2_UI_AT; a < R2_UI_AT + R2_SEC0_SIZE; a += 4) {
+		u32 v = LW(a);
+		if (v >= R2_SEC0 && v < R2_SEC0 + R2_SEC0_SIZE) { SW(a, v + delta); moved++; }
+	}
+	SW(WORLD + 0x4fc4, 0x094e20c0 + delta);
+	LOGI("r1 stage: race-end screens from %s (%u pointers moved)", path, moved);
+	return true;
+}
+static void r1_event_stubs(void) {
+	if (LW(WORLD + 0x57f0) != R1_STAGE_MAGIC || LW(WORLD + 0x4fc4)) return;
+	if (r2_ui_load()) return;
+	u32 vt = R1_EVENT_STUBS + 0x20, obj = R1_EVENT_STUBS + 0x100;
+	memset(PTR(R1_EVENT_STUBS), 0, 0x700);
+	for (int i = 0; i < 32; i++) SW(vt + 4 * i, 0x08800000 + 0x064f8);
+	for (int i = 0; i < 5; i++) { SW(R1_EVENT_STUBS + 4 * i, obj + 0x100 * i); SW(obj + 0x100 * i, vt); }
+	SW(WORLD + 0x4fc4, R1_EVENT_STUBS);
+	LOGI("r1 stage: event object stubs at %08x", R1_EVENT_STUBS);
+}
+static void path_resnap(Ctx *c, u32 racer, int i) {
+	if (LW(WORLD + 0x57f0) != R1_STAGE_MAGIC) return;
+	u32 loc = racer + 0x114, body = LW(racer + RACER_BODY);
+	int slot = (s8)*PTR(loc + 0xd), cur = (s16)LH(loc + 0xa);   // the current record (+0xa) and its slot (+0xd); +8/+0xc are the next one
+	if (slot < 0 || slot > 15 || cur < 0) return;
+	u32 arr = LW(WORLD_SLOT(slot) + 0x444), n = LW(WORLD_SLOT(slot) + 0x448);
+	if (arr < 0x08800000 || arr >= 0x0A000000 || (u32)cur >= n) return;
+	u32 rec = LW(arr + 4 * cur);
+	if (rec < 0x08800000 || rec >= 0x0A000000) return;
+	float p0[3], p1[3], pos[3], vel[3];
+	memcpy(p0, PTR(rec), sizeof p0); memcpy(p1, PTR(rec + 0x10), sizeof p1);
+	memcpy(pos, PTR(body + 0x20), sizeof pos); memcpy(vel, PTR(racer + RACER_VEL), sizeof vel);
+	float dx = p1[0] - p0[0], dy = p1[1] - p0[1], l2 = dx * dx + dy * dy;
+	float t = l2 > 1e-6f ? ((pos[0] - p0[0]) * dx + (pos[1] - p0[1]) * dy) / l2 : 0;
+	t = t < 0 ? 0 : t > 1 ? 1 : t;
+	float dz = pos[2] - (p0[2] + t * (p1[2] - p0[2]));
+	if (dz < -8.0f && vel[2] < 0) { path_catch(c, racer, pos); resnap_wait[i] = 0; return; }
+	// standing well off its route (a spring or a drop put it on another one), or falling past the end of a
+	// dead-end route onto the one below it
+	bool standing = fabsf(dz) >= 2.5f && fabsf(vel[2]) <= 0.05f, dropping = dz < -2.5f && vel[2] < -0.05f;
+	if (!standing && !dropping) { resnap_wait[i] = 0; return; }
+	if (++resnap_wait[i] < (standing ? 15 : 6)) return;
+	resnap_wait[i] = 0;
+	Ctx save = *c;
+	c->r[4] = loc; c->r[5] = body + 0x20; c->r[6] = 0; c->r[7] = 5;
+	rt_call(c, 0x08800000 + 0x9b2a8);
+	*c = save;
+	LOGI("resnap: racer %08x %.1f off its path, now slot %d record %d", racer, dz, (s8)*PTR(loc + 0xd), (s16)LH(loc + 0xa));
+}
 #define FILE_SLOT_HDR 0x5430   // the slot header saved inside a racer file
 #define MAX_EXTRA 3
 static int n_extra;                                         // extra racers built for this race
@@ -1180,6 +1299,7 @@ int mp_split_lead(void) { return n_extra == 2 && p1_racer && in_race && split_vi
 int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
+	if (!game_is_sr2()) return v;
 	switch (id) {
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
 	case HOOK_SIG_START_DT: return at_least_30fps_dt(v);     // signature move start: lift time and kick
@@ -1409,6 +1529,7 @@ static float banter_dist[2];
 static void banter_stop(void) { if (banter_on) memcpy(PTR(BANTER_SHOT), banter_dist, 8); banter_on = false; }
 
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
+	if (!game_is_sr2()) { orig(c); return; }
 	switch (id) {
 	case HOOK_BUILD_RACER_SLOT: {   // F_16208c(loader, slot)
 		u32 loader = A(0), slot = A(1);
@@ -1825,6 +1946,21 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			// stepped after the seated racers instead (HOOK_RACER_STEP).
 			SW(WORLD + 0x502c, seat0); SW(WORLD + 0x4f84, info0);
 			LOGI("extra racer %d: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", k, r, eb, pb, in, PTR(0x08A7C69C)[0]);
+		}
+		if (in_race) {   // human racers only: this move step also runs for other moving objects
+			int ri = A(0) == LW(WORLD + 0x5024) ? 0 : -1;
+			for (int k = 0; k < n_extra && ri < 0; k++) if (A(0) == extra_racer[k]) ri = k + 1;
+			if (ri >= 0) path_resnap(c, A(0), ri);
+			if (ri == 0) r1_event_stubs();
+			// Rivals 1 stages turn sharp corners (a wall onto a ledge) in path records under a unit long; a
+			// racer crossing two of them in one step has its speed projected straight onto the last one and
+			// loses it, so racers there move in four shorter steps
+			if (ri >= 0 && g_cfg.fps <= 60 && LW(WORLD + 0x57f0) == R1_STAGE_MAGIC) {
+				float dt = c->f[12];
+				Ctx save = *c;
+				for (int s = 0; s < 4; s++) { *c = save; c->f[12] = dt / 4; orig(c); }
+				return;
+			}
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;
