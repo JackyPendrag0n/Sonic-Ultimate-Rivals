@@ -109,16 +109,21 @@ static void split_tab() {
 	ImGui::BulletText("Players 2-4: press A on your controller to join, left / right to pick a character.");
 	ImGui::BulletText("Player 1: A or Start, then pick the stage and your character as in Free Play.");
 	ImGui::BulletText("Two players split the screen top and bottom; three or four, into quarters.");
+	ImGui::BulletText("Before the start each player gets a camera shot and says a line.");
 	ImGui::BulletText("The race goes on until everyone is in (or 90 s after the winner): 1st, 2nd, 3rd, 4th.");
 	ImGui::Separator();
 	if (ImGui::Checkbox("Debug: player 1's controller drives everyone", &g_cfg.pad_all)) changed();
 	help("For testing on your own: every player copies controller 1 (and the keyboard).");
+	if (ImGui::Checkbox("Debug: add players without a controller", &g_cfg.mp_test_seats)) changed();
+	help("On the Multiplayer screen, player 1 presses Y / triangle to add a player and X / square to remove one; "
+	     "left / right picks the last added player's character. They stand still unless the box above is ticked.");
 }
 
 // the Multiplayer screen (game.c): who plays, on which controller, as whom
 extern "C" int mp_lobby(int *pad, int *ch);
 extern "C" const char *fe_pad_name(int id);
 
+static bool mp_test_seats_on() { return g_cfg.mp_test_seats; }
 static void lobby_draw(int w, int h) {
 	int pad[4], ch[4];
 	int st = mp_lobby(pad, ch);
@@ -158,8 +163,9 @@ static void lobby_draw(int w, int h) {
 			text(cx, y + chh - u * 1.3f, u * 0.6f, grey, pn ? pn : "keyboard");
 		} else if (in) {
 			text(cx, ty, u * 1.05f, white, mp_char_names[ch[k]]);
-			text(cx, ty + u * 1.6f, u * 0.65f, grey, "< left / right >");
-			text(cx, ty + u * 2.4f, u * 0.65f, grey, "B: leave");
+			bool test = pad[k] < -1 && mp_test_seats_on();
+			text(cx, ty + u * 1.6f, u * 0.65f, grey, test ? "added by player 1" : "< left / right >");
+			text(cx, ty + u * 2.4f, u * 0.65f, grey, test ? "(no controller)" : "B: leave");
 			text(cx, y + chh - u * 1.3f, u * 0.6f, grey, pn ? pn : pad[k] < -1 ? "test input" : "controller");
 		} else {
 			ImU32 c = IM_COL32(200, 210, 240, (int)(255 * pulse));
@@ -172,7 +178,9 @@ static void lobby_draw(int w, int h) {
 	else {
 		text(w / 2.0f, fy, u * 0.85f, players > 1 ? white : grey,
 		     players > 1 ? "Player 1: A or Start to pick the stage" : "Waiting for player 2: press A on another controller");
-		text(w / 2.0f, fy + u * 1.3f, u * 0.65f, grey, "Player 1: B to go back");
+		text(w / 2.0f, fy + u * 1.3f, u * 0.65f, grey, mp_test_seats_on()
+		     ? "Player 1: B to go back     Debug: Y adds a player, X removes, left / right their character"
+		     : "Player 1: B to go back");
 	}
 }
 

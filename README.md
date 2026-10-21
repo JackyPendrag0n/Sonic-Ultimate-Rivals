@@ -158,7 +158,14 @@ Without `SR2_EXTRA_RACER`, the PC settings (F1) tab "Split screen" sets this up:
 (`mp_players`) and the characters of players 2-4 (`mp_char2`..`mp_char4`). During the race load the runtime
 builds each racer file itself (runtime/racergen.c, the same rules as `racergen.py`, byte for byte) for the
 highest load slot the level leaves empty, at 0x0A000000 + k*4 MB with its heap block 2 MB in. The debug
-switch `pad_all` makes every player read controller 1 and the keyboard.
+switch `pad_all` makes every player read controller 1 and the keyboard, and `mp_test_seats` lets player 1 seat
+players without a controller on the Multiplayer screen (Y adds one, X removes one).
+
+Before the start every player gets the story races' banter: a camera shot of them saying a line (race states
+3 and 4 of F_597d8). The check for it (F_81944, hook 30) says yes, the racer each shot asks for (F_3731c,
+hook 31) is the next player, and the end of a shot goes back to state 3 until everyone has had one. The
+results title ("Sonic Wins") names the winner: player 1's entries in the Wins / Loses string tables
+(0x0899C7D4 / 0x0899C7F4) hold the winner's from the end of the race.
 
 Each view also gets its own HUD: the HUD (F_12ad44, hook 15) is drawn once per view, scaled to half size
 into it, with that player as the local player (the boost bar reads it as it draws) and that player's rings

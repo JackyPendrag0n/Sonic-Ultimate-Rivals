@@ -445,6 +445,36 @@
     "00808021",
     "2cc40011"
    ]
+  },
+  {
+   "id": 30,
+   "name": "BANTER_CHECK",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_81944(mode): whether the race opens with the two racers' camera shots and lines (story races).",
+   "pattern": [
+    "27bdfff0",
+    "afbf0000",
+    "00801021",
+    "90870000",
+    "10e0000e",
+    "00002021"
+   ]
+  },
+  {
+   "id": 31,
+   "name": "WORLD_RACER",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_3731c(world, i): i 1 the local player, 0 the other racer.",
+   "pattern": [
+    "50a00007",
+    "8c85502c",
+    "24030001",
+    "14a30002",
+    "00003021",
+    "8c865024"
+   ]
   }
  ]
 }

@@ -34,7 +34,7 @@ const char *config_path(void) {
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(fullscreen, b) \
 	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
-	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b)
+	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
@@ -110,7 +110,8 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_RACER_STEP, HOOK_RACE_STATE, HOOK_SEND_EVENT, HOOK_HUD_DRAW, HOOK_RING_PICKUP,
        HOOK_HUD_ELEM, HOOK_HUD_PART_A, HOOK_HUD_PART_B, HOOK_HUD_PART_C, HOOK_HUD_PART_D,
        HOOK_PLAYER_CONTACTS, HOOK_FOCUS_RACER_STEP, HOOK_RACER_UPDATE, HOOK_RACER_FINISH, HOOK_SLOT_ACTIVE,
-       HOOK_ENTITY_HANDLE, HOOK_VOICE_PICK, HOOK_MENU_GOTO };
+       HOOK_ENTITY_HANDLE, HOOK_VOICE_PICK, HOOK_MENU_GOTO,
+       HOOK_BANTER_CHECK, HOOK_WORLD_RACER };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -143,7 +144,7 @@ static void apply_frame_rate(void) {
 #define TEXT_COUNT     0x089ABCCC
 
 enum { B_UP = 0x10, B_RIGHT = 0x20, B_DOWN = 0x40, B_LEFT = 0x80, B_CIRCLE = 0x2000, B_CROSS = 0x4000 };
-enum { S_GRAPHICS, S_ROW0, S_SKIN = S_ROW0 + 5, NSTR = S_SKIN + 4, STR_LEN = 48 };
+enum { S_GRAPHICS, S_ROW0, S_SKIN = S_ROW0 + 5, S_WINS = S_SKIN + 4, NSTR, STR_LEN = 48 };
 extern u32 fe_buttons;
 extern bool g_display_dirty;
 
@@ -529,12 +530,14 @@ static bool cam_ready[MAX_EXTRA];
 static u32 cam_of[MAX_EXTRA];
 static u8 cam_obj[MAX_EXTRA][CAM_SIZE], cam_node[MAX_EXTRA][CAM_NODE_SZ];   // the cameras of extra racers 0..2
 
+static bool banter_on;   // the racers' shots before the start (whole screen)
 static bool split_view_on(void) {
 	if (split_view < 0) {
 		const char *e = getenv("SR2_SPLIT_VIEW");
 		split_view = !e ? 1 : !strcmp(e, "0") ? 0 : !strcmp(e, "lr") ? 2 : 1;
 	}
-	return split_view && n_extra && !extra_pending[n_extra - 1] && LW(CAM_MAIN) && !race_ending;   // the results: whole screen
+	return split_view && n_extra && !extra_pending[n_extra - 1] && LW(CAM_MAIN) && !race_ending   // the results: whole screen
+	       && !banter_on;   // so is each racer's shot before the start
 }
 
 static void swap_bytes(u8 *a, u8 *b, u32 n) { for (u32 i = 0; i < n; i++) { u8 t = a[i]; a[i] = b[i]; b[i] = t; } }
@@ -700,7 +703,9 @@ static int p1_char = -1;   // player 1's character, from their meter icon's head
 static int head_char(void);
 #define RACER_TIME  0x750   // a racer's finish time (s), set by F_b2530 from the race timer; the results show it
 static float finish_time[1 + MAX_EXTRA];
-static void placings_reset(u32 p1) { memset(finish_place, 0, sizeof finish_place); n_finished = 0; race_ending = false; p1_racer = p1; p1_char = head_char(); }
+static void title_restore(void);
+int mp_player_char(int k);
+static void placings_reset(u32 p1) { title_restore(); memset(finish_place, 0, sizeof finish_place); n_finished = 0; race_ending = false; p1_racer = p1; p1_char = head_char(); }
 static float race_time(Ctx *c) {   // F_12e7ac(the HUD's timer): the race time now
 	Ctx save = *c;
 	c->r[4] = HUD_BASE + HUD_TIMER; rt_call(c, 0x08800000 + 0x12e7ac);
@@ -708,7 +713,40 @@ static float race_time(Ctx *c) {   // F_12e7ac(the HUD's timer): the race time n
 	*c = save;
 	return t;
 }
+// The results title ("Sonic Wins", "Sonic Loses") is player 1's: with players 2-4 it names whoever came first
+// (with their player number when another player has the same character). Player 1's entries in the tables of
+// those titles name the winner from the end of the race until it is left.
+#define WINS_TABLE     (0x08800000 + 0x19c7d4)   // "<character> Wins" string ids, by the game's character order
+#define LOSES_TABLE    (0x08800000 + 0x19c7f4)   // "<character> Loses"
+static const int game_char_of[MP_CHARS] = {0, 1, 3, 2, 7, 5, 6, 4};   // mp_char_names order -> the game's
+static int title_char = -1;   // player 1's (the game's order) while the tables are changed
+static u32 title_was[2];
+static int race_winner(void) {   // the player in first place, or -1
+	if (getenv("SR2_TEST_WINNER")) return atoi(getenv("SR2_TEST_WINNER"));   // test aid
+	for (int k = 0; k <= n_extra; k++) if (finish_place[k] == 1) return k;
+	return -1;
+}
+static void title_restore(void) {
+	if (title_char < 0) return;
+	SW(WINS_TABLE + title_char * 4, title_was[0]); SW(LOSES_TABLE + title_char * 4, title_was[1]);
+	title_char = -1;
+}
+static void title_set(void) {
+	title_restore();
+	int w = race_winner(), ch = w >= 0 ? mp_player_char(w) : -1, p1 = mp_player_char(0);
+	if (ch < 0 || ch >= MP_CHARS || p1 < 0 || p1 >= MP_CHARS) return;
+	int same = 0;
+	for (int k = 0; k <= n_extra; k++) same += mp_player_char(k) == ch;
+	u32 id = LW(WINS_TABLE + game_char_of[ch] * 4);
+	if (same > 1 && str_table) { set_str(S_WINS, "P%d %s Wins", w + 1, mp_char_names[ch]); id = str_base + S_WINS; }
+	title_char = game_char_of[p1];
+	title_was[0] = LW(WINS_TABLE + title_char * 4); title_was[1] = LW(LOSES_TABLE + title_char * 4);
+	SW(WINS_TABLE + title_char * 4, id); SW(LOSES_TABLE + title_char * 4, id);
+	LOGI("results: P%d %s wins", w + 1, mp_char_names[ch]);
+}
+
 static void p1_finish(Ctx *c, void (*orig)(Ctx *c)) {   // the game's finish for player 1 (the results), with their own time
+	title_set();
 	race_ending = true;
 	c->r[4] = p1_racer; orig(c);
 	if (finish_place[0]) memcpy(PTR(p1_racer + RACER_TIME), &finish_time[0], 4);
@@ -742,7 +780,7 @@ static int head_char(void) {
 	for (int i = 0; i < MP_CHARS; i++) if (!strncmp((const char *)PTR(img + 0x34 + 0x10), hud_heads[i], 32)) return i;
 	return -1;
 }
-int mp_split_lead(void) { return n_extra == 2 && p1_racer && !race_ending ? split_lead : -1; }   // see split_leader
+int mp_split_lead(void) { return n_extra == 2 && p1_racer && in_race && split_view_on() ? split_lead : -1; }   // see split_leader
 int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
@@ -765,7 +803,7 @@ u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 #define SCR_MULTI   0x8d082f86
 #define SCR_STAGES  0x8898eb5a
 #define BTN_Y       0x14         // a menu button's height on screen (larger is higher)
-enum { B_START = 0x8, LOBBY_EMPTY = -100 };
+enum { B_START = 0x8, B_TRIANGLE = 0x1000, B_SQUARE = 0x8000, LOBBY_EMPTY = -100 };
 int fe_pads(int *ids, u32 *buttons, const char **names, int max);
 int fe_last_pad(void);
 void fe_set_seats(const int *ids);
@@ -846,6 +884,19 @@ static void lobby_input(u32 p1) {
 		if (e & B_LEFT) lobby.ch[k] = (lobby.ch[k] + MP_CHARS - 1) % MP_CHARS;
 		if (e & B_RIGHT) lobby.ch[k] = (lobby.ch[k] + 1) % MP_CHARS;
 	}
+	if (g_cfg.mp_test_seats) {   // debug: player 1 seats players without a controller (test inputs -2..-4)
+		int last = 0;
+		for (int k = 1; k < 4; k++) if (lobby.pad[k] < -1 && lobby.pad[k] != LOBBY_EMPTY) last = k;
+		if (p1e & B_TRIANGLE) {
+			int k = 1, t = -2;
+			while (k < 4 && lobby.pad[k] != LOBBY_EMPTY) k++;
+			for (int i = 1; i < 4; i++) if (lobby.pad[i] == t) { t--; i = 0; }   // the first test input not seated
+			if (k < 4 && t >= -4) { lobby.pad[k] = t; LOGI("multiplayer: test player %d added", k + 1); }
+		}
+		if ((p1e & B_SQUARE) && last) lobby.pad[last] = LOBBY_EMPTY;
+		if (last && (p1e & B_LEFT)) lobby.ch[last] = (lobby.ch[last] + MP_CHARS - 1) % MP_CHARS;
+		if (last && (p1e & B_RIGHT)) lobby.ch[last] = (lobby.ch[last] + 1) % MP_CHARS;
+	}
 	if (p1e & B_CIRCLE) lobby_end(false);
 	else if ((p1e & (B_CROSS | B_START)) && lobby_players() > 1) lobby_end(true);
 }
@@ -912,10 +963,28 @@ static void mp_menu_vblank(void) {
 	else if (mac != MAC_IDLE) macro_vblank();
 	else if (mp_mode) {   // back in the Single Player or Main Menu: the multiplayer Free Play is over
 		u32 h = menu_hash();
-		if (h == SCR_SINGLE || h == SCR_MAIN) { mp_mode = false; fe_set_seats(NULL); LOGI("multiplayer: ended"); }
+		if (h == SCR_SINGLE || h == SCR_MAIN) { mp_mode = false; fe_set_seats(NULL); title_restore(); LOGI("multiplayer: ended"); }
 	}
 }
 
+
+// The banter before the start: story races open with a camera shot of each of the two racers saying a line
+// (race states 3 and 4, F_597d8). With players 2-4 every player gets one, in turn: the check for it (F_81944) says
+// yes, the racer the shot asks for (F_3731c) is the next player, and the end of the last shot (state 5 or 6) goes
+// back to state 3 for the next one.
+#define BANTER_CHECK_RA  0x088598a4   // F_597d8 state 2: F_81944(mode) decides on the banter
+#define BANTER_FIRST_RA  0x08859934   // state 2 -> 3: the first shot's racer, F_3731c(world, 0)
+#define BANTER_NEXT_RA   0x08859a14   // state 3: the next shot's racer, F_3731c(world, 1)
+#define BANTER_OTHER1_RA 0x0885997c   // ... and the racer each shot looks past (F_59770)
+#define BANTER_OTHER2_RA 0x08859a48
+#define BANTER_END_RA    0x08859a98   // state 3 -> 4, and state 4 -> 5 / 6 when the shot is over
+static int banter_next, banter_n;
+static u32 banter_racer[1 + MAX_EXTRA];
+static bool banter_done;   // this race opened with it (players 2-4 then say nothing more at the start)
+#define BANTER_SHOT  (WORLD + 0x4fc8)   // the shots' camera: distance from the racer at the start and end, ...
+#define BANTER_ZOOM  0.55f
+static float banter_dist[2];
+static void banter_stop(void) { if (banter_on) memcpy(PTR(BANTER_SHOT), banter_dist, 8); banter_on = false; }
 
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	switch (id) {
@@ -962,6 +1031,11 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_RACE_STATE: {   // F_592cc(race, state)
 		if (getenv("SR2_EV_TRACE")) LOGI("race %08x state %u (was %u) from %08x vb %llu", A(0), A(1), LW(A(0) + 0x24), c->r[31], (unsigned long long)g_vblank_count);
+		if (banter_on && (A(1) == 5 || A(1) == 6) && c->r[31] == BANTER_END_RA) {
+			if (banter_next < banter_n) c->r[5] = 3;   // the next player's shot
+			else banter_stop();
+		}
+		if (A(1) < 3) banter_stop();
 		if (!n_extra) break;
 		static int depth;
 		depth++; race_state_depth = depth;
@@ -1064,7 +1138,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	}
 	case HOOK_VOICE_PICK:   // F_126efc(voice, kind, ...): at the start (kind 7, from F_e1xxx) player 1 says a line;
 		// players 2-4 say one of theirs too, one after another (voice+0x204: seconds until it is said)
-		if (n_extra && !race_ending && A(1) == 7 && LW(c->r[29]) == 0x088e2194 && LW(A(0)) == p1_racer) {
+		if (n_extra && !race_ending && !banter_done && A(1) == 7 && LW(c->r[29]) == 0x088e2194 && LW(A(0)) == p1_racer) {
 			orig(c);
 			Ctx save = *c;
 			for (int k = 0; k < n_extra; k++) {
@@ -1079,6 +1153,38 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
+	case HOOK_BANTER_CHECK:   // F_81944(mode)
+		if (c->r[31] == BANTER_CHECK_RA) {
+			banter_stop(); banter_done = false;
+			if (!n_extra || !mp_active() || getenv("SR2_NO_BANTER")) break;
+			banter_n = banter_next = 0;
+			banter_racer[banter_n++] = LW(WORLD + 0x5024);
+			for (int k = 0; k < n_extra; k++) if (!extra_pending[k]) banter_racer[banter_n++] = extra_racer[k];
+			if (!banter_racer[0] || banter_n < 2) break;
+			banter_on = banter_done = true;
+			memcpy(banter_dist, PTR(BANTER_SHOT), 8);   // closer than the story's two-shot: the others stand 0.6 apart
+			float d[2] = { banter_dist[0] * BANTER_ZOOM, banter_dist[1] * BANTER_ZOOM };
+			memcpy(PTR(BANTER_SHOT), d, 8);
+			LOGI("banter: %d racers", banter_n);
+			c->r[2] = 1;
+			return;
+		}
+		break;
+	case HOOK_WORLD_RACER: {   // F_3731c(world, i)
+		if (!banter_on) break;
+		u32 ra = c->r[31];
+		if (ra == BANTER_FIRST_RA || ra == BANTER_NEXT_RA) {
+			c->r[2] = banter_racer[banter_next < banter_n ? banter_next : banter_n - 1];
+			banter_next++;
+			return;
+		}
+		if (ra == BANTER_OTHER1_RA || ra == BANTER_OTHER2_RA) {   // the shot looks past the player before (or after)
+			int k = banter_next - 2;
+			c->r[2] = banter_racer[k >= 0 ? k : 1];
+			return;
+		}
+		break;
+	}
 	case HOOK_MENU_GOTO:   // F_14cb34(menus, hash, transition): Main Menu > Multiplayer goes to the local race setup
 		if (getenv("SR2_EV_TRACE")) LOGI("menus: %08x -> %08x", menu_hash(), A(1));
 		if (A(1) == SCR_MULTI && menu_hash() == SCR_MAIN && !lobby.open) { c->r[5] = SCR_SINGLE; lobby_begin(); }

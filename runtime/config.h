@@ -28,6 +28,7 @@ typedef struct GameConfig {
 	int mp_players;        // 1..4
 	int mp_char2, mp_char3, mp_char4;   // characters of players 2-4 (index into mp_char_names)
 	bool pad_all;          // debug: player 1's controller drives all players
+	bool mp_test_seats;    // debug: player 1 adds players without a controller on the Multiplayer screen
 } GameConfig;
 
 extern GameConfig g_cfg;
