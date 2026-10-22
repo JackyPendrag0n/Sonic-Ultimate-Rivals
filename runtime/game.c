@@ -2520,16 +2520,24 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 static void mp_trace(void) {
 	static int trace = -1;
 	if (trace < 0) trace = getenv("SR2_MP_TRACE") != NULL;
+	if (trace && !n_extra && in_race && g_vblank_count % 30 == 0)   // test aid: single player, both seats
+		for (int k = 0; k < 2; k++) {
+			u32 r = LW(WORLD + 0x502c + k * 4); float *pos = r && LW(r + 4) ? (float *)PTR(LW(r + 4) + 0x20) : NULL;
+			if (pos) LOGI("sp: seat %d %08x (%.1f %.1f %.1f)", k, r, pos[0], pos[1], pos[2]);
+		}
 	if (trace && n_extra && g_vblank_count % 30 == 0) {   // test aid: where each player and camera is
 		char line[512]; int o = 0;
 		u32 rs[4] = {LW(WORLD + 0x5024)};
 		for (int k = 0; k < n_extra; k++) rs[k + 1] = extra_racer[k];
 		for (int k = 0; k <= n_extra; k++) {
 			u32 r = rs[k]; float *pos = r && LW(r + 4) ? (float *)PTR(LW(r + 4) + 0x20) : NULL;
-			o += snprintf(line + o, sizeof line - o, " p%d %08x (%.1f %.1f %.1f)", k + 1, r, pos ? pos[0] : 0, pos ? pos[1] : 0, pos ? pos[2] : 0);
+			u32 st = r && LW(r + 0x88) ? LW(LW(r + 0x88) + 0xac) : 0;
+			u32 bd = r ? LW(r + 4) : 0, lc = r ? r + 0x114 : 0;
+			o += snprintf(line + o, sizeof line - o, " p%d %08x (%.1f %.1f %.1f) %08x s%d/%d loc %d:%d>%d e%08x", k + 1, r, pos ? pos[0] : 0, pos ? pos[1] : 0, pos ? pos[2] : 0, st,
+			              bd ? (int)LW(bd + 0xc) : -9, bd ? (int)LW(bd + 0x10) : -9, lc ? (s8)LB(lc + 0xc) : -9, lc ? (s16)LH(lc + 0xa) : -9, lc ? (s16)LH(lc + 8) : -9, r ? LW(r + 0x8e4) : 0);
 		}
 		u32 cam = LW(CAM_MAIN);
-		LOGI("mp:%s cam target %08x seats %08x %08x", line, cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
+		LOGI("mp:%s spring %08x cam target %08x seats %08x %08x", line, LW(0x08AB4B90), cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
 		o = 0;
 		for (int k = 0; k <= n_extra; k++) { u32 r = rs[k]; o += snprintf(line + o, sizeof line - o, " p%d sec %d", k + 1, r && LW(r + 4) ? (int)LW(LW(r + 4) + 0xc) : -9); }
 		for (u32 i = 0; i < LW(0x0899FF4C) && i < 8; i++) { u32 e = WORLD + 0x5d18 + i * 16, sp = LW(e + 4); o += snprintf(line + o, sizeof line - o, " buf%u st %x slot %d", i, LW(e + 8), sp >= 0x08800000 && sp < 0x0A000000 ? (int)LW(sp + 0x20) : -1); }
