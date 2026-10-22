@@ -1401,12 +1401,18 @@ static void bonus_menu(void) {
 		}
 	}
 	fe_buttons &= ~held;
-	// the game starts the act by the row's place in the list: go up to Act 1 and choose it
+	// the game starts the act by the row's place in the list: go up to Act 1 and choose it. Menus skip input
+	// while they animate, so each press is checked against the list and repeated until it takes
 	if (seq) {
 		fe_buttons &= ~(B_UP | B_DOWN | B_CROSS);
-		if (seq <= 2) fe_buttons |= B_UP;
-		else if (seq >= 7) fe_buttons |= B_CROSS;
-		if (++seq > 8) seq = 0;
+		static u32 next, btn, at;   // a press is held 2 frames; the next comes when the frame count reaches next
+		bool on_list = h == SCR_SELECT && LW(ACT_LIST + 4) == ACT_LIST_HASH;
+		if (!on_list || ++seq > 300) seq = next = 0;   // the race is loading (or give up after five seconds)
+		else if (seq < next) { if (seq - at < 2) fe_buttons |= btn; }
+		else {
+			btn = LW(ACT_LIST + W_SELECTED) != first ? B_UP : B_CROSS;   // CROSS again only if the screen stays
+			fe_buttons |= btn; at = seq; next = seq + (btn == B_UP ? 8 : 30);
+		}
 	}
 }
 
