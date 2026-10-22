@@ -116,7 +116,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
        HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
-       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE };
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -1037,6 +1037,7 @@ static int head_char(void) {
 #define BOSS_RIVAL_HITS 0x6e0
 #define BOSS_WON      0x7a4   // someone has the hits
 static u32 boss_obj;
+static bool stream4;   // a section can list three neighbours (stream_links): the loads want up to four
 static int boss_hits[1 + MAX_EXTRA];
 static int boss_player_hits(int k) {   // player k's hits now
 	if (!boss_obj) return 0;
@@ -1388,6 +1389,8 @@ int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) :
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	if (!game_is_sr2()) return v;
 	switch (id) {
+	case HOOK_STREAM_WANT_CLEAR: case HOOK_STREAM_WANT_PICK:   // slti, a0 < 3: 4 with the sections' third neighbour
+		return stream4 ? (s32)c->r[4] < 4 : v;
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
 	case HOOK_SIG_START_DT: return at_least_30fps_dt(v);     // signature move start: lift time and kick
 	}
@@ -1689,6 +1692,7 @@ static void mp_menu_vblank(void) {
 #define STREAM_BUF_N   0x0899FF4C   // the number of section buffers (4)
 #define STREAM_BUFS    (WORLD + 0x5d18)   // per buffer, 16 bytes: +4 the slot loaded (its number at +0x20), +8 state (0x20: live)
 #define STREAM_CUR     (WORLD + 0x5da0)
+#define STREAM_CUR_SEC (WORLD + 0x5d9c)   // its section (F_15e0e8's 4th argument), whose neighbours the loads (F_15e4a8) keep
 #define STREAM_OUT_US  700000   // outside the window this long: put back on the course
 static u32 stream_leader;   // the racer the streaming follows (0: player 1, the game's own)
 static int stream_sec[1 + MAX_EXTRA];
@@ -1725,6 +1729,24 @@ static u32 stream_pick(Ctx *c) {   // the leader: the player in the furthest sec
 	if (!lead) lead = p1_racer;
 	if (lead != stream_leader && getenv("SR2_MP_TRACE")) LOGI("stream: following player %d (section %d)", player_index(lead) + 1, best);
 	return stream_leader = lead;
+}
+// The loads (F_15e4a8) keep the current section and those in its list of neighbours (section +0x24, up to three,
+// <= 0 for none), and load the nearest missing one of the current section and its first two neighbours. A course
+// lists two, the one behind and the one ahead, so only three of the four buffers are used. With players 2-4 the
+// list becomes the one ahead, the one after it, then the one behind (kept, never loaded: it was current before), so
+// all four hold a section and the window is the one behind and the two ahead it was meant to be.
+static void stream_links(bool on) {   // (off: back as the course has them, for the results and anything after)
+	int n = (s32)LW(WORLD + 0x4d10);
+	for (int k = 1; k <= n && k < 14; k++) {
+		u32 o = WORLD_SLOT(k) + 0x24;
+		s32 a = LW(o), b = LW(o + 4), x = LW(o + 8);
+		if (on && a == k - 1 && b == k + 1 && x <= 0 && k + 2 <= n) {   // (as the course has it: behind, ahead)
+			SW(o, k + 1); SW(o + 4, k + 2); SW(o + 8, k - 1 > 0 ? k - 1 : (u32)-1);
+		} else if (!on && a == k + 1 && b == k + 2 && (x == k - 1 || (k == 1 && x == -1))) {
+			SW(o, k - 1); SW(o + 4, k + 1); SW(o + 8, (u32)-1);
+		}
+	}
+	if (on) stream4 = true;   // (stays: with two neighbours the fourth place is never filled)
 }
 // put racer r back on the course: a third of the way into section s's path, facing like racer `like`
 static bool racer_to_section(Ctx *c, u32 r, int s, u32 like) {
@@ -2379,9 +2401,26 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;
 	case HOOK_STREAM_SECTION:   // F_15e0e8(world, focus racer, 0), from F_15f97c: the section to stream around
-		if (stream_mp()) c->r[5] = stream_pick(c);
-		else stream_leader = 0;
-		break;
+		if (!stream_mp()) { stream_leader = 0; if (stream4) stream_links(false); break; }
+		stream_links(true);
+		c->r[5] = stream_pick(c);
+		orig(c);
+		{   // only four sections fit (one behind, two ahead): with someone behind, the leader keeps one ahead and
+			int s = (s32)c->r[2];   // the window reaches two back, so a straggler has twice the room
+			bool behind = false;
+			for (int k = 0; k <= n_extra; k++) if (!finish_place[k] && stream_sec[k] >= 1 && stream_sec[k] < s - 1) behind = true;
+			if (s > 1 && behind) { c->r[2] = s - 1; SW(STREAM_CUR_SEC, WORLD_SLOT(s - 1)); }   // (and the section the loads go around)
+			static int last = -9;
+			if (ENV_ON("SR2_STREAM_TRACE") && (int)c->r[2] != last) { last = c->r[2]; LOGI("stream: leader in %d, window around %d", s, last); }
+		}
+		if (ENV_ON("SR2_STREAM_TRACE")) {
+			static u32 seen[4][2];
+			for (int b = 0; b < 4; b++) {
+				u32 e = STREAM_BUFS + b * 16, sp = LW(e + 4), st = LW(e + 8), sn = sp >= 0x08800000 && sp < 0x0A000000 ? LW(sp + 0x20) : 0;
+				if (seen[b][0] != sn || seen[b][1] != st) { seen[b][0] = sn; seen[b][1] = st; LOGI("stream: buffer %d section %d state %x (cur %d)", b, sn, st, (int)LW(STREAM_CUR)); }
+			}
+		}
+		return;
 	case HOOK_STREAM_BUSY:   // F_1604ec(world, focus racer), from F_15f97c
 		if (stream_mp() && stream_leader) c->r[5] = stream_leader;
 		break;

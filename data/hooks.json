@@ -795,6 +795,34 @@
     "e7b50024",
     "0c000000/fc000000"
    ]
+  },
+  {
+   "id": 52,
+   "name": "STREAM_WANT_CLEAR",
+   "kind": "value",
+   "index": 2,
+   "_doc": "Level streaming loads (F_15e4a8): the loop clearing its list of wanted sections (the current one and its first two neighbours, 3). With players 2-4 a section lists three neighbours (stream_links in game.c) and the list holds 4.",
+   "pattern": [
+    "03a41821",
+    "24840001",
+    "28870003",
+    "aca00000",
+    "24a50004",
+    "14e0fffa"
+   ]
+  },
+  {
+   "id": 53,
+   "name": "STREAM_WANT_PICK",
+   "kind": "value",
+   "index": 2,
+   "_doc": "Level streaming loads (F_15e4a8): the loop picking the nearest wanted section not loaded yet, over 3 (4 with players 2-4, see STREAM_WANT_CLEAR).",
+   "pattern": [
+    "00803821",
+    "24840001",
+    "28880003",
+    "1500ffee"
+   ]
   }
  ]
 }
