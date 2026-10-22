@@ -116,7 +116,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
        HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
-       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK, HOOK_OUTFIT_OWNED, HOOK_ALPHA_DRAW };
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK, HOOK_OUTFIT_OWNED, HOOK_ALPHA_DRAW, HOOK_ENTITY_DT, HOOK_SIG_START, HOOK_SIG_END, HOOK_BAT_TARGET };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -926,6 +926,9 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 #define HUD_METER       0x1550       // the race meter's bar, at the bottom
 #define HUD_METER_ICON  0x1600       // the local player's icon on it
 #define HUD_RIVAL_ICON  0x16b0       // the rival's
+#define TIME_MODE       0x08A86DCC   // the world's time mode (F_169828): 4 while Chaos Control slows everything but its user
+#define TIME_CHAOS      4
+#define RACER_CHAOS     0x74c        // racer: byte set on Chaos Control's user, whose time is not slowed
 #define OUTFIT_MENU_RA  0x089455c8   // F_145124's call of F_1393f0: the Change Outfit list greys the outfits not unlocked
 #define DEATH_FADE_RA   0x088971d0   // F_970a8 (a racer's pit death, each frame): the screen fades out and in when it is
                                      // the local player's (F_3731c(world, 1)); with players 2-4 nobody's does
@@ -1428,9 +1431,14 @@ static void bt_hud_update(Ctx *c, void (*orig)(Ctx *c)) {
 int mp_split_lead(void) { return n_views() == 3 && p1_racer && in_race && split_view_on() ? split_lead : -1; }   // see split_leader
 int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
 
+static bool sig_mp(void);
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	if (!game_is_sr2()) return v;
 	switch (id) {
+	case HOOK_BAT_TARGET: {   // a bat (s0) of another player than the local one goes for the local player: keep its own
+		u32 bat = c->r[16], t = LW(bat + 0x2d0);
+		return sig_mp() && player_index(t) >= 0 && t != LW(bat + 0x200) ? t : v;
+	}
 	case HOOK_STREAM_WANT_CLEAR: case HOOK_STREAM_WANT_PICK:   // slti, a0 < 3: 4 with the sections' third neighbour
 		return stream4 ? (s32)c->r[4] < 4 : v;
 	case HOOK_COPTER_LIFT_DT:                                // Tails' Tail Copter: lift time per flap
@@ -1918,6 +1926,82 @@ static void banter_stop(void) { if (banter_on) memcpy(PTR(BANTER_SHOT), banter_d
 // local player (world +0x5024), easing off when it is far ahead of them and pushing when behind. While a
 // computer player steps, the one it watches is instead whoever is furthest along of the others, so it races
 // the leader rather than waiting for player 1.
+// Signature moves with players 2-4. A move that reaches a rival asks F_b1924 for "the" rival, which only knows the
+// two seats: it aims at the nearest other player instead, picked when the move starts (F_123374) and kept until it
+// ends (F_123cf4), Rouge's bats and Metal Sonic's copy among them. The one hit asks who hit them the same way, and
+// gets the player whose move is aimed at them. Chaos Control already slows everyone but its user (time mode 4,
+// HOOK_ENTITY_DT), and Silver's ESP, which scrambles its target's controls (F_174e8(controls, 3), 2 puts them back),
+// is given to everyone else too.
+#define RACER_CHAR      0x1d0   // the game's character id (F_b502c): Metal Sonic (5) takes the rival's
+#define RACER_SIG       0x4f4   // the signature move: +0 its racer, +8 set while it runs
+#define CHAR_SILVER     4
+#define CHAR_METAL      5
+#define SIG_START_RA    0x089233c0   // F_123374, the move's start
+#define SIG_END_RA      0x08923d3c   // F_123cf4, its end
+#define SET_CONTROLS    (0x08800000 + 0x174e8)
+static u32 sig_target[1 + MAX_EXTRA];
+static u32 sig_player(int k) { u32 r = player_racer(k); return r && (!k || !extra_pending[k - 1]) ? r : 0; }
+static float racer_dist2(u32 a, u32 b) {
+	float *p = PTR(LW(a + 4) + 0x20), *q = PTR(LW(b + 4) + 0x20);
+	float dx = p[0] - q[0], dy = p[1] - q[1], dz = p[2] - q[2];
+	return dx * dx + dy * dy + dz * dz;
+}
+static u32 nearest_rival(u32 r) {
+	u32 best = 0; float bd = 0;
+	for (int k = 0; k <= n_extra; k++) {
+		u32 o = sig_player(k);
+		if (!o || o == r || !LW(o + 4) || !LW(r + 4)) continue;
+		float d = racer_dist2(r, o);
+		if (!best || d < bd) best = o, bd = d;
+	}
+	return best;
+}
+static bool guest_ptr(u32 p) { return p >= 0x08800000 && p < 0x0B000000; }   // (extra racers live above the 32 MB)
+static bool sig_running(u32 r) { u32 s = LW(r + RACER_SIG); return guest_ptr(s) && LW(s + 8); }
+static bool sig_mp(void) { return n_extra && mp_active() && p1_racer && !bt_mp() && !boss_mp(); }
+static u32 sig_opponent(u32 r, u32 ra) {
+	int i = player_index(r);
+	if (i < 0) return 0;
+	switch (ra) {
+	case SIG_START_RA:
+		return sig_target[i] = nearest_rival(r);
+	case 0x08923b80: case 0x08923bf8: case 0x08923c58:   // Rouge's bats (the start)
+	case 0x08924728: case 0x08924e80:                     // the move's effects following the target (F_1246fc, ESP)
+	case SIG_END_RA:
+	case 0x088b505c: case 0x088b506c: case 0x088b5080:   // F_b502c: whose move Metal Sonic copies
+		if (!sig_target[i] || !sig_running(r) || player_index(sig_target[i]) < 0) sig_target[i] = nearest_rival(r);
+		return sig_target[i];
+	case 0x08912cbc:                                      // hit by a move (F_112xxx), and the sig events (F_b3ef8)
+	case 0x088b4e9c: case 0x088b4eb4: case 0x088b4ed0: {
+		u32 best = 0; float bd = 0;   // the one whose move is aimed at them, else the nearest with a move running
+		for (int k = 0; k <= n_extra; k++) {
+			u32 o = sig_player(k);
+			if (!o || o == r || !sig_running(o)) continue;
+			if (sig_target[k] == r) {
+				if (ENV_ON("SR2_OPP_TRACE")) LOGI("signature: player %d hit by player %d's move (%08x)", i + 1, k + 1, ra);
+				return o;
+			}
+			float d = racer_dist2(r, o);
+			if (!best || d < bd) best = o, bd = d;
+		}
+		return best;
+	}
+	}
+	return 0;
+}
+static void esp_others(Ctx *c, u32 r, int mode) {   // ESP on (3) or off (2) for everyone but its user and its target
+	int i = player_index(r);
+	for (int k = 0; k <= n_extra; k++) {
+		u32 o = sig_player(k);
+		if (!o || o == r || o == sig_target[i]) continue;
+		u32 in = LW(o + 0x8c);
+		if (!guest_ptr(in)) continue;
+		Ctx save = *c;
+		c->r[4] = LW(in + 4); c->r[5] = mode; rt_call(c, SET_CONTROLS);
+		*c = save;
+		if (ENV_ON("SR2_OPP_TRACE")) LOGI("ESP %d on player %d (controls %08x: %08x)", mode, k + 1, LW(in + 4), LW(LW(in + 4) + 0x50));
+	}
+}
 static u32 smart_target(Ctx *c, u32 r) {
 	if (!g_cfg.mp_smart_ai || !mp_active() || !p1_racer || race_ending || bt_mp() || boss_mp()) return 0;
 	int k = extra_index(r);
@@ -2134,7 +2218,30 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		return;
 	}
+	case HOOK_ENTITY_DT:   // F_169828(entity, ?, &dt): mode 4 spares only the seated racers, so players 3-4 using
+		// Chaos Control would slow themselves too. Mode 0 (with the slow-motion clock at 1) leaves the time as it is
+		if (n_extra && LW(TIME_MODE) == TIME_CHAOS && extra_index(A(0)) >= 0 && LB(A(0) + RACER_CHAOS)) {
+			SW(TIME_MODE, 0); orig(c); SW(TIME_MODE, TIME_CHAOS);
+			return;
+		}
+		break;
+	case HOOK_SIG_START: {   // F_123374(sig): a signature move starts
+		u32 sig = A(0), r = LW(sig);
+		bool was = LW(sig + 8);
+		orig(c);
+		if (ENV_ON("SR2_OPP_TRACE")) LOGI("signature: racer %08x (char %u) starts, was %d now %u, target %08x, mp %d", r, LW(r + RACER_CHAR), was, LW(sig + 8), player_index(r) >= 0 ? sig_target[player_index(r)] : 0, sig_mp());
+		if (sig_mp() && !was && LW(sig + 8) && LW(r + RACER_CHAR) == CHAR_SILVER) esp_others(c, r, 3);
+		return;
+	}
+	case HOOK_SIG_END: {   // F_123cf4(sig): it ends
+		u32 sig = A(0), r = LW(sig);
+		if (sig_mp() && LW(sig + 8) && LW(r + RACER_CHAR) == CHAR_SILVER) esp_others(c, r, 2);
+		break;
+	}
 	case HOOK_RACER_OPPONENT: {   // F_b1924(racer)
+		if (ENV_ON("SR2_OPP_TRACE")) { static u32 seen[256]; int i = 0; while (i < 256 && seen[i] && seen[i] != c->r[31]) i++;
+			if (i < 256 && !seen[i]) { seen[i] = c->r[31]; LOGI("opponent asked from %08x (F %06x) for racer %08x vb %llu", c->r[31], c->r[31] - 0x08800000, A(0), (unsigned long long)g_vblank_count); } }
+		if (sig_mp()) { u32 t = sig_opponent(A(0), c->r[31]); if (t) { c->r[2] = t; return; } }
 		u32 t = smart_target(c, A(0));
 		if (t) { c->r[2] = t; return; }
 		break;

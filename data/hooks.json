@@ -859,6 +859,68 @@
     "afbf1854",
     "afbe1850"
    ]
+  },
+  {
+   "id": 56,
+   "name": "ENTITY_DT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_169828(entity, ?, &dt): an entity's frame time under the world's time mode (0x08A86DCC). Mode 4 (Chaos Control) slows everything but the seated racer with +0x74c set; an extra racer using it keeps its full time.",
+   "pattern": [
+    "27bdffe0",
+    "3c050000/ffff0000",
+    "afb10004",
+    "00808821",
+    "afbf000c",
+    "afb20008",
+    "afb00000",
+    "e7b40010",
+    "8ca30000/ffff0000"
+   ]
+  },
+  {
+   "id": 57,
+   "name": "SIG_START",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_123374(sig): a racer's signature move starts (the racer at sig+0, sig+8 set once it runs). Silver's ESP is given to every other player too.",
+   "pattern": [
+    "27bdfef0",
+    "afbf00f4",
+    "afb400e0",
+    "afb300dc",
+    "00809821",
+    "afb000d0"
+   ]
+  },
+  {
+   "id": 58,
+   "name": "SIG_END",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_123cf4(sig): a racer's signature move ends; ESP gives everyone's controls back.",
+   "pattern": [
+    "27bdffc0",
+    "afb20028",
+    "afbf0030",
+    "afb3002c",
+    "afb10024",
+    "afb00020",
+    "8c830008"
+   ]
+  },
+  {
+   "id": 59,
+   "name": "BAT_TARGET",
+   "kind": "value",
+   "index": 1,
+   "_doc": "Rouge's bats (F_d2xxx): a bat whose owner is not the local player re-aims at the local player (world +0x5024). With players 2-4 it keeps the target the move gave it (bat +0x2d0).",
+   "pattern": [
+    "256a0000/ffff0000",
+    "8d495024",
+    "ae0902d0",
+    "0c000000/fc000000"
+   ]
   }
  ]
 }

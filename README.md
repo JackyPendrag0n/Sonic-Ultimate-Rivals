@@ -161,7 +161,7 @@ builds each racer file itself (runtime/racergen.c, the same rules as `racergen.p
 highest load slot the level leaves empty, at 0x0A000000 + k*4 MB with its heap block 2 MB in. The debug
 switch `pad_all` makes every player read controller 1 and the keyboard, and `mp_test_seats` lets player 1 seat
 players without a controller on the Multiplayer screen (Y adds one, X removes one). Test aids: `SR2_P1_CPU=1` hands
-player 1 to the computer too, `SR2_VOICE_TRACE`, `SR2_SMART_TRACE` and `SR2_UNSTICK_TRACE` log what they say.
+player 1 to the computer too, `SR2_VOICE_TRACE`, `SR2_SMART_TRACE`, `SR2_UNSTICK_TRACE` and `SR2_OPP_TRACE` (signature moves and who they hit) log what they say.
 
 Before the start every player gets the story races' banter: a camera shot of them saying a line (race states
 3 and 4 of F_597d8). The check for it (F_81944, hook 30) says yes, the racer each shot asks for (F_3731c,
@@ -177,6 +177,16 @@ timer are drawn once for the whole screen, the timer moved down to just above th
 icon on the meter: player 1's icon element (HUD +0x1600) is drawn again per player, moved by the difference in
 race progress (F_B070C) and showing that character's head (the HUD's "head ..." textures). Text the elements
 queue (ring and timer digits) is drawn after each pass (F_12D868), so it lands in that pass's view.
+
+Signature moves (Square with a full star meter) reach a rival through F_b1924, which only knows the two seats.
+With players 2-4 a move aims at the nearest other player, picked when it starts (F_123374, hook 57) and kept
+until it ends (F_123cf4, hook 58); RACER_OPPONENT answers the move's own calls with it (the
+start, Rouge's bats, the effects that follow the target, the end, and Metal Sonic's copy in F_b502c), and the one
+hit asks who hit them the same way. Rouge's bats of anyone but the local player re-aim at the local player
+(world +0x5024); hook 59 keeps their target. Chaos Control slows everything but its user through the world's time
+mode 4 (0x08A86DCC, F_169828), which spares only a seated racer with +0x74c set, so players 3-4 using it keep their
+time (hook 56). Silver's ESP scrambles its target's buttons (F_174e8(controls, 3), 2 puts them back); everyone
+else gets it too.
 
 Bosses (Act 4) and battles (Act 2, all six modes) also take 2-4 players. A boss counts its hits per racer
 (hooks 32-35): every player has their own six hits and the first to land them wins. A battle keeps its rules in
