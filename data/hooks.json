@@ -717,6 +717,65 @@
     "afb00000",
     "2406000e"
    ]
+  },
+  {
+   "id": 47,
+   "name": "STREAM_SECTION",
+   "kind": "call",
+   "index": 0,
+   "_doc": "Level streaming (F_15f97c, from the world update): F_15e0e8(world, world +0x5028) gives the section the streamed window of four (one behind, two ahead) is kept around. With players 2-4 it is picked from every player's section (see stream_pick in game.c).",
+   "pattern": [
+    "0c000000/fc000000",
+    "00003021",
+    "2404ffff",
+    "1044fff5",
+    "00408821"
+   ]
+  },
+  {
+   "id": 48,
+   "name": "STREAM_BUSY",
+   "kind": "call",
+   "index": 1,
+   "_doc": "Level streaming (F_15f97c): F_1604ec(world, focus racer) holds the window while that racer is still inside the current section's box; with players 2-4 the window follows the section picked for everyone instead.",
+   "pattern": [
+    "8e455024",
+    "0c000000/fc000000",
+    "02002021",
+    "1440ffea",
+    "8fbf0010"
+   ]
+  },
+  {
+   "id": 49,
+   "name": "SOUND_PLAY_AT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_d120(sound, owner, position, ...): plays a sound at a place (voices from F_127080 among others); test trace.",
+   "pattern": [
+    "27bdffe0",
+    "afb50014",
+    "30f500ff",
+    "afb40010",
+    "311400ff"
+   ]
+  },
+  {
+   "id": 50,
+   "name": "RACER_OPPONENT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_b1924(racer): the racer it races against (the other seat, else the local player); the computer driver eases off or pushes by how far along it is against this one. The experimental smarter computer players race the leader instead.",
+   "pattern": [
+    "27bdfff0",
+    "afbf000c",
+    "afb20008",
+    "3c120000/ffff0000",
+    "afb10004",
+    "00808821",
+    "afb00000",
+    "00008021"
+   ]
   }
  ]
 }

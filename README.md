@@ -159,7 +159,8 @@ Without `SR2_EXTRA_RACER`, the PC settings (F1) tab "Split screen" sets this up:
 builds each racer file itself (runtime/racergen.c, the same rules as `racergen.py`, byte for byte) for the
 highest load slot the level leaves empty, at 0x0A000000 + k*4 MB with its heap block 2 MB in. The debug
 switch `pad_all` makes every player read controller 1 and the keyboard, and `mp_test_seats` lets player 1 seat
-players without a controller on the Multiplayer screen (Y adds one, X removes one).
+players without a controller on the Multiplayer screen (Y adds one, X removes one). Test aids: `SR2_P1_CPU=1` hands
+player 1 to the computer too, `SR2_VOICE_TRACE`, `SR2_SMART_TRACE` and `SR2_UNSTICK_TRACE` log what they say.
 
 Before the start every player gets the story races' banter: a camera shot of them saying a line (race states
 3 and 4 of F_597d8). The check for it (F_81944, hook 30) says yes, the racer each shot asks for (F_3731c,
@@ -187,6 +188,28 @@ them; at time-up the results rank everyone by score. King of the Hill's points a
 for an unseated player are worked out per frame (hook 38), and a Chao can be brought to any base (hook 46,
 F_103fc0, lends the base to the player). Each view has its own copy of the HUD (hook 45 runs the HUD update
 once per view, with that view's player seated), so scores, laps, clocks and heads are per player.
+
+Streaming with players 2-4: a course is loaded a section at a time into four buffers around the current
+section (one behind, two ahead), picked from the focus racer (F_15f97c: F_15e0e8 at hook 47, F_1604ec at
+hook 48, and F_15e4a8, hook 23). With more players the window follows whoever is in the furthest section, so
+the leader's view never runs out of course; a player left outside the window (or fallen through a floor that
+went away) for 0.7 s is put back on the course at its rear (`stream_keep_up`). `SR2_STREAM_P1=1` restores the
+game's own streaming around player 1.
+
+Computer players: on the Multiplayer screen player 1's Y / triangle fills a seat with one (X / square takes it
+out, left / right picks its character); `mp_bots` keeps a bit per player number. A bot is switched on as the
+game's computer rival is: its input block reads source -2 (no pad) and its driver flag is set (F_ade6c). Bots
+have no view. A bot that has made no headway for 4 s while moving (stuck at the foot of a loop, or bunched up
+with another) is moved a little further along the path (`bot_unstick`). The experimental "smarter computer
+players" option (`mp_smart_ai`) changes who a bot measures itself against: the game's driver eases off or
+pushes by how far along it is next to its opponent (F_b1924, hook 50: the other seat, else the local player);
+there it is whoever is furthest along of the others, or no one when the bot leads.
+
+Voices: a voice line (F_127080 -> F_d120, hook 49) is played at the speaker's position and fades with the
+distance to the listener (player 1's camera), so far from player 1 the others' lines were not heard (their
+death cries above all, F_93fb8 kind 13). In multiplayer the human players' lines play without a position, for
+everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in place of the game's own (HUD
++0xB00, which only knows the two seats).
 
 ## Changes from rcsm
 - `tools/recomp.py`: jump tables built as `lui/addiu base; addu; lw 0(p)` (GCC 3.3 style) are found

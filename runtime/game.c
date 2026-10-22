@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <math.h>
+#include <time.h>
+#define ENV_ON(name) ({ static int on_ = -1; if (on_ < 0) on_ = getenv(name) != NULL; on_; })   // a test switch, looked up once
 
 GameConfig g_cfg = {
 	.renderer = 1, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
@@ -34,7 +36,7 @@ const char *config_path(void) {
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(fullscreen, b) \
 	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
-	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b)
+	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
@@ -114,7 +116,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
        HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
-       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE };
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -544,6 +546,9 @@ static int n_extra;                                         // extra racers buil
 static u32 extra_base, extra_racer[MAX_EXTRA], extra_pending[MAX_EXTRA];   // and whether each waits to be switched on
 static int extra_char[MAX_EXTRA] = {-1, -1, -1};   // index into mp_char_names (-1: a racer file given by SR2_EXTRA_RACER)
 static bool extra_seated[MAX_EXTRA];   // player 2 drives the race's own rival (Single Event): seated, not one of ours
+static int voice_trace_on = -1;   // test aid (SR2_VOICE_TRACE): log voice lines and the sound slot checks for players 2-4
+#define voice_trace (voice_trace_on < 0 ? (voice_trace_on = getenv("SR2_VOICE_TRACE") != NULL) : voice_trace_on)
+static bool extra_cpu[MAX_EXTRA];   // a computer player (a bot seat on the Multiplayer screen): the game's own driver steers it
 bool mp_active(void);   // players 2-4 join this race (the Multiplayer screen, see below)
 static bool race_ending;   // with extra racers: everyone is in, the game's finish runs (see placings)
 u32 racergen(const char *ch, int slot, u32 base, u32 heap, u8 *out, int *unresolved);
@@ -658,6 +663,7 @@ static volatile int warp_k = -1; static volatile float warp_dist;
 void game_request_warp(int k, float dist) { warp_dist = dist; warp_k = k; }
 static volatile int bosshit_k = -1;   // test aid ("bosshit K"): player K+1 hits the boss
 void game_request_bosshit(int k) { bosshit_k = k; }
+#define BTCALL_STATE 0x0A1FF000   // free, beside PAD_DEVN
 static volatile int btcall_k = -1, btcall_n; static volatile u32 btcall_fn, btcall_a2, btcall_a3;   // test aid ("btcall K FN A2 A3 N"):
 void game_request_btcall(int k, u32 fn, u32 a2, u32 a3, int n) { btcall_fn = fn; btcall_a2 = a2; btcall_a3 = a3; btcall_n = n; btcall_k = k; }   // a battle dispatcher for player K+1, N frames
 static void warp_pending(Ctx *c) {
@@ -666,7 +672,13 @@ static void warp_pending(Ctx *c) {
 		int k = btcall_k; if (--btcall_n <= 0) btcall_k = -1;
 		u32 r = k ? (k <= n_extra ? extra_racer[k - 1] : 0) : LW(WORLD + 0x5024);
 		Ctx save = *c;
-		if (r) { c->r[4] = 0x08A8561C; c->r[5] = r; c->r[6] = btcall_a2; c->r[7] = btcall_a3; rt_call(c, 0x08800000 + btcall_fn); }
+		if (r && btcall_fn == 0x16c388) {   // "btcall K 16c388 HASH": send the event HASH to the racer, from itself
+			c->r[4] = LW(0x089A39EC); c->r[5] = r; c->r[6] = r; c->r[7] = btcall_a2; c->r[8] = c->r[9] = 0; c->r[10] = 1;
+			rt_call(c, 0x08800000 + btcall_fn);
+		} else if (r && btcall_fn == 0x93fb8) {   // "btcall K 93fb8": the racer's pit death starts (its state: +0x10 the racer)
+			SW(BTCALL_STATE + 0x10, r); c->r[4] = BTCALL_STATE;
+			rt_call(c, 0x08800000 + btcall_fn);
+		} else if (r) { c->r[4] = 0x08A8561C; c->r[5] = r; c->r[6] = btcall_a2; c->r[7] = btcall_a3; rt_call(c, 0x08800000 + btcall_fn); }
 		*c = save;
 	}
 	if (bosshit_k >= 0 && boss_obj_get()) {
@@ -727,12 +739,20 @@ static bool boss_mp(void);   // a boss with players 2-4 (see the bosses below)
 static int boss_player_hits(int k);
 static bool bt_mp(void);   // a battle room with players 2-4 (see the battles below)
 static float bt_score(int p);
+// The views: player 1 and every player 2-4 who is not a computer player (bots get no part of the screen)
+static int view_player[1 + MAX_EXTRA];
+static int n_views(void) {
+	int n = 0;
+	view_player[n++] = 0;
+	for (int k = 0; k < n_extra; k++) if (!extra_cpu[k]) view_player[n++] = k + 1;
+	return n;
+}
 static bool split_view_on(void) {
 	if (split_view < 0) {
 		const char *e = getenv("SR2_SPLIT_VIEW");
 		split_view = !e ? 1 : !strcmp(e, "0") ? 0 : !strcmp(e, "lr") ? 2 : 1;
 	}
-	return split_view && n_extra && !extra_pending[n_extra - 1] && LW(CAM_MAIN) && !race_ending   // the results: whole screen
+	return split_view && n_extra && n_views() > 1 && !extra_pending[n_extra - 1] && LW(CAM_MAIN) && !race_ending   // the results: whole screen
 	       && !banter_on;   // so is each racer's shot before the start
 }
 
@@ -770,7 +790,8 @@ static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p
 // was drawn to.
 static void ge_region_scaled(int k, bool whole) {
 	int x0 = 0, y0 = 0, w = 480, h = 272;
-	if (k >= 0 && n_extra >= 2) { w = 240; h = 136; x0 = (k & 1) * 240; y0 = (k >> 1) * 136; }
+	int nv = n_views();
+	if (k >= 0 && nv >= 3) { w = 240; h = 136; x0 = (k & 1) * 240; y0 = (k >> 1) * 136; }
 	else if (k >= 0) { if (split_view == 2) { w = 240; x0 = k * 240; } else { h = 136; y0 = k * 136; } }
 	float px = 2048.0f - 240 + x0 + w / 2, py = 2048.0f - 136 + y0 + h / 2;   // the screen offset stays (2048-240, 2048-136)
 	u32 bx, by; memcpy(&bx, &px, 4); memcpy(&by, &py, 4);
@@ -778,7 +799,7 @@ static void ge_region_scaled(int k, bool whole) {
 	ge_put(0x46000000 | by >> 8);
 	// quarters show the whole view at half size (viewport scale, XSCALE/YSCALE); halves show its middle
 	float sx = 240, sy = -136;
-	if (k >= 0 && (n_extra >= 2 || whole)) { sx = 120; sy = -68; }
+	if (k >= 0 && (nv >= 3 || whole)) { sx = 120; sy = -68; }
 	memcpy(&bx, &sx, 4); memcpy(&by, &sy, 4);
 	ge_put(0x42000000 | bx >> 8);
 	ge_put(0x43000000 | by >> 8);
@@ -821,19 +842,33 @@ static int split_leader(Ctx *c, u32 p1) {   // the player furthest along who has
 
 // one draw call of the race render, once per view: the first camera's view, then each extra racer's (with
 // that racer as the local player, whose section picks the scenery), then the first camera's state back
+static int live_place[1 + MAX_EXTRA];   // races: each player's place now (the finished keep theirs)
+static void live_places(Ctx *c, u32 p1) {
+	float pr[1 + MAX_EXTRA];
+	for (int k = 0; k <= n_extra; k++) pr[k] = race_progress(c, k ? extra_racer[k - 1] : p1);
+	for (int k = 0; k <= n_extra; k++) {
+		if (finish_place[k]) { live_place[k] = finish_place[k]; continue; }
+		int n = n_finished + 1;
+		for (int j = 0; j <= n_extra; j++) if (j != k && !finish_place[j] && (pr[j] > pr[k] || (pr[j] == pr[k] && j < k))) n++;
+		live_place[k] = n;
+	}
+}
 static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 	Ctx save = *c;
 	ge_region(0); orig(c);
 	Ctx out = *c;
 	*c = save;
 	u32 p1 = LW(WORLD + 0x5024);
-	for (int k = 0; k < n_extra; k++) {
+	int nv = n_views();
+	if (!bt_mp() && !boss_mp()) live_places(c, p1);
+	for (int v = 1; v < nv; v++) {
+		int k = view_player[v] - 1;
 		cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); view_refresh(c);
-		ge_region(k + 1); orig(c);
+		ge_region(v); orig(c);
 		*c = save;
 		SW(WORLD + 0x5024, p1); cam_swap(k);
 	}
-	if (n_extra == 2) {   // three players: the fourth quarter follows whoever leads the race
+	if (nv == 3) {   // three views: the fourth quarter follows whoever leads the race
 		int lead = split_leader(c, p1);
 		if (lead) { cam_swap(lead - 1); SW(WORLD + 0x5024, extra_racer[lead - 1]); }
 		view_refresh(c);
@@ -852,6 +887,7 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 #define HUD_METER       0x1550       // the race meter's bar, at the bottom
 #define HUD_METER_ICON  0x1600       // the local player's icon on it
 #define HUD_RIVAL_ICON  0x16b0       // the rival's
+#define HUD_PLACE       0xb00        // the place, bottom right
 #define HUD_DRAW_TEXT   0x12d868     // F_12d868 (part A): draws the text the elements queued (rings, timer digits)
 // split screen draws the HUD in passes: each view's own (rings, boost), then once for the whole screen the
 // race meter (again per player for its icon) and the timer
@@ -962,15 +998,21 @@ static void race_end(Ctx *c) {
 
 // for the overlay (menu.cpp): each player's place (0: still racing), the players' count (0: no placings shown),
 // each player's view in the game image (x, y, w, h as fractions), and whether the race is over
+int mp_live_place(int k) { return n_extra && p1_racer && in_race && !bt_mp() && !boss_mp() && k >= 0 && k <= n_extra ? live_place[k] : 0; }
 int mp_placings(int *place, float *time, float (*view)[4], int *over) {
 	if (!n_extra || !p1_racer || !in_race) return 0;
 	int n = n_extra + 1;
+	int nv = n_views();
 	for (int k = 0; k < n; k++) {
 		place[k] = finish_place[k]; time[k] = finish_time[k];
+		int v = 0;
+		while (v < nv && view_player[v] != k) v++;
 		float x = 0, y = 0, w = 1, h = 1;
-		if (n_extra >= 2) { w = h = 0.5f; x = (k & 1) * 0.5f; y = (k >> 1) * 0.5f; }
-		else if (split_view == 2) { w = 0.5f; x = k * 0.5f; }
-		else { h = 0.5f; y = k * 0.5f; }
+		if (v == nv) w = h = 0;   // a computer player: no view
+		else if (nv >= 3) { w = h = 0.5f; x = (v & 1) * 0.5f; y = (v >> 1) * 0.5f; }
+		else if (nv == 1) {}
+		else if (split_view == 2) { w = 0.5f; x = v * 0.5f; }
+		else { h = 0.5f; y = v * 0.5f; }
 		view[k][0] = x; view[k][1] = y; view[k][2] = w; view[k][3] = h;
 	}
 	*over = race_ending;
@@ -1345,7 +1387,7 @@ static void bt_hud_update(Ctx *c, void (*orig)(Ctx *c)) {
 	*c = save;
 }
 
-int mp_split_lead(void) { return n_extra == 2 && p1_racer && in_race && split_view_on() ? split_lead : -1; }   // see split_leader
+int mp_split_lead(void) { return n_views() == 3 && p1_racer && in_race && split_view_on() ? split_lead : -1; }   // see split_leader
 int mp_player_char(int k) { return k ? (k <= n_extra ? extra_char[k - 1] : -1) : p1_char; }
 
 u32 rt_hookval(Ctx *c, u32 id, u32 v) {
@@ -1432,7 +1474,7 @@ static void bonus_menu(void) {
 #define SCR_RIVAL   0xc76ff34b   // Single Event: Select Rival
 #define RIVAL_CHOICE 0x08AA9F9C  // the rival picked there (the game's character order)
 #define BTN_Y       0x14         // a menu button's height on screen (larger is higher)
-enum { B_START = 0x8, B_TRIANGLE = 0x1000, B_SQUARE = 0x8000, LOBBY_EMPTY = -100 };
+enum { B_START = 0x8, B_TRIANGLE = 0x1000, B_SQUARE = 0x8000, LOBBY_EMPTY = -100, LOBBY_BOT = -50 };   // seat ids besides controllers
 int fe_pads(int *ids, u32 *buttons, const char **names, int max);
 int fe_last_pad(void);
 void fe_set_seats(const int *ids);
@@ -1466,7 +1508,7 @@ static void lobby_begin(void) {
 	const int *def[] = {&g_cfg.mp_char2, &g_cfg.mp_char3, &g_cfg.mp_char4};
 	for (int k = 1; k < 4; k++) {
 		int id = lobby_last[k];
-		bool here = id != LOBBY_EMPTY && id != lobby.pad[0] && (id < -1 || fe_pad_name(id));
+		bool here = id != LOBBY_EMPTY && id != lobby.pad[0] && (id < -1 || fe_pad_name(id));   // bots and test inputs stay too
 		lobby.pad[k] = here ? id : LOBBY_EMPTY; lobby.ch[k] = *def[k - 1];
 	}
 	int ids[4] = {lobby.pad[0], -1, -1, -1};
@@ -1482,9 +1524,15 @@ static void lobby_end(bool start) {
 	lobby.open = false;
 	if (!start) { mac = MAC_BACK; mac_t = 0; return; }
 	int ids[4] = {lobby.pad[0], -1, -1, -1}, *chs[] = {&g_cfg.mp_char2, &g_cfg.mp_char3, &g_cfg.mp_char4}, n = 1;
+	g_cfg.mp_bots = 0;
 	for (int k = 1; k < 4; k++)   // players in the order of their seats, gaps closed
-		if (lobby.pad[k] != LOBBY_EMPTY) { ids[n] = lobby.pad[k]; *chs[n - 1] = lobby.ch[k]; n++; }
+		if (lobby.pad[k] != LOBBY_EMPTY) {
+			ids[n] = lobby.pad[k]; *chs[n - 1] = lobby.ch[k];
+			if (lobby.pad[k] == LOBBY_BOT) g_cfg.mp_bots |= 1 << (n + 1);   // bit = player number
+			n++;
+		}
 	for (int k = 0; k < 4; k++) lobby_last[k] = k < n ? ids[k] : LOBBY_EMPTY;
+	for (int k = 1; k < n; k++) if (ids[k] == LOBBY_BOT) ids[k] = -1;   // no controller
 	g_cfg.mp_players = n;
 	config_save();
 	fe_set_seats(ids);
@@ -1515,14 +1563,27 @@ static void lobby_input(u32 p1) {
 		if (e & B_LEFT) lobby.ch[k] = (lobby.ch[k] + MP_CHARS - 1) % MP_CHARS;
 		if (e & B_RIGHT) lobby.ch[k] = (lobby.ch[k] + 1) % MP_CHARS;
 	}
-	if (g_cfg.mp_test_seats) {   // debug: player 1 seats players without a controller (test inputs -2..-4)
+	{   // player 1 seats computer players (Y / triangle; with the debug switch, test inputs -2..-4 instead) and
+		// picks their characters (left / right: the last one added), X / square takes the last one out
 		int last = 0;
 		for (int k = 1; k < 4; k++) if (lobby.pad[k] < -1 && lobby.pad[k] != LOBBY_EMPTY) last = k;
 		if (p1e & B_TRIANGLE) {
 			int k = 1, t = -2;
 			while (k < 4 && lobby.pad[k] != LOBBY_EMPTY) k++;
-			for (int i = 1; i < 4; i++) if (lobby.pad[i] == t) { t--; i = 0; }   // the first test input not seated
-			if (k < 4 && t >= -4) { lobby.pad[k] = t; LOGI("multiplayer: test player %d added", k + 1); }
+			if (!g_cfg.mp_test_seats) t = LOBBY_BOT;
+			else for (int i = 1; i < 4; i++) if (lobby.pad[i] == t) { t--; i = 0; }   // the first test input not seated
+			if (k < 4 && (t == LOBBY_BOT || t >= -4)) {
+				lobby.pad[k] = t;
+				if (t == LOBBY_BOT) {   // a character no one has yet
+					for (int tries = 0; tries < MP_CHARS; tries++) {
+						bool used = false;
+						for (int i = 1; i < 4; i++) used |= i != k && lobby.pad[i] != LOBBY_EMPTY && lobby.ch[i] == lobby.ch[k];
+						if (!used && lobby.ch[k] != 0) break;   // (player 1 is often Sonic)
+						lobby.ch[k] = (lobby.ch[k] + 1) % MP_CHARS;
+					}
+				}
+				LOGI("multiplayer: %s player %d added", t == LOBBY_BOT ? "computer" : "test", k + 1);
+			}
 		}
 		if ((p1e & B_SQUARE) && last) lobby.pad[last] = LOBBY_EMPTY;
 		if (last && (p1e & B_LEFT)) lobby.ch[last] = (lobby.ch[last] + MP_CHARS - 1) % MP_CHARS;
@@ -1607,6 +1668,9 @@ static void macro_vblank(void) {
 }
 
 static void mp_menu_vblank(void) {
+	static u32 shown; static int tr = -1;
+	if (tr < 0) tr = getenv("SR2_MENU_TRACE") != NULL;
+	if (tr && menu_hash() != shown) { shown = menu_hash(); LOGI("menu screen %08x", shown); }   // test aid
 	if (lobby.open) { lobby_input(fe_buttons); fe_buttons = 0; }
 	else if (mac != MAC_IDLE) macro_vblank();
 	if (mp_mode && mac == MAC_IDLE && g_cfg.mp_players > 1) {   // player 2 is the rival
@@ -1619,6 +1683,154 @@ static void mp_menu_vblank(void) {
 	}
 }
 
+
+// Level streaming with players 2-4. A course is cut into sections (load slots 1..n, world +0x4d10) and only four
+// are in memory at once: section k always goes into buffer (k - 1) & 3, so the game keeps the one behind the
+// section it follows (world +0x5da0) and the two ahead of it. It follows player 1; a player more than a section
+// behind or two ahead of them has no ground (their view goes empty and they fall). Here the window follows the
+// leader (the section streaming, F_15f97c, and the loads, F_15e4a8, are given the leader instead of player 1), and
+// whoever is still outside it for a moment is put back on the course at the rear of the window (or ahead of it, at
+// the front), facing the way the leader runs. Races only: battles and bosses fit in their window.
+#define STREAM_BUF_N   0x0899FF4C   // the number of section buffers (4)
+#define STREAM_BUFS    (WORLD + 0x5d18)   // per buffer, 16 bytes: +4 the slot loaded (its number at +0x20), +8 state (0x20: live)
+#define STREAM_CUR     (WORLD + 0x5da0)
+#define STREAM_OUT_US  700000   // outside the window this long: put back on the course
+static u32 stream_leader;   // the racer the streaming follows (0: player 1, the game's own)
+static int stream_sec[1 + MAX_EXTRA];
+static u64 stream_out_since[1 + MAX_EXTRA];
+static bool stream_mp(void) {
+	return n_extra && p1_racer && in_race && !race_ending && !banter_on && !bt_mp() && !boss_mp() && !extra_pending[n_extra - 1]
+	       && !ENV_ON("SR2_STREAM_P1");   // test aid: the game's own streaming
+}
+static bool section_live(int k) {
+	u32 nb = LW(STREAM_BUF_N);
+	if (k < 1 || !nb || nb > 16) return false;
+	u32 e = STREAM_BUFS + ((k - 1) & (nb - 1)) * 16, sp = LW(e + 4);
+	return LW(e + 8) == 0x20 && sp >= 0x08800000 && sp < 0x0A000000 && (s32)LW(sp + 0x20) == k;
+}
+static u32 player_racer(int k) { return k ? (k <= n_extra ? extra_racer[k - 1] : 0) : p1_racer; }
+static int racer_section(Ctx *c, u32 r) {   // F_15e0e8(world, racer, 0): the section a racer stands in, or -1
+	Ctx save = *c;
+	c->r[4] = WORLD; c->r[5] = r; c->r[6] = 0; c->r[7] = 0;
+	rt_call(c, 0x08800000 + 0x15e0e8);
+	s32 sec = c->r[2];
+	*c = save;
+	if (sec < 1 || sec > (s32)LW(WORLD + 0x4d10)) sec = r && LW(r + 4) ? (s32)LW(LW(r + 4) + 0xc) : -1;
+	return sec;
+}
+static u64 mono_us(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (u64)ts.tv_sec * 1000000 + ts.tv_nsec / 1000; }
+static u32 stream_pick(Ctx *c) {   // the leader: the player in the furthest section (ties keep the one before)
+	int best = -1; u32 lead = 0;
+	for (int k = 0; k <= n_extra; k++) {
+		u32 r = player_racer(k);
+		stream_sec[k] = r ? racer_section(c, r) : -1;
+		if (!r || finish_place[k] || stream_sec[k] < 1) continue;
+		if (stream_sec[k] > best || (stream_sec[k] == best && r == stream_leader)) { best = stream_sec[k]; lead = r; }
+	}
+	if (!lead) lead = p1_racer;
+	if (lead != stream_leader && getenv("SR2_MP_TRACE")) LOGI("stream: following player %d (section %d)", player_index(lead) + 1, best);
+	return stream_leader = lead;
+}
+// put racer r back on the course: a third of the way into section s's path, facing like racer `like`
+static bool racer_to_section(Ctx *c, u32 r, int s, u32 like) {
+	u32 arr = LW(WORLD_SLOT(s) + 0x444), nodes[4096]; int n = 0;
+	if (arr < 0x08800000 || arr >= 0x0A000000) return false;
+	for (; n < 4096; n++) { u32 nd = LW(arr + n * 4); if (nd < 0x08800000 || nd >= 0x0A000000) break; nodes[n] = nd; }
+	if (!n) return false;
+	float t[4]; memcpy(t, PTR(nodes[n / 3]), 16); t[2] += 1; t[3] = 1;
+	racer_place_at(c, r, t, like);
+	float zero[3] = {0, 0, 0};
+	memcpy(PTR(r + RACER_VEL), zero, sizeof zero);
+	u32 body = LW(r + 4);
+	Ctx save = *c;   // find its place on the course's path again (F_9b2a8, as at the start)
+	c->r[4] = r + 0x114; c->r[5] = body + 0x20; c->r[6] = 0; c->r[7] = 5;
+	rt_call(c, 0x08800000 + 0x9b2a8);
+	*c = save;
+	return true;
+}
+static bool below_section(u32 r, int s) {   // fallen through (its floor went away under it): well below the path
+	u32 arr = LW(WORLD_SLOT(s) + 0x444), body = LW(r + 4);
+	if (arr < 0x08800000 || arr >= 0x0A000000 || !body) return false;
+	float lo = 1e9f, z;
+	for (int i = 0; i < 4096; i++) {
+		u32 nd = LW(arr + i * 4);
+		if (nd < 0x08800000 || nd >= 0x0A000000) break;
+		memcpy(&z, PTR(nd + 8), 4); if (z < lo) lo = z;
+	}
+	memcpy(&z, PTR(body + 0x28), 4);
+	return lo < 1e9f && z < lo - 40;
+}
+// A computer player can get stuck where the course wants speed (the bottom of a loop, a steep slope), rolling to
+// and fro without getting anywhere: put it a little further along the path. One that stands still is waiting on
+// purpose (the game's driver eases off when it is far ahead) and is left alone.
+#define UNSTICK_VB    240     // no headway for this long (vblanks)
+#define UNSTICK_GAIN  0.004f  // of the race
+static void bot_unstick(Ctx *c, u32 r, int k) {
+	static float prog[1 + MAX_EXTRA]; static u64 since[1 + MAX_EXTRA]; static float moved[1 + MAX_EXTRA]; static int tries[1 + MAX_EXTRA]; static u64 trap[1 + MAX_EXTRA]; static bool going[1 + MAX_EXTRA];
+	float v[3]; memcpy(v, PTR(r + RACER_VEL), sizeof v);
+	moved[k] += sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+	if (g_vblank_count < since[k] + UNSTICK_VB && g_vblank_count >= since[k]) return;
+	float p = race_progress(c, r), m = moved[k] / UNSTICK_VB;
+	bool stuck = since[k] && g_vblank_count - since[k] < UNSTICK_VB * 2 && p - prog[k] < UNSTICK_GAIN && going[k] && !finish_place[k];   // (standing still counts too, once it got going)
+	if (ENV_ON("SR2_UNSTICK_TRACE")) LOGI("unstick: p%d progress %.4f -> %.4f, moving %.3f%s", k + 1, prog[k], p, m, stuck ? ": stuck" : "");
+	if (p < 0.01f) going[k] = false; else if (m > 2.0f) going[k] = true;
+	prog[k] = p; since[k] = g_vblank_count; moved[k] = 0;
+	if (!stuck) return;
+	tries[k] = trap[k] && g_vblank_count - trap[k] < UNSTICK_VB * 8 ? tries[k] + 1 : 1;   // (stuck again soon after: further each time)
+	trap[k] = g_vblank_count;
+	u32 body = LW(r + 4); float at[3]; memcpy(at, PTR(body + 0x20), sizeof at);
+	u32 best = 0; float bd = 1e9f, from = 0;
+	for (int s = 0; s < 16; s++) {   // its nearest node on the path, of a live section
+		if (!section_live(s)) continue;
+		u32 arr = LW(WORLD_SLOT(s) + 0x444);
+		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		for (int i = 0; i < 4096; i++) {
+			u32 nd = LW(arr + i * 4);
+			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			float q[3]; memcpy(q, PTR(nd), sizeof q);
+			float d = (q[0] - at[0]) * (q[0] - at[0]) + (q[1] - at[1]) * (q[1] - at[1]) + (q[2] - at[2]) * (q[2] - at[2]);
+			if (d < bd) { bd = d; best = nd; memcpy(&from, PTR(nd + 0x34), 4); }
+		}
+	}
+	if (!best) return;
+	for (int s = 0; s < 16; s++) {   // and the first one 25 or so further on
+		if (!section_live(s)) continue;
+		u32 arr = LW(WORLD_SLOT(s) + 0x444);
+		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		for (int i = 0; i < 4096; i++) {
+			u32 nd = LW(arr + i * 4);
+			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			float d; memcpy(&d, PTR(nd + 0x34), 4);
+			if (d < from + 25 * (tries[k] < 8 ? tries[k] : 8) + 7 * k) continue;   // (spread out: bots that bunch up block each other)
+			float t[4]; memcpy(t, PTR(nd), 16); t[2] += 1; t[3] = 1;
+			racer_place_at(c, r, t, r);
+			float zero[3] = {0, 0, 0};
+			memcpy(PTR(r + RACER_VEL), zero, sizeof zero);
+			Ctx save = *c;
+			c->r[4] = r + 0x114; c->r[5] = body + 0x20; c->r[6] = 0; c->r[7] = 5;
+			rt_call(c, 0x08800000 + 0x9b2a8);
+			*c = save;
+			LOGI("unstick: player %d had no headway, on to %.0f along the course", k + 1, d);
+			return;
+		}
+	}
+}
+static void stream_keep_up(Ctx *c, u32 r, int k) {   // from the move step of player k's racer
+	int f = (s32)LW(STREAM_CUR);
+	if (k < 0 || k > n_extra || !stream_mp() || !stream_leader || f < 1 || finish_place[k]) { if (k >= 0 && k <= MAX_EXTRA) stream_out_since[k] = 0; return; }
+	int sec = stream_sec[k];
+	bool out = sec < f - 1 || sec > f + 2 || !section_live(sec) || below_section(r, sec);
+	if (!out) { stream_out_since[k] = 0; return; }
+	u64 now = mono_us();
+	if (!stream_out_since[k]) { stream_out_since[k] = now; return; }
+	if (now - stream_out_since[k] < STREAM_OUT_US) return;
+	stream_out_since[k] = 0;
+	int to = sec > f + 2 ? f + 2 : f - 1;
+	while (to < f + 2 && !section_live(to)) to++;
+	while (to > f - 1 && !section_live(to)) to--;
+	if (!section_live(to)) return;
+	if (racer_to_section(c, r, to, stream_leader)) LOGI("stream: player %d was in section %d (window %d..%d) or under it: back on the course in %d", k + 1, sec, f - 1, f + 2, to);
+}
 
 // The banter before the start: story races open with a camera shot of each of the two racers saying a line
 // (race states 3 and 4, F_597d8). With players 2-4 every player gets one, in turn: the check for it (F_81944) says
@@ -1638,6 +1850,36 @@ static bool banter_done;   // this race opened with it (players 2-4 then say not
 static float banter_dist[2];
 static void banter_stop(void) { if (banter_on) memcpy(PTR(BANTER_SHOT), banter_dist, 8); banter_on = false; }
 
+// The smarter computer players (experimental, Settings > Multiplayer): the game's driver keeps an eye on the
+// local player (world +0x5024), easing off when it is far ahead of them and pushing when behind. While a
+// computer player steps, the one it watches is instead whoever is furthest along of the others, so it races
+// the leader rather than waiting for player 1.
+static u32 smart_target(Ctx *c, u32 r) {
+	if (!g_cfg.mp_smart_ai || !mp_active() || !p1_racer || race_ending || bt_mp() || boss_mp()) return 0;
+	int k = extra_index(r);
+	if (k < 0 || !extra_cpu[k]) return 0;
+	static u64 at[MAX_EXTRA]; static u32 got[MAX_EXTRA];   // once a frame
+	if (at[k] == g_vblank_count + 1) return got[k];
+	at[k] = g_vblank_count + 1;
+	u32 best = 0; float bp = -1, mine = race_progress(c, r);
+	for (int i = 0; i <= n_extra; i++) {
+		u32 o = i ? extra_racer[i - 1] : p1_racer;
+		if (o == r || (i && extra_pending[i - 1])) continue;
+		float p = race_progress(c, o);
+		if (p > bp) bp = p, best = o;
+	}
+	if (best && bp < mine) best = r;   // in front of everyone: no one to wait for, it races itself
+	if (ENV_ON("SR2_SMART_TRACE") && g_vblank_count % 120 == 0) LOGI("smart AI: player %d watches player %d (%.3f vs %.3f)", k + 2, player_index(best) + 1, mine, bp);
+	return got[k] = best;
+}
+static void racer_step(Ctx *c, void (*orig)(Ctx *c), u32 r) {
+	u32 t = smart_target(c, r), lp = LW(WORLD + 0x5024);
+	if (t == r) t = 0;
+	if (t) SW(WORLD + 0x5024, t);
+	c->r[4] = r; orig(c);
+	if (t) SW(WORLD + 0x5024, lp);
+}
+
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	if (!game_is_sr2()) { orig(c); return; }
 	switch (id) {
@@ -1647,10 +1889,12 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (slot == WORLD_SLOT(15)) {
 			n_extra = 0; boss_obj = 0;
 			memset(extra_seated, 0, sizeof extra_seated);
+			for (int k = 0; k < MAX_EXTRA; k++)   // bots: mp_bots has a bit per player number (2-4)
+				extra_cpu[k] = mp_active() && (ENV_ON("SR2_MP_CPU") || (g_cfg.mp_bots >> (k + 2) & 1));
 			// Single Event has the race's own rival (slot 14): with players 2-4 it is player 2's, and the
 			// racers we add are players 3 and 4
 			u32 rival = LW(WORLD_SLOT(14) + 0xd0);
-			if (mp_active() && !getenv("SR2_EXTRA_RACER") && g_cfg.mp_players > 1 && rival) {
+			if (mp_active() && !ENV_ON("SR2_EXTRA_RACER") && g_cfg.mp_players > 1 && rival) {
 				extra_racer[0] = extra_pending[0] = rival; extra_seated[0] = true; extra_char[0] = g_cfg.mp_char2;
 				n_extra = 1;
 				LOGI("player 2: the rival seat, racer %08x (%s)", rival, mp_char_names[g_cfg.mp_char2]);
@@ -1660,7 +1904,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		return;
 	}
 	case HOOK_RACER_INPUT:   // F_17d58(input)
-		if ((s32)LW(A(0) + 0x1c) == 1 && input_extra(A(0)) >= 0) {
+		if ((s32)LW(A(0) + 0x1c) == 1 && input_extra(A(0)) >= 0 && !extra_cpu[input_extra(A(0))]) {
 			u32 in = A(0); int k = input_extra(in);
 			Ctx save = *c;
 			g_ctrl_port = k + 1;
@@ -1682,7 +1926,12 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			Ctx save = *c;
 			orig(c);
 			*c = save;
-			for (int k = 0; k < n_extra; k++) { cam_swap(k); orig(c); cam_swap(k); *c = save; }
+			u32 p1 = LW(WORLD + 0x5024);   // the camera reads the local player (where it stands, its path) too
+			bool lead_view = n_views() == 3;   // (the fourth quarter may follow a computer player)
+			for (int k = 0; k < n_extra; k++) {   // the players' cameras (computer players need none)
+				if (extra_cpu[k] && !lead_view) continue;
+				cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); orig(c); SW(WORLD + 0x5024, p1); cam_swap(k); *c = save;
+			}
 			return;
 		}
 		break;
@@ -1692,7 +1941,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (split_view_on()) { split_draw_views(c, orig); return; }
 		break;
 	case HOOK_RACE_STATE: {   // F_592cc(race, state)
-		if (getenv("SR2_EV_TRACE")) LOGI("race %08x state %u (was %u) from %08x vb %llu", A(0), A(1), LW(A(0) + 0x24), c->r[31], (unsigned long long)g_vblank_count);
+		if (ENV_ON("SR2_EV_TRACE")) LOGI("race %08x state %u (was %u) from %08x vb %llu", A(0), A(1), LW(A(0) + 0x24), c->r[31], (unsigned long long)g_vblank_count);
 		if (banter_on && (A(1) == 5 || A(1) == 6) && c->r[31] == BANTER_END_RA) {
 			if (banter_next < banter_n) c->r[5] = 3;   // the next player's shot
 			else banter_stop();
@@ -1719,6 +1968,8 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		return;
 	}
 	case HOOK_HUD_ELEM: case HOOK_HUD_PART_A: case HOOK_HUD_PART_B: case HOOK_HUD_PART_C: case HOOK_HUD_PART_D: {
+		if (id == HOOK_HUD_ELEM && A(0) - HUD_BASE == HUD_PLACE && n_extra && p1_racer && in_race && mp_active() && !bt_mp() && !boss_mp())
+			return;   // the place (1 or 2, of the two seats): the overlay shows each player's of everyone
 		if (hud_pass) {   // split screen: which pieces this pass of the HUD draws
 			u32 e = id == HOOK_HUD_ELEM ? A(0) - HUD_BASE : ~0u;
 			bool shared = e == HUD_TIMER || (!boss_mp() && !bt_mp() && (e == HUD_METER || e == HUD_METER_ICON || e == HUD_RIVAL_ICON));
@@ -1760,7 +2011,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	}
 	case HOOK_PLAYER_CONTACTS:   // F_15c2d0(world): only for the local player; again for each extra racer
-		if (n_extra && !getenv("SR2_NO_CONTACTS")) {
+		if (n_extra && !ENV_ON("SR2_NO_CONTACTS")) {
 			Ctx save = *c;
 			orig(c);
 			Ctx out = *c;
@@ -1774,8 +2025,9 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
-	case HOOK_FOCUS_RACER_STEP:   // F_15e4a8(world, racer)
-		if (n_extra && getenv("SR2_FOCUS_STEP")) {
+	case HOOK_FOCUS_RACER_STEP:   // F_15e4a8(world, racer): loads the sections around the current one, nearest to it first
+		if (stream_mp() && stream_leader) c->r[5] = stream_leader;
+		if (n_extra && ENV_ON("SR2_FOCUS_STEP")) {
 			Ctx save = *c;
 			orig(c);
 			Ctx out = *c;
@@ -1792,14 +2044,35 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		// live, so players 2-4 are heard, voices too. Only there: other callers take a live slot for a loaded course
 		// section (and stop drawing the racer).
 		u32 ra = c->r[31];
+		if (voice_trace) for (int k = 0; k < n_extra; k++)
+			if (!extra_pending[k] && A(1) == LW(LW(extra_racer[k] + 4) + 0x10)) { static u32 seen[64]; int i = 0; while (i < 64 && seen[i] && seen[i] != ra) i++; if (i < 64 && !seen[i]) { seen[i] = ra; LOGI("slot check: slot %u (p%d) from %08x", A(1), k + 2, ra); } }
 		if (ra != 0x0883d15c && ra != 0x0883d330 && ra != 0x0883d564   // the play calls (F_3d0xx, F_3d294, F_3d48c)
 		    && ra != 0x0896252c) break;                                  // F_162514, from the sound update
 		for (int k = 0; k < n_extra; k++)
 			if (!extra_pending[k] && A(1) == LW(LW(extra_racer[k] + 4) + 0x10)) { c->r[2] = 1; return; }
 		break;
 	}
+	case HOOK_RACER_OPPONENT: {   // F_b1924(racer)
+		u32 t = smart_target(c, A(0));
+		if (t) { c->r[2] = t; return; }
+		break;
+	}
+	case HOOK_SOUND_PLAY_AT:   // F_d120(sound, owner, position, ...): with a position the sound fades with the distance
+		if (c->r[31] != 0x089270fc) break;   // to the listener (player 1's camera), without one it plays as it is.
+		{                                     // A voice line (from F_127080) of players 2-4 is for everyone to hear
+			int k = player_index(A(1)) - 1;   // (their deaths too, wherever they are on the course)
+			if (k >= 0 && k < n_extra && !extra_cpu[k] && mp_active()) c->r[6] = 0;
+		}
+		if (voice_trace) {
+			u32 snd = A(0), who = A(1), at = A(2);
+			orig(c);
+			LOGI("voice play: sound %08x owner %08x (p%d)%s -> %d", snd, who, player_index(who) + 1, at ? "" : " for everyone", (int)c->r[2]);
+			return;
+		}
+		break;
 	case HOOK_VOICE_PICK:   // F_126efc(voice, kind, ...): at the start (kind 7, from F_e1xxx) player 1 says a line;
 		// players 2-4 say one of theirs too, one after another (voice+0x204: seconds until it is said)
+		if (voice_trace) LOGI("voice: racer %08x (p%d) kind %u from %08x", LW(A(0)), player_index(LW(A(0))) + 1, A(1), c->r[31]);
 		if (n_extra && !race_ending && !banter_done && A(1) == 7 && LW(c->r[29]) == 0x088e2194 && LW(A(0)) == p1_racer) {
 			orig(c);
 			Ctx save = *c;
@@ -1818,7 +2091,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_BANTER_CHECK:   // F_81944(mode)
 		if (c->r[31] == BANTER_CHECK_RA) {
 			banter_stop(); banter_done = false;
-			if (!n_extra || !mp_active() || getenv("SR2_NO_BANTER")) break;
+			if (!n_extra || !mp_active() || ENV_ON("SR2_NO_BANTER")) break;
 			banter_n = banter_next = 0;
 			banter_racer[banter_n++] = LW(WORLD + 0x5024);
 			for (int k = 0; k < n_extra; k++) if (!extra_pending[k]) banter_racer[banter_n++] = extra_racer[k];
@@ -1848,7 +2121,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	}
 	case HOOK_MENU_GOTO:   // F_14cb34(menus, hash, transition): Main Menu > Multiplayer goes to the local race setup
-		if (getenv("SR2_EV_TRACE")) LOGI("menus: %08x -> %08x", menu_hash(), A(1));
+		if (ENV_ON("SR2_EV_TRACE")) LOGI("menus: %08x -> %08x", menu_hash(), A(1));
 		if (A(1) == SCR_MULTI && menu_hash() == SCR_MAIN && !lobby.open) { c->r[5] = SCR_SINGLE; lobby_begin(); }
 		if (A(1) == SCR_RIVAL && mp_mode && g_cfg.mp_players > 1 && mac == MAC_IDLE) { rival_from = menu_hash(); mac = MAC_RIVAL; mac_t = 0; mac_tries = 0; }
 		break;
@@ -1887,7 +2160,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		return;
 	}
 	case HOOK_RACER_UPDATE:   // F_af53c(racer, ...)
-		if (getenv("SR2_UPDATE_AS_P1") && extra_index(A(0)) >= 0) {
+		if (ENV_ON("SR2_UPDATE_AS_P1") && extra_index(A(0)) >= 0) {
 			u32 p1 = LW(WORLD + 0x5024), f = LW(WORLD + 0x5028);
 			SW(WORLD + 0x5024, A(0)); SW(WORLD + 0x5028, A(0));
 			orig(c);
@@ -1902,7 +2175,9 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			static u8 canon[HUD_SIZE];
 			if (own) { hud_merge(); memcpy(canon, PTR(HUD_BASE), HUD_SIZE); }
 			u32 p1 = LW(WORLD + 0x5024), hud = A(0), rings = LW(hud + HUD_RINGS);
-			for (int k = 0; k <= n_extra; k++) {
+			int nv = n_views();
+			for (int v = 0; v < nv; v++) {
+				int k = view_player[v];
 				if (own) memcpy(PTR(HUD_BASE), hudv[k], HUD_SIZE);
 				bool seated = own && bt_view_begin(k) >= 0;
 				if (k) {   // the boost bar reads the local player as it draws; the ring count is kept by the HUD
@@ -1912,7 +2187,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				}
 				hud_pass = HUD_PASS_VIEW;
 				if (boss_mp()) boss_view(k, true);
-				ge_region_scaled(k, true); orig(c);   // halves too get the whole HUD, at half size
+				ge_region_scaled(v, true); orig(c);   // halves too get the whole HUD, at half size
 				rt_call(c, 0x08800000 + HUD_DRAW_TEXT);   // its text now, in its view (the HUD draws it next time)
 				if (boss_mp()) boss_view(k, false);
 				if (seated) bt_view_end();
@@ -1954,7 +2229,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		break;
 	case HOOK_SEND_EVENT:   // F_16c388(manager, target, source, hash, ...)
-		if (getenv("SR2_EV_TRACE") && A(1) && A(1) == LW(WORLD + 0x5024)) {   // test aid: events the local player gets
+		if (ENV_ON("SR2_EV_TRACE") && A(1) && A(1) == LW(WORLD + 0x5024)) {   // test aid: events the local player gets
 			static u32 seen[256][2]; static int ns;
 			int i = 0; while (i < ns && !(seen[i][0] == A(3) && seen[i][1] == c->r[31])) i++;
 			if (i == ns && ns < 256) { seen[ns][0] = A(3); seen[ns][1] = c->r[31]; ns++;
@@ -1976,16 +2251,17 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_RACER_STEP: {   // F_b2e48(racer), from the seat loop: seat 0, then seat 1
 		u32 r = A(0), s0 = LW(WORLD + 0x502c), s1 = LW(WORLD + 0x5030);
-		if (!n_extra || r != (s1 ? s1 : s0)) break;
+		if (!n_extra) break;
+		if (r != (s1 ? s1 : s0)) { racer_step(c, orig, r); return; }
 		Ctx save = *c;
-		orig(c);
+		racer_step(c, orig, r);
 		Ctx out = *c;
 		for (int k = 0; k < n_extra; k++) {   // then the extra racers that have no seat
 			u32 e = extra_racer[k];
 			if (e == s0 || e == s1 || extra_pending[k]) continue;
 			u32 i0 = LW(WORLD + 0x4f84);
 			SW(WORLD + 0x502c, e); SW(WORLD + 0x4f84, e);   // it borrows seat 0 meanwhile
-			*c = save; c->r[4] = e; orig(c);
+			*c = save; racer_step(c, orig, e);
 			SW(WORLD + 0x502c, s0); SW(WORLD + 0x4f84, i0);
 		}
 		*c = out;
@@ -1999,7 +2275,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			rt_call(c, 0x08800000 + 0x15e0e8);
 			s32 sec = c->r[2];
 			*c = save;
-			if (sec > 0 && sec <= (s32)LW(WORLD + 0x4d10)) { SW(body + 0xc, sec); if (getenv("SR2_OLD_SEC")) SW(body + 0x10, sec); }   // +0x10 stays its slot, as a racer's
+			if (sec > 0 && sec <= (s32)LW(WORLD + 0x4d10)) { SW(body + 0xc, sec); if (ENV_ON("SR2_OLD_SEC")) SW(body + 0x10, sec); }   // +0x10 stays its slot, as a racer's
 			c->r[2] = 1;
 			return;
 		}
@@ -2019,9 +2295,13 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			if (!pr) pr = A(0);
 			u32 pb = LW(pr + 4);
 			Ctx save = *c;
-			bool cpu = getenv("SR2_MP_CPU") != NULL;   // test aid: players 2-4 are left to the computer
+			bool cpu = extra_cpu[k] || ENV_ON("SR2_MP_CPU");   // a bot (or, test aid, every player 2-4)
 			if (extra_seated[k]) {   // the rival: already in the race, only its driver changes to player 2
 				if (k == 0) placings_reset(pr);
+				if (k == 0 && ENV_ON("SR2_P1_CPU") && LW(pr + 0x8c)) {   // test aid: the computer drives player 1 too
+					c->r[4] = LW(LW(pr + 0x8c) + 4); c->r[5] = 2; c->r[6] = -2; rt_call(c, 0x08800000 + 0x17138); *c = save;
+					c->r[4] = pr; c->r[5] = 1; rt_call(c, 0x08800000 + 0xade6c); *c = save;
+				}
 				if (cpu) continue;
 				memcpy(PTR(PAD_DEVN(k)), PTR(PAD_DEV), PAD_DEV_SIZE);
 				u32 in = LW(r + 0x8c) ? LW(LW(r + 0x8c) + 4) : 0;
@@ -2038,13 +2318,17 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			*c = save;
 			extra_racer_place(c, r, pr, k);
 			if (k == 0) placings_reset(pr);
+			if (k == 0 && ENV_ON("SR2_P1_CPU") && LW(pr + 0x8c)) {   // test aid: the computer drives player 1 too
+				c->r[4] = LW(LW(pr + 0x8c) + 4); c->r[5] = 2; c->r[6] = -2; rt_call(c, 0x08800000 + 0x17138); *c = save;
+				c->r[4] = pr; c->r[5] = 1; rt_call(c, 0x08800000 + 0xade6c); *c = save;
+			}
 			u32 ctl = LW(r + 0x480);   // its controller: reset it, as the racer's start step (F_aff70) does first
 			c->r[4] = ctl; rt_call(c, LW(LW(ctl) + 8));
 			*c = save;
 			memcpy(PTR(PAD_DEVN(k)), PTR(PAD_DEV), PAD_DEV_SIZE);   // its player's pad device starts as a copy of the game's
 			u32 in = LW(r + 0x8c) ? LW(LW(r + 0x8c) + 4) : 0;   // its input block: set up like F_159194 does for a
-			if (in) {                                            // human racer (F_17138: button map, source), source 1
-				c->r[4] = in; c->r[5] = 2; c->r[6] = 1;
+			if (in) {                                            // human racer (F_17138: button map, source), source 1;
+				c->r[4] = in; c->r[5] = 2; c->r[6] = cpu ? -2 : 1;   // a bot's, like the computer rival's: -2, no pad
 				rt_call(c, 0x08800000 + 0x17138);
 				*c = save;
 			}
@@ -2061,6 +2345,8 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			int ri = A(0) == LW(WORLD + 0x5024) ? 0 : -1;
 			for (int k = 0; k < n_extra && ri < 0; k++) if (A(0) == extra_racer[k]) ri = k + 1;
 			if (ri >= 0) path_resnap(c, A(0), ri);
+			if (ri >= 0) stream_keep_up(c, A(0), ri);
+			if (ri >= 0 && (ri ? extra_cpu[ri - 1] : ENV_ON("SR2_P1_CPU"))) bot_unstick(c, A(0), ri);
 			u32 p1 = LW(WORLD + 0x5024);
 			if (p1 && LW(A(0)) == LW(p1)) boost_logs(c, A(0));   // every racer, the computer's too
 			if (ri == 0) r1_event_stubs();
@@ -2075,6 +2361,13 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			}
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
+		break;
+	case HOOK_STREAM_SECTION:   // F_15e0e8(world, focus racer, 0), from F_15f97c: the section to stream around
+		if (stream_mp()) c->r[5] = stream_pick(c);
+		else stream_leader = 0;
+		break;
+	case HOOK_STREAM_BUSY:   // F_1604ec(world, focus racer), from F_15f97c
+		if (stream_mp() && stream_leader) c->r[5] = stream_leader;
 		break;
 	case HOOK_BOSS_INIT:   // F_c0044(boss)
 		boss_obj = A(0); boss_winner = -1;
@@ -2105,7 +2398,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (A(0) == boss_obj && boss_obj && n_extra) { orig(c); int m = boss_best_but(-1); if ((int)c->r[2] < m) c->r[2] = m; return; }
 		break;
 	case HOOK_STORY_PROGRESS:   // F_13a63c(profile): test aid, every zone and act open in Single Event
-		if (getenv("SR2_UNLOCK_ALL")) { c->r[2] = 255; return; }
+		if (ENV_ON("SR2_UNLOCK_ALL")) { c->r[2] = 255; return; }
 		break;
 	case HOOK_SET_SWAP_INTERVAL:   // F_073c4(disp, interval)
 		if ((s32)A(1) > 0) {
@@ -2133,6 +2426,10 @@ static void mp_trace(void) {
 		}
 		u32 cam = LW(CAM_MAIN);
 		LOGI("mp:%s cam target %08x seats %08x %08x", line, cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
+		o = 0;
+		for (int k = 0; k <= n_extra; k++) { u32 r = rs[k]; o += snprintf(line + o, sizeof line - o, " p%d sec %d", k + 1, r && LW(r + 4) ? (int)LW(LW(r + 4) + 0xc) : -9); }
+		for (u32 i = 0; i < LW(0x0899FF4C) && i < 8; i++) { u32 e = WORLD + 0x5d18 + i * 16, sp = LW(e + 4); o += snprintf(line + o, sizeof line - o, " buf%u st %x slot %d", i, LW(e + 8), sp >= 0x08800000 && sp < 0x0A000000 ? (int)LW(sp + 0x20) : -1); }
+		LOGI("mp sections: cur %d n %d%s", LW(WORLD + 0x5da0), LW(WORLD + 0x4d10), line);
 	}
 }
 
