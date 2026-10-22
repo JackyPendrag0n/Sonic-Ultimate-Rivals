@@ -888,6 +888,8 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 #define HUD_METER_ICON  0x1600       // the local player's icon on it
 #define HUD_RIVAL_ICON  0x16b0       // the rival's
 #define HUD_PLACE       0xb00        // the place, bottom right
+#define HUD_TAG_CLOCK0  0x4d0        // Tag: the other racer's (index 0) time as it, bottom right, and its head
+#define HUD_TAG_HEAD0   0x630
 #define HUD_DRAW_TEXT   0x12d868     // F_12d868 (part A): draws the text the elements queued (rings, timer digits)
 // split screen draws the HUD in passes: each view's own (rings, boost), then once for the whole screen the
 // race meter (again per player for its icon) and the timer
@@ -1741,17 +1743,21 @@ static bool racer_to_section(Ctx *c, u32 r, int s, u32 like) {
 	*c = save;
 	return true;
 }
-static bool below_section(u32 r, int s) {   // fallen through (its floor went away under it): well below the path
-	u32 arr = LW(WORLD_SLOT(s) + 0x444), body = LW(r + 4);
-	if (arr < 0x08800000 || arr >= 0x0A000000 || !body) return false;
-	float lo = 1e9f, z;
-	for (int i = 0; i < 4096; i++) {
-		u32 nd = LW(arr + i * 4);
-		if (nd < 0x08800000 || nd >= 0x0A000000) break;
-		memcpy(&z, PTR(nd + 8), 4); if (z < lo) lo = z;
+static bool below_section(u32 r) {   // fallen through (its floor went away under it): falling, well below every live path
+	u32 body = LW(r + 4);
+	if (!body) return false;
+	float lo = 1e9f, z, v[3];
+	for (int s = 0; s < 16; s++) {
+		u32 arr = LW(WORLD_SLOT(s) + 0x444);
+		if (!section_live(s) || arr < 0x08800000 || arr >= 0x0A000000) continue;
+		for (int i = 0; i < 4096; i++) {
+			u32 nd = LW(arr + i * 4);
+			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			memcpy(&z, PTR(nd + 8), 4); if (z < lo) lo = z;
+		}
 	}
-	memcpy(&z, PTR(body + 0x28), 4);
-	return lo < 1e9f && z < lo - 40;
+	memcpy(&z, PTR(body + 0x28), 4); memcpy(v, PTR(r + RACER_VEL), sizeof v);
+	return lo < 1e9f && z < lo - 40 && v[2] < 0;
 }
 // A computer player can get stuck where the course wants speed (the bottom of a loop, a steep slope), rolling to
 // and fro without getting anywhere: put it a little further along the path. One that stands still is waiting on
@@ -1812,13 +1818,13 @@ static void stream_keep_up(Ctx *c, u32 r, int k) {   // from the move step of pl
 	int f = (s32)LW(STREAM_CUR);
 	if (k < 0 || k > n_extra || !stream_mp() || !stream_leader || f < 1 || finish_place[k]) { if (k >= 0 && k <= MAX_EXTRA) stream_out_since[k] = 0; return; }
 	int sec = stream_sec[k];
-	bool out = sec < f - 1 || sec > f + 2 || !section_live(sec) || below_section(r, sec);
+	bool out = sec < f - 1 || sec > f + 2 || !section_live(sec) || below_section(r);
 	if (!out) { stream_out_since[k] = 0; return; }
 	u64 now = mono_us();
 	if (!stream_out_since[k]) { stream_out_since[k] = now; return; }
 	if (now - stream_out_since[k] < STREAM_OUT_US) return;
 	stream_out_since[k] = 0;
-	int to = sec > f + 2 ? f + 2 : f - 1;
+	int to = sec > f + 2 ? f + 2 : sec >= f - 1 && section_live(sec) ? sec : f - 1;   // (under its own section: back onto it)
 	while (to < f + 2 && !section_live(to)) to++;
 	while (to > f - 1 && !section_live(to)) to--;
 	if (!section_live(to)) return;
@@ -1973,7 +1979,8 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			u32 e = id == HOOK_HUD_ELEM ? A(0) - HUD_BASE : ~0u;
 			bool shared = e == HUD_TIMER || (!boss_mp() && !bt_mp() && (e == HUD_METER || e == HUD_METER_ICON || e == HUD_RIVAL_ICON));
 			if (id == HOOK_HUD_PART_A) break;   // the text queued by the elements this pass draws
-			if (hud_pass == HUD_PASS_VIEW) { if (shared || (boss_mp() && e == HUD_RIVAL_ICON)) return; }   // (a boss: each view its own hits)
+			bool theirs = boss_mp() ? e == HUD_RIVAL_ICON : bt_mp() && bt_mode() == BT_TAG && (e == HUD_TAG_CLOCK0 || e == HUD_TAG_HEAD0);
+			if (hud_pass == HUD_PASS_VIEW) { if (shared || theirs) return; }   // (a boss, Tag: each view only its own count)
 			else if (id == HOOK_HUD_ELEM) {
 				bool want = hud_pass == HUD_PASS_TIMER ? e == HUD_TIMER
 				          : hud_pass == HUD_PASS_METER ? e == HUD_METER || e == HUD_RIVAL_ICON : e == HUD_METER_ICON;
