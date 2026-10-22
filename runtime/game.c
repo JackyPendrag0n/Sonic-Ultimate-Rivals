@@ -36,7 +36,7 @@ const char *config_path(void) {
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(fullscreen, b) \
 	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
-	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b)
+	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b) X(unlock_outfits, b)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
@@ -116,7 +116,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
        HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
-       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK };
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK, HOOK_OUTFIT_OWNED };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -887,6 +887,9 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 #define HUD_METER       0x1550       // the race meter's bar, at the bottom
 #define HUD_METER_ICON  0x1600       // the local player's icon on it
 #define HUD_RIVAL_ICON  0x16b0       // the rival's
+#define OUTFIT_MENU_RA  0x089455c8   // F_145124's call of F_1393f0: the Change Outfit list greys the outfits not unlocked
+#define DEATH_FADE_RA   0x088971d0   // F_970a8 (a racer's pit death, each frame): the screen fades out and in when it is
+                                     // the local player's (F_3731c(world, 1)); with players 2-4 nobody's does
 #define HUD_PLACE       0xb00        // the place, bottom right
 #define HUD_TAG_CLOCK0  0x4d0        // Tag: the other racer's (index 0) time as it, bottom right, and its head
 #define HUD_TAG_HEAD0   0x630
@@ -2144,8 +2147,9 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		break;
 	case HOOK_WORLD_RACER: {   // F_3731c(world, i)
-		if (!banter_on) break;
 		u32 ra = c->r[31];
+		if (ra == DEATH_FADE_RA && mp_active() && n_extra) { c->r[2] = 0; return; }   // no fade for player 1 either
+		if (!banter_on) break;
 		if (ra == BANTER_FIRST_RA || ra == BANTER_NEXT_RA) {
 			c->r[2] = banter_racer[banter_next < banter_n ? banter_next : banter_n - 1];
 			banter_next++;
@@ -2306,7 +2310,9 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		return;
 	}
 	case HOOK_TRACK_ENTITY_SECTION:   // F_1691b4(entity): racers are exempt, so is the extra one
-		if (extra_index(A(0)) >= 0 && !extra_seated[extra_index(A(0))]) {   // keep its section index current (the start of F_1691b4)
+		// keep its section index current (the start of F_1691b4). Player 1 too while the streaming follows someone
+		// else: F_15f97c sets the followed section into the local player's index, which their camera goes by
+		if ((extra_index(A(0)) >= 0 && !extra_seated[extra_index(A(0))]) || (stream_mp() && A(0) == p1_racer)) {
 			u32 e = A(0), body = LW(e + 4);
 			Ctx save = *c;
 			c->r[4] = WORLD; c->r[5] = e; c->r[6] = 0; c->r[7] = 0;
@@ -2454,6 +2460,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_STORY_PROGRESS:   // F_13a63c(profile): test aid, every zone and act open in Single Event
 		if (ENV_ON("SR2_UNLOCK_ALL")) { c->r[2] = 255; return; }
+		break;
+	case HOOK_OUTFIT_OWNED:   // F_1393f0(profile, i)
+		// the Change Outfit list asks for outfit k (1-4) of character ch as i = (k-1)*8 + ch
+		if (g_cfg.unlock_outfits && c->r[31] == OUTFIT_MENU_RA && A(1) < 32) { c->r[2] = 1; return; }
 		break;
 	case HOOK_SET_SWAP_INTERVAL:   // F_073c4(disp, interval)
 		if ((s32)A(1) > 0) {

@@ -31,6 +31,7 @@ typedef struct GameConfig {
 	bool mp_test_seats;    // debug: player 1 adds players without a controller on the Multiplayer screen
 	int mp_bots;           // the computer players: bit k for player k (2-4)
 	bool mp_smart_ai;      // experimental: computer players race the leader instead of waiting for player 1
+	bool unlock_outfits;   // debug: every character's outfits can be picked
 } GameConfig;
 
 extern GameConfig g_cfg;

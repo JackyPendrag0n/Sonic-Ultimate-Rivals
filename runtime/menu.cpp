@@ -130,6 +130,9 @@ static void split_tab() {
 	if (ImGui::Checkbox("Debug: add players without a controller", &g_cfg.mp_test_seats)) changed();
 	help("On the Multiplayer screen, Y / triangle then adds a player with no controller instead of a computer player "
 	     "(driven by test inputs). They stand still unless the box above is ticked.");
+	if (ImGui::Checkbox("Debug: unlock all outfits", &g_cfg.unlock_outfits)) changed();
+	help("Every character's outfits can be picked on the Change Outfit list (triangle at character select), in any "
+	     "mode. Your save is not changed: untick it and they are locked again until you earn them.");
 }
 
 // the Multiplayer screen (game.c): who plays, on which controller, as whom

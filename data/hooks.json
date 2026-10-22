@@ -823,6 +823,19 @@
     "28880003",
     "1500ffee"
    ]
+  },
+  {
+   "id": 54,
+   "name": "OUTFIT_OWNED",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_1393f0(profile, i): whether the profile has unlockable i (outfits among them; byte profile+0x300+i). The debug toggle unlock_outfits answers 1 for the outfits.",
+   "pattern": [
+    "00a41821",
+    "03e00008",
+    "90620300",
+    "30a600ff"
+   ]
   }
  ]
 }
