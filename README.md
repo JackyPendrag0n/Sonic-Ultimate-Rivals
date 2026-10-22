@@ -212,9 +212,9 @@ Streaming with players 2-4: the loads (F_15e4a8) keep the current section and it
 up to three) and load the nearest missing one, but a course lists only two (behind, ahead), so the game used three
 of its four buffers. In multiplayer races each section lists the one ahead, the one after, then the one behind
 (`stream_links`), and the loads' two loops over the wanted list take four (hooks 52 and 53), so all four buffers
-hold a section. With a player more than a section behind the leader, the window is kept one section further back
-(the leader still has the next section loaded), so a straggler is only put forward once they are three sections
-behind instead of two. `SR2_STREAM_TRACE` logs the window and every buffer change.
+hold a section. The course objects (springs among them) only work in the active sections, the current one and
+its first two neighbours, so with any player behind the leader's section the window is kept one section back
+(the leader still has the next section loaded), which also leaves a straggler room until three sections behind. `SR2_STREAM_TRACE` logs the window and every buffer change.
 
 Voices: a voice line (F_127080 -> F_d120, hook 49) is played at the speaker's position and fades with the
 distance to the listener (player 1's camera), so far from player 1 the others' lines were not heard (their

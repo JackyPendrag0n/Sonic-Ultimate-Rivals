@@ -1776,7 +1776,8 @@ static u32 stream_pick(Ctx *c) {   // the leader: the player in the furthest sec
 // <= 0 for none), and load the nearest missing one of the current section and its first two neighbours. A course
 // lists two, the one behind and the one ahead, so only three of the four buffers are used. With players 2-4 the
 // list becomes the one ahead, the one after it, then the one behind (kept, never loaded: it was current before), so
-// all four hold a section and the window is the one behind and the two ahead it was meant to be.
+// all four hold a section. (Only the first three of the wanted list can be loaded: the fourth has no place in the
+// list of active sections, WORLD +0x5d50, three entries.)
 static void stream_links(bool on) {   // (off: back as the course has them, for the results and anything after)
 	int n = (s32)LW(WORLD + 0x4d10);
 	for (int k = 1; k <= n && k < 14; k++) {
@@ -2451,9 +2452,10 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		c->r[5] = stream_pick(c);
 		orig(c);
 		{   // only four sections fit (one behind, two ahead): with someone behind, the leader keeps one ahead and
-			int s = (s32)c->r[2];   // the window reaches two back, so a straggler has twice the room
-			bool behind = false;
-			for (int k = 0; k <= n_extra; k++) if (!finish_place[k] && stream_sec[k] >= 1 && stream_sec[k] < s - 1) behind = true;
+			int s = (s32)c->r[2];   // the window reaches two back. The course objects (springs among them) only work
+			bool behind = false;    // in the active sections, the current one and its first two neighbours, so with
+			                        // the window back a player one section behind the leader still has them working
+			for (int k = 0; k <= n_extra; k++) if (!finish_place[k] && stream_sec[k] >= 1 && stream_sec[k] < s) behind = true;
 			if (s > 1 && behind) { c->r[2] = s - 1; SW(STREAM_CUR_SEC, WORLD_SLOT(s - 1)); }   // (and the section the loads go around)
 			static int last = -9;
 			if (ENV_ON("SR2_STREAM_TRACE") && (int)c->r[2] != last) { last = c->r[2]; LOGI("stream: leader in %d, window around %d", s, last); }
