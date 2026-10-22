@@ -758,6 +758,44 @@ static bool split_view_on(void) {
 
 static void swap_bytes(u8 *a, u8 *b, u32 n) { for (u32 i = 0; i < n; i++) { u8 t = a[i]; a[i] = b[i]; b[i] = t; } }
 
+// The camera zones of the live course sections (a list at slot +0x45c, count at +0x460) remember whether the
+// camera is inside them (zone +0x60), for the blend into a zone's framing; each camera keeps its own flags, or
+// every camera keeps "entering" the zones afresh and none settles into the side view.
+#define ZONE_IN    0x60
+#define SLOT_COUNT (WORLD + 0x4d10)
+#define MAX_ZONES  128
+static bool section_live(int k);
+static struct { u32 zone; u8 in; } cam_zone[MAX_EXTRA][MAX_ZONES];
+static int cam_nzone[MAX_EXTRA];
+static bool cam_in[MAX_EXTRA];
+static void zones_swap(int k) {
+	int n = 0, count = LW(SLOT_COUNT);
+	static u32 zl[MAX_ZONES]; static u8 old[MAX_ZONES];
+	for (int s = 0; s < count && s < 16; s++) {
+		if (!(s == 0 || s >= 14 || section_live(s) || (s == 1 && LW(0x08A80000 + 0x5860) == 1))) continue;
+		u32 list = LW(WORLD_SLOT(s) + 0x45c), nz = LB(WORLD_SLOT(s) + 0x460);
+		if (list < 0x08800000 || list >= 0x0A000000 || nz > 32) continue;
+		for (u32 i = 0; i < nz && n < MAX_ZONES; i++) {
+			u32 z = LW(list + i * 4);
+			if (z >= 0x08800000 && z < 0x0A000000) zl[n++] = z;
+		}
+	}
+	if (!cam_in[k]) {   // in: the flags this camera left (out of a zone it has not seen yet)
+		for (int i = 0; i < n; i++) {
+			old[i] = 0;
+			for (int j = 0; j < cam_nzone[k]; j++) if (cam_zone[k][j].zone == zl[i]) { old[i] = cam_zone[k][j].in; break; }
+		}
+		for (int i = 0; i < n; i++) { cam_zone[k][i].zone = zl[i]; cam_zone[k][i].in = LB(zl[i] + ZONE_IN); SB(zl[i] + ZONE_IN, old[i]); }
+		cam_nzone[k] = n;
+	} else {            // out: keep this camera's flags, put back the first camera's
+		for (int i = 0; i < cam_nzone[k]; i++) {
+			u32 z = cam_zone[k][i].zone; u8 mine = LB(z + ZONE_IN);
+			SB(z + ZONE_IN, cam_zone[k][i].in); cam_zone[k][i].in = mine;
+		}
+	}
+	cam_in[k] = !cam_in[k];
+}
+
 static void cam_swap(int k) {   // swap extra racer k's camera state in or out
 	u32 cam = LW(CAM_MAIN);
 	if (!cam_ready[k] || cam_of[k] != cam) {   // it starts as a copy of the first camera, following its racer
@@ -768,6 +806,7 @@ static void cam_swap(int k) {   // swap extra racer k's camera state in or out
 	}
 	swap_bytes(PTR(cam), cam_obj[k], CAM_SIZE);
 	swap_bytes(PTR(LW(cam + 4)), cam_node[k], CAM_NODE_SZ);
+	zones_swap(k);
 }
 
 // rebuild the view from the current camera state, as F_581b0 does at the start of the race render
@@ -2334,7 +2373,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		for (int k = 0; k < n_extra; k++) if (extra_pending[k]) {   // the race is running: switch the extra racer on
 			u32 r = extra_pending[k]; extra_pending[k] = 0;            // like the world update does (F_15aafc)
-			cam_ready[k] = false;
+			cam_ready[k] = false; cam_nzone[k] = 0;
 			u32 pr = LW(WORLD + 0x5024), eb = LW(r + 4);   // the local player (F_3731c(world, 0))
 			if (!pr) pr = A(0);
 			u32 pb = LW(pr + 4);
