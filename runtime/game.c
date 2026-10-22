@@ -116,7 +116,7 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
        HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
-       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT };
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE };
 #define DISP_MGR 0x089A0BE4
 extern u32 g_vblank_us;
 static bool in_race;
@@ -1047,11 +1047,6 @@ static int boss_best_but(int skip) {   // the most hits of anyone but player ski
 	for (int k = 0; k <= n_extra; k++) if (k != skip && boss_player_hits(k) > best) best = boss_player_hits(k);
 	return best;
 }
-static int boss_leader_but(int skip) {
-	int who = -1, best = -1;
-	for (int k = 0; k <= n_extra; k++) if (k != skip && boss_player_hits(k) > best) { best = boss_player_hits(k); who = k; }
-	return who;
-}
 static bool boss_mp(void) { return boss_obj && n_extra && p1_racer; }
 static void boss_hit(Ctx *c, void (*orig)(Ctx *c)) {   // F_c0164(boss, racer)
 	u32 b = A(0), r = A(1);
@@ -1092,12 +1087,10 @@ static void boss_view(int k, bool on) {
 	if (!on) { SW(i1, img[0]); SW(i2, img[1]); memcpy(PTR(BOSS_TEXT_P1), txt[0], BOSS_TEXT_LEN); memcpy(PTR(BOSS_TEXT_RIVAL), txt[1], BOSS_TEXT_LEN); return; }
 	img[0] = LW(i1); img[1] = LW(i2);
 	memcpy(txt[0], PTR(BOSS_TEXT_P1), BOSS_TEXT_LEN); memcpy(txt[1], PTR(BOSS_TEXT_RIVAL), BOSS_TEXT_LEN);
-	int o = boss_leader_but(k);
-	boss_text(BOSS_TEXT_P1, boss_player_hits(k)); boss_text(BOSS_TEXT_RIVAL, o >= 0 ? boss_player_hits(o) : 0);
-	int ck = mp_player_char(k), co = o >= 0 ? mp_player_char(o) : -1;
-	u32 hk = ck >= 0 ? hud_texture(img[0], hud_heads[ck]) : 0, ho = co >= 0 ? hud_texture(img[0], hud_heads[co]) : 0;
+	boss_text(BOSS_TEXT_P1, boss_player_hits(k)); memset(PTR(BOSS_TEXT_RIVAL), 0, BOSS_TEXT_LEN);   // only its own count
+	int ck = mp_player_char(k);
+	u32 hk = ck >= 0 ? hud_texture(img[0], hud_heads[ck]) : 0;
 	if (hk) SW(i1, hk);
-	if (ho) SW(i2, ho);
 }
 
 // the end of a boss with players 2-4: the winner first, then the others by their hits
@@ -1861,16 +1854,22 @@ static u32 smart_target(Ctx *c, u32 r) {
 	static u64 at[MAX_EXTRA]; static u32 got[MAX_EXTRA];   // once a frame
 	if (at[k] == g_vblank_count + 1) return got[k];
 	at[k] = g_vblank_count + 1;
-	u32 best = 0; float bp = -1, mine = race_progress(c, r);
+	u32 best = 0; float bp = -1, mine = race_progress(c, r);   // (in front of everyone, the next one: RACER_PACE keeps it going)
 	for (int i = 0; i <= n_extra; i++) {
 		u32 o = i ? extra_racer[i - 1] : p1_racer;
 		if (o == r || (i && extra_pending[i - 1])) continue;
 		float p = race_progress(c, o);
 		if (p > bp) bp = p, best = o;
 	}
-	if (best && bp < mine) best = r;   // in front of everyone: no one to wait for, it races itself
 	if (ENV_ON("SR2_SMART_TRACE") && g_vblank_count % 120 == 0) LOGI("smart AI: player %d watches player %d (%.3f vs %.3f)", k + 2, player_index(best) + 1, mine, bp);
 	return got[k] = best;
+}
+static bool smart_pace(u32 r) {   // a computer driver in a race that should never ease off for the one behind
+	if (!g_cfg.mp_smart_ai || !in_race || bt_mode() || boss_obj || (mp_active() && (bt_mp() || boss_mp()))) return false;
+	u32 ip = LW(r + 0x8c), in = ip >= 0x08800000 && ip < 0x0A000000 ? LW(ip + 4) : 0;
+	if (in < 0x08800000 || in >= 0x0A000000) return false;
+	s32 src = (s32)LW(in + 0x1c);
+	return src >= -3 && src <= -1;
 }
 static void racer_step(Ctx *c, void (*orig)(Ctx *c), u32 r) {
 	u32 t = smart_target(c, r), lp = LW(WORLD + 0x5024);
@@ -1974,7 +1973,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			u32 e = id == HOOK_HUD_ELEM ? A(0) - HUD_BASE : ~0u;
 			bool shared = e == HUD_TIMER || (!boss_mp() && !bt_mp() && (e == HUD_METER || e == HUD_METER_ICON || e == HUD_RIVAL_ICON));
 			if (id == HOOK_HUD_PART_A) break;   // the text queued by the elements this pass draws
-			if (hud_pass == HUD_PASS_VIEW) { if (shared) return; }
+			if (hud_pass == HUD_PASS_VIEW) { if (shared || (boss_mp() && e == HUD_RIVAL_ICON)) return; }   // (a boss: each view its own hits)
 			else if (id == HOOK_HUD_ELEM) {
 				bool want = hud_pass == HUD_PASS_TIMER ? e == HUD_TIMER
 				          : hud_pass == HUD_PASS_METER ? e == HUD_METER || e == HUD_RIVAL_ICON : e == HUD_METER_ICON;
@@ -2051,6 +2050,16 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		for (int k = 0; k < n_extra; k++)
 			if (!extra_pending[k] && A(1) == LW(LW(extra_racer[k] + 4) + 0x10)) { c->r[2] = 1; return; }
 		break;
+	}
+	case HOOK_RACER_PACE: {   // F_b1a84(racer)
+		u32 r = A(0);
+		orig(c);
+		if (ENV_ON("SR2_SMART_TRACE") && g_vblank_count % 120 == 0)
+			LOGI("smart AI: racer %08x pace %d, progress %.3f", r, (int)LW(r + 0x8dc), race_progress(c, r));
+		if (LW(r + 0x8dc) == 1 && smart_pace(r)) {
+			SW(r + 0x8dc, 0);
+		}
+		return;
 	}
 	case HOOK_RACER_OPPONENT: {   // F_b1924(racer)
 		u32 t = smart_target(c, A(0));

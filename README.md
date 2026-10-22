@@ -199,11 +199,14 @@ game's own streaming around player 1.
 Computer players: on the Multiplayer screen player 1's Y / triangle fills a seat with one (X / square takes it
 out, left / right picks its character); `mp_bots` keeps a bit per player number. A bot is switched on as the
 game's computer rival is: its input block reads source -2 (no pad) and its driver flag is set (F_ade6c). Bots
-have no view. A bot that has made no headway for 4 s while moving (stuck at the foot of a loop, or bunched up
-with another) is moved a little further along the path (`bot_unstick`). The experimental "smarter computer
-players" option (`mp_smart_ai`) changes who a bot measures itself against: the game's driver eases off or
-pushes by how far along it is next to its opponent (F_b1924, hook 50: the other seat, else the local player);
-there it is whoever is furthest along of the others, or no one when the bot leads.
+have no view. A bot that has made no headway for 4 s once it got going (stuck at the foot of a loop, in a wall,
+or bunched up with another) is moved further along the path, further each time it is stuck again soon after
+(`bot_unstick`). The experimental "smarter computer players" option (`mp_smart_ai`) changes how the game's
+driver paces itself: it eases off or pushes by how far along it is next to its opponent (F_b1924, hook 50: the
+other seat, else the local player), into racer+0x8dc by F_b1a84 (hook 51: 2 well behind, pushes; 1 well
+ahead, eases off). With it a bot's opponent is whoever is furthest along of the others, and no computer driver
+(bots, and the rival in Story and Single Event races) ever eases off. Each view of a boss shows only its own
+player's hits, with their head.
 
 Voices: a voice line (F_127080 -> F_d120, hook 49) is played at the speaker's position and fades with the
 distance to the listener (player 1's camera), so far from player 1 the others' lines were not heard (their

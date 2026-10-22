@@ -123,7 +123,8 @@ static void split_tab() {
 	ImGui::Separator();
 	if (ImGui::Checkbox("Smarter computer players (experimental)", &g_cfg.mp_smart_ai)) changed();
 	help("Computer players race whoever is in front instead of easing off to wait for player 1, so they are "
-	     "harder to beat and keep up with the fastest player. Races only.");
+	     "harder to beat and keep up with the fastest player. Races only, in Multiplayer, Story and Single Event: "
+	     "a rival in front of you keeps racing flat out.");
 	if (ImGui::Checkbox("Debug: player 1's controller drives everyone", &g_cfg.pad_all)) changed();
 	help("For testing on your own: every player copies controller 1 (and the keyboard).");
 	if (ImGui::Checkbox("Debug: add players without a controller", &g_cfg.mp_test_seats)) changed();

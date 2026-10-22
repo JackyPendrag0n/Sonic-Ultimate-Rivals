@@ -776,6 +776,25 @@
     "afb00000",
     "00008021"
    ]
+  },
+  {
+   "id": 51,
+   "name": "RACER_PACE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_b1a84(racer): the computer driver's pace against its opponent (F_b1924), into racer+0x8dc: 2 well behind (pushes), 1 well ahead (eases off), 0 neither. The experimental smarter computer players never ease off.",
+   "pattern": [
+    "27bdffd0",
+    "afb10004",
+    "24110001",
+    "afb00000",
+    "00808021",
+    "afbf0010",
+    "afb3000c",
+    "afb20008",
+    "e7b50024",
+    "0c000000/fc000000"
+   ]
   }
  ]
 }
