@@ -133,7 +133,8 @@ Split view (on with the extra racer; `SR2_SPLIT_VIEW=tb` top and bottom, the def
 `0` off): the race camera (0x08A855D4, a 0x66c-byte object plus the 0x7c-byte transform node at +4)
 follows the racer at +0x294. A second camera is kept as a copy of that state aimed at the extra racer and
 swapped in around the camera step (hook 8, F_10a250) and around the race render's draws (hooks 9-11:
-F_15a460 world, F_31300, F_30414), with the view rebuilt as F_581b0 does (camera vt+0x40, F_2ac50) and the
+F_15a460 world, F_31300, F_30414, and hook 55: F_24064, the sorted see-through objects such as the spin
+dash streaks, item boxes and portals), with the view rebuilt as F_581b0 does (camera vt+0x40, F_2ac50) and the
 extra racer standing in as the local player (world +0x5024). Each view goes into its half of the screen by
 moving the GE viewport centre (XPOS/YPOS) and, for the second, the scissor; the first view is drawn over
 the whole screen, since leaving part of the screen empty during it washes out the colours. The HUD is

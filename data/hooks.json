@@ -843,6 +843,22 @@
     "90620300",
     "30a600ff"
    ]
+  },
+  {
+   "id": 55,
+   "name": "ALPHA_DRAW",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "Race render, after the effects: F_24064 draws the see-through objects (spin dash streaks, item boxes, portals) sorted from the current camera. Split view draws it once per view.",
+   "pattern": [
+    "3c020000/ffff0000",
+    "8c450000/ffff0000",
+    "27bde790",
+    "afb7184c",
+    "0080b821",
+    "afbf1854",
+    "afbe1850"
+   ]
   }
  ]
 }
