@@ -147,7 +147,7 @@ static void apply_frame_rate(void) {
 #define TEXT_COUNT     0x089ABCCC
 
 enum { B_UP = 0x10, B_RIGHT = 0x20, B_DOWN = 0x40, B_LEFT = 0x80, B_CIRCLE = 0x2000, B_CROSS = 0x4000 };
-enum { S_GRAPHICS, S_ROW0, S_SKIN = S_ROW0 + 5, S_WINS = S_SKIN + 4, NSTR, STR_LEN = 48 };
+enum { S_GRAPHICS, S_ROW0, S_SKIN = S_ROW0 + 5, S_WINS = S_SKIN + 4, S_BONUS, NSTR, STR_LEN = 48 };
 extern u32 fe_buttons;
 extern bool g_display_dirty;
 
@@ -301,6 +301,7 @@ static void options_input(void) {
 }
 
 void charslot_vblank(void);
+static void bonus_menu(void);
 
 static void mp_trace(void);
 static void mp_menu_vblank(void);
@@ -317,6 +318,7 @@ void game_vblank(void) {
 	text_patch();
 	options_patch();
 	options_input();
+	bonus_menu();
 	charslot_vblank();
 	mp_menu_vblank();
 	mp_trace();
@@ -458,6 +460,54 @@ static void r1_event_stubs(void) {
 	for (int i = 0; i < 5; i++) { SW(R1_EVENT_STUBS + 4 * i, obj + 0x100 * i); SW(obj + 0x100 * i, vt); }
 	SW(WORLD + 0x4fc4, R1_EVENT_STUBS);
 	LOGI("r1 stage: event object stubs at %08x", R1_EVENT_STUBS);
+}
+// Rivals 1 boost logs: Rivals 2 starts a boost from two trigger boxes on the boost object (shapes named a9370d8c
+// and 137e039f in its collision group bc8617b0), which Rivals 1's logs don't have. A racer inside where those boxes
+// would be gets the calls the collision step makes for them: the object's touch (vt[45], F_e09e8) and its trigger
+// (F_aef40 -> vt[46], F_e0814) with a hit record naming the box.
+#define BOOST_VT   0x089988a0
+#define MAX_LOGS   64
+static u32 logs[MAX_LOGS], log_hit;
+static int nlogs = -1;
+static void boost_logs_find(void) {
+	nlogs = 0;
+	for (u32 a = 0x09000000; a < 0x0A000000 && nlogs < MAX_LOGS; a += 16) {
+		if (LW(a) != BOOST_VT) continue;
+		u32 res = LW(a + 0x84);
+		if (res - 0x08800000u < 0x01800000u && LW(res + 4) == 0x52e5d5e2) logs[nlogs++] = a;
+	}
+	if (!log_hit) log_hit = kalloc(0x100);
+	static int said = -1;
+	if (nlogs != said) LOGI("r1 stage: %d boost logs", said = nlogs);
+}
+static void boost_logs(Ctx *c, u32 racer) {
+	if (LW(WORLD + 0x57f0) != R1_STAGE_MAGIC) { nlogs = -1; return; }
+	static u64 found_at;   // sections stream in and out during the race: look again every second
+	if (nlogs < 0 || g_vblank_count - found_at >= 60 || (nlogs && LW(logs[0]) != BOOST_VT)) { boost_logs_find(); found_at = g_vblank_count; }
+	u32 body = LW(racer + RACER_BODY);
+	float pos[3];
+	memcpy(pos, PTR(body + 0x20), sizeof pos);
+	for (int i = 0; i < nlogs; i++) {
+		u32 o = logs[i];
+		float p[3], a;
+		memcpy(p, PTR(o + 0xb0), sizeof p); memcpy(&a, PTR(o + 0xc8), 4);
+		float dx = pos[0] - p[0], dy = pos[1] - p[1], dz = pos[2] - p[2];
+		float lx = dx * cosf(a) + dy * sinf(a), ly = -dx * sinf(a) + dy * cosf(a);   // its local frame: +y along the log
+		if (fabsf(lx) > 1.0f || dz < -1.0f || dz > 2.5f || ly < -2.5f || ly > 3.0f) continue;
+		Ctx save = *c;
+		c->r[4] = o; c->r[5] = racer; c->r[6] = log_hit; rt_call(c, LW(LW(o) + 0xb4));
+		*c = save;
+		// the boxes: a9370d8c from 2 before to 1 past the object, 137e039f from 1.5 to 2.5 past it
+		u32 shape = log_hit + 0x88;
+		memset(PTR(log_hit), 0, 0x100);
+		SW(log_hit + 0x78, o); SW(log_hit + 0x84, shape);
+		SW(shape + 0x40, ly < 1.5f ? 0xa9370d8c : 0x137e039f);
+		c->r[4] = racer; c->r[5] = log_hit; rt_call(c, 0x08800000 + 0xaef40);
+		*c = save;
+		static int dbg = -1;
+		if (dbg < 0) dbg = getenv("SR2_LOG_DEBUG") != NULL;
+		if (dbg) LOGI("log %08x racer %08x l %.2f %.2f %.2f: 65c %d 654 %d 8e4 %08x 230 %d", o, racer, lx, ly, dz, *PTR(racer + 0x65c), LW(racer + 0x654), LW(racer + 0x8e4), LW(racer + 0x230));
+	}
 }
 static void path_resnap(Ctx *c, u32 racer, int i) {
 	if (LW(WORLD + 0x57f0) != R1_STAGE_MAGIC) return;
@@ -1306,6 +1356,60 @@ u32 rt_hookval(Ctx *c, u32 id, u32 v) {
 	}
 	return v;
 }
+// ---------------------------------------------------------------- bonus stage on the stage select
+// A mod with a bonus/ folder (io.c) gets its own row on Blue Coast's act list in Free Play: the list's Act 2 item,
+// hidden there (+0xc flag 0x100, +0x240 clear), is shown with the bonus stage's name. Choosing it switches the bonus
+// files on and chooses Act 1 (whose files they replace) instead; choosing another act, or the main or single player menu,
+// switches them off.
+#define ACT_LIST       0x096476F0   // the act list widget on Select Stage
+#define ACT_LIST_HASH  0x56B567E2
+#define ACT_ZONE_STR   0x096E3504   // string id of the zone name shown beside it
+#define SCR_MAIN_MENU  0x4050d926
+#define SCR_SINGLE_PL  0xa69d1022
+#define SCR_SELECT     0x8898eb5a
+const char *io_bonus_name(void);
+void io_set_bonus(bool on);
+static u32 menu_hash(void);
+static void bonus_menu(void) {
+	static u32 item, old_flags, old_str, old_shown, prev, held, seq;
+	const char *name = io_bonus_name();
+	if (!name || !str_table) return;
+	u32 h = menu_hash();
+	if (h == SCR_MAIN_MENU || h == SCR_SINGLE_PL) io_set_bonus(false);
+	u32 zs = LW(ACT_ZONE_STR), t = LW(TEXT_TABLE);
+	bool here = h == SCR_SELECT && LW(ACT_LIST + 4) == ACT_LIST_HASH && LW(ACT_LIST + W_NCHILD) == 4 &&
+	            zs < LW(TEXT_COUNT) && !strcmp((const char *)PTR(LW(t + 4 * zs)), "Blue Coast Zone");
+	u32 first = LW(ACT_LIST + W_CHILDREN), it = first + W_SIZE;
+	if (here && !item && (LW(it + 0xc) & 0x100)) {   // the hidden Act 2 row becomes ours
+		item = it; old_flags = LW(it + 0xc); old_str = LW(it + W_STRID); old_shown = LW(it + 0x240);
+		set_str(S_BONUS, "%s", name);
+		SW(it + W_STRID, str_base + S_BONUS);
+		LOGI("stage select: %s row added", name);
+	}
+	if (item && !here) {
+		SW(item + 0xc, old_flags); SW(item + W_STRID, old_str); SW(item + 0x240, old_shown); item = 0;
+	}
+	u32 cur = fe_buttons, pressed = cur & ~prev;
+	prev = cur;
+	held &= cur;
+	if (item) {
+		SW(item + 0xc, LW(item + 0xc) & ~0x100u); SW(item + 0x240, 0x00010100);   // shown
+		if ((pressed & B_CROSS) && !seq) {
+			u32 sel = LW(ACT_LIST + W_SELECTED);
+			if (sel == item) { io_set_bonus(true); held |= B_CROSS; seq = 1; }
+			else if (sel - first < 4 * W_SIZE) io_set_bonus(false);
+		}
+	}
+	fe_buttons &= ~held;
+	// the game starts the act by the row's place in the list: go up to Act 1 and choose it
+	if (seq) {
+		fe_buttons &= ~(B_UP | B_DOWN | B_CROSS);
+		if (seq <= 2) fe_buttons |= B_UP;
+		else if (seq >= 7) fe_buttons |= B_CROSS;
+		if (++seq > 8) seq = 0;
+	}
+}
+
 // ---------------------------------------------------------------- the Multiplayer screen
 // Main Menu > Multiplayer (the PSP's Wireless Play and Game Sharing) is replaced by a local race setup: the game
 // goes to the Single Player menu instead, and this screen (drawn by menu.cpp) covers it. Controllers join as
@@ -1951,6 +2055,8 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			int ri = A(0) == LW(WORLD + 0x5024) ? 0 : -1;
 			for (int k = 0; k < n_extra && ri < 0; k++) if (A(0) == extra_racer[k]) ri = k + 1;
 			if (ri >= 0) path_resnap(c, A(0), ri);
+			u32 p1 = LW(WORLD + 0x5024);
+			if (p1 && LW(A(0)) == LW(p1)) boost_logs(c, A(0));   // every racer, the computer's too
 			if (ri == 0) r1_event_stubs();
 			// Rivals 1 stages turn sharp corners (a wall onto a ledge) in path records under a unit long; a
 			// racer crossing two of them in one step has its speed projected straight onto the last one and

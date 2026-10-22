@@ -926,6 +926,8 @@ static void h_GetBlockHeadAddr(Ctx *c) { RET(mem_block_addr(A(0))); }
 static void h_MaxFreeMemSize(Ctx *c) { RET(mem_max_free()); }
 static void h_TotalFreeMemSize(Ctx *c) { RET(mem_total_free()); }
 static void h_Ok(Ctx *c) { RET(0); }
+// sceDmacMemcpy(dst, src, size): Sonic Rivals (1) copies its menu textures with it
+static void h_DmacMemcpy(Ctx *c) { if (A(2)) memmove(PTR(A(0)), PTR(A(1)), A(2)); RET(0); }
 static void h_DevkitVersion(Ctx *c) { RET(0x02070110); }
 
 // ---- module manager
@@ -1116,6 +1118,8 @@ static const HleEnt kernel_ents[] = {
 	{0xB435DEC5, "sceKernelDcacheWritebackInvalidateAll", h_Ok},
 	{0x34B9FA9E, "sceKernelDcacheWritebackInvalidateRange", h_Ok},
 	{0x6AD345D7, "sceKernelSetGPO", h_Ok},
+	{0x617F3FE6, "sceDmacMemcpy", h_DmacMemcpy},
+	{0xD97F94D8, "sceDmacTryMemcpy", h_DmacMemcpy},
 };
 
 void kernel_register_hle(void) { hle_register(kernel_ents, sizeof kernel_ents / sizeof kernel_ents[0]); }

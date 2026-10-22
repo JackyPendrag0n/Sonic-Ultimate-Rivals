@@ -56,6 +56,8 @@ static void resolve_ci(char *path) {
 typedef struct { char root[600]; int usrdir; } Mod;
 static Mod mods[MAX_MODS];
 static int nmods;
+static int bonus_mod = -1;   // the mod with a bonus stage (see bonus_lookup)
+static bool bonus_on;
 
 static int name_cmp(const void *a, const void *b) { return strcasecmp(*(char *const *)a, *(char *const *)b); }
 static void mods_scan(const char *dir) {
@@ -82,14 +84,41 @@ static void mods_scan(const char *dir) {
 			resolve_ci(p);
 			struct stat st;
 			m->usrdir = !(stat(p, &st) == 0 && S_ISDIR(st.st_mode));
-			LOGE("mod %d: %s%s", nmods, m->root, m->usrdir ? " (files relative to USRDIR)" : "");
+			snprintf(p, sizeof p, "%s/bonus", m->root);
+			resolve_ci(p);
+			bool bonus = stat(p, &st) == 0 && S_ISDIR(st.st_mode);
+			if (bonus) bonus_mod = nmods - 1;
+			LOGE("mod %d: %s%s%s", nmods, m->root, m->usrdir ? " (files relative to USRDIR)" : "", bonus ? " (a bonus stage)" : "");
 		}
 		free(names[i]);
 	}
 }
+// ---- bonus stage: a mod's bonus/ folder (mirroring USRDIR, e.g. bonus/STREAMS/R2_ZONE_1_ACT_1.STR) is used
+// only while the stage select's bonus entry is the chosen one (game.c), and wins over every mod.
+static int bonus_lookup(const char *rel, char *out, size_t outsz) {
+	if (bonus_mod < 0 || strncasecmp(rel, "PSP_GAME/USRDIR/", 16)) return 0;
+	snprintf(out, outsz, "%s/bonus/%s", mods[bonus_mod].root, rel + 16);
+	resolve_ci(out);
+	struct stat st;
+	return stat(out, &st) == 0 && S_ISREG(st.st_mode);
+}
+// the bonus stage's name (its bonus/NAME.TXT, else the mod folder's name), or NULL without one
+const char *io_bonus_name(void) {
+	static char name[64];
+	if (bonus_mod < 0) return NULL;
+	if (name[0]) return name;
+	char p[700];
+	snprintf(p, sizeof p, "%s/bonus/NAME.TXT", mods[bonus_mod].root);
+	resolve_ci(p);
+	FILE *f = fopen(p, "r");
+	if (f) { if (!fgets(name, sizeof name, f)) name[0] = 0; fclose(f); name[strcspn(name, "\r\n")] = 0; }
+	if (!name[0]) { const char *s = strrchr(mods[bonus_mod].root, '/'); snprintf(name, sizeof name, "%s", s ? s + 1 : mods[bonus_mod].root); }
+	return name;
+}
 // `rel` is a path relative to the game folder. Finds the file in the highest-priority mod that has it.
 static int mod_lookup(const char *rel, char *out, size_t outsz) {
 	while (*rel == '/') rel++;
+	if (bonus_on && bonus_lookup(rel, out, outsz)) return 1;
 	for (int i = nmods - 1; i >= 0; i--) {
 		const char *r = rel;
 		if (mods[i].usrdir) {
@@ -166,15 +195,35 @@ int io_host_path(const char *psp, char *out, size_t outsz) {
 // sectors, so the runtime carries the disc's sector map (tools/lbnmap.py) and maps sce_lbn opens back
 // to a window into the file that holds those sectors.
 typedef struct { u32 lbn, size; const char *path; } DiscFile;
-static const DiscFile disc_map[] = {
+static const DiscFile disc_map_sr2[] = {
 #include "lbnmap_ulus10323.inc"
 };
-#define NDISC ((int)(sizeof disc_map / sizeof disc_map[0]))
+// Sonic Rivals (1), ULUS10195: the same runtime runs it (its stage files are also read by sector)
+static const DiscFile disc_map_sr1[] = {
+#include "lbnmap_ulus10195.inc"
+};
+#define NDISC_MAX ((int)(sizeof disc_map_sr2 / sizeof disc_map_sr2[0]))
+_Static_assert(sizeof disc_map_sr1 <= sizeof disc_map_sr2, "disc_files is sized for the larger map");
+static const DiscFile *disc_map = disc_map_sr2;
+static int NDISC = NDISC_MAX;
 // The disc map as this run sees it: a file a mod replaces is served from the mod, with the mod file's size.
 // When it no longer fits in the original sectors it gets a new sector range past the end of the disc.
-static DiscFile disc_files[NDISC];
-static char *disc_host[NDISC];   // resolved host path of each file
+static DiscFile disc_files[NDISC_MAX];
+static char *disc_host[NDISC_MAX];   // resolved host path of each file
+// files the bonus stage replaces: their entry while it is chosen and while it isn't
+#define MAX_BONUS 8
+static struct { int i; DiscFile f[2]; char *host[2]; } bonus_files[MAX_BONUS];
+static int nbonus;
 static void disc_build(void) {
+	{	// Rivals 1's disc has STREAMS/ZONE_1_ACT_1.STR, Rivals 2's R2_ZONE_1_ACT_1.STR
+		char hp[1024]; struct stat st;
+		snprintf(hp, sizeof hp, "%s/PSP_GAME/USRDIR/STREAMS/ZONE_1_ACT_1.STR", g_game_root);
+		resolve_ci(hp);
+		if (stat(hp, &st) == 0) {
+			disc_map = disc_map_sr1; NDISC = sizeof disc_map_sr1 / sizeof disc_map_sr1[0];
+			LOGI("io: Sonic Rivals (ULUS10195) disc layout");
+		}
+	}
 	u32 end = 0;
 	for (int i = 0; i < NDISC; i++) { u32 e = disc_map[i].lbn + (disc_map[i].size + 2047) / 2048; if (e > end) end = e; }
 	int modded = 0;
@@ -193,8 +242,23 @@ static void disc_build(void) {
 			resolve_ci(hp);
 		}
 		disc_host[i] = strdup(hp);
+		if (nbonus < MAX_BONUS && bonus_lookup(disc_map[i].path, hp, sizeof hp) && stat(hp, &st) == 0) {
+			typeof(bonus_files[0]) *b = &bonus_files[nbonus++];
+			b->i = i; b->f[0] = disc_files[i]; b->host[0] = disc_host[i];
+			// the game opens stage files by the sectors in its own table, so the bonus file takes the same ones
+			b->f[1] = disc_files[i]; b->f[1].size = (u32)st.st_size;
+			if (st.st_size > disc_files[i].size) LOGE("bonus stage: %s is larger than the file it replaces", hp);
+			b->host[1] = strdup(hp);
+			LOGI("bonus stage: %s -> %s", disc_map[i].path, hp);
+		}
 	}
 	if (nmods) LOGE("mods: %d enabled, %d disc files replaced", nmods, modded);
+}
+void io_set_bonus(bool on) {
+	if (bonus_on == on || bonus_mod < 0) return;
+	bonus_on = on;
+	for (int k = 0; k < nbonus; k++) { disc_files[bonus_files[k].i] = bonus_files[k].f[on]; disc_host[bonus_files[k].i] = bonus_files[k].host[on]; }
+	LOGI("bonus stage %s", on ? "chosen" : "off");
 }
 static const DiscFile *disc_by_host(const char *host) {
 	for (int i = 0; i < NDISC; i++) if (!strcmp(host, disc_host[i])) return &disc_files[i];
@@ -260,6 +324,13 @@ static s32 do_open(const char *psp, u32 flags) {
 	}
 	int h = open(hp, of, 0644);
 	bool faked = false;
+	{	// Rivals 1's movie reader spins on a full ring buffer here; it skips movies that don't open
+		size_t pl = strlen(psp);
+		if (disc_map == disc_map_sr1 && pl > 4 && !strcasecmp(psp + pl - 4, ".PMF")) {
+			if (h >= 0) close(h);
+			return SCE_ERROR_FILE_NOT_FOUND;
+		}
+	}
 	if (h < 0) {
 		// Missing FMV clips: serve a 1-second black PSMF so the game's player runs and finishes.
 		size_t pl = strlen(psp);
