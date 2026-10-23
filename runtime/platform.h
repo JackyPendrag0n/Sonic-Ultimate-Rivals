@@ -55,6 +55,9 @@ typedef ucontext_t host_ctx;
 void host_ctx_make(host_ctx *c, void *stack, size_t size, void (*fn)(void));
 // save the current context in from and resume to
 void host_ctx_swap(host_ctx *from, host_ctx *to);
+// Windows: when the program has its own console window (started by double-click), wait for Enter before
+// it closes, so an error message can be read. Elsewhere nothing.
+void host_pause_before_exit(void);
 // once at startup (Windows: 1 ms timer resolution, Winsock)
 void host_init(void);
 // 1 GiB of zeroed, read/write guest memory

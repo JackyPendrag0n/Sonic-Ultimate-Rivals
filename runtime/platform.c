@@ -64,6 +64,14 @@ static void env_dir(char *buf, size_t n, const char *var) {
 void host_data_dir(char *buf, size_t n) { env_dir(buf, n, "APPDATA"); }
 void host_config_dir(char *buf, size_t n) { env_dir(buf, n, "APPDATA"); }
 
+void host_pause_before_exit(void) {
+	DWORD procs[2];
+	if (GetConsoleProcessList(procs, 2) == 1) {
+		fputs("\nPress Enter to close this window.\n", stderr);
+		getchar();
+	}
+}
+
 int setenv(const char *name, const char *value, int overwrite) {
 	if (!overwrite && getenv(name)) return 0;
 	return _putenv_s(name, value) ? -1 : 0;
@@ -123,6 +131,7 @@ char *strtok_r(char *s, const char *delim, char **save) {
 #endif
 
 void host_init(void) {}
+void host_pause_before_exit(void) {}
 
 int host_memfile(const void *data, size_t size) {
 #ifdef __linux__

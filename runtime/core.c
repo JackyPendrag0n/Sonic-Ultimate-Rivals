@@ -57,6 +57,7 @@ void fatal(const char *fmt, ...) {
 		fprintf(stderr, "\n");
 	}
 	fflush(stderr);
+	host_pause_before_exit();
 	exit(1);
 }
 
@@ -454,9 +455,11 @@ LoadedModule *module_load(const char *psp_path, s32 *err) {
 }
 
 static void usage(void) {
-	fprintf(stderr, "usage: sr2recomp [folder containing PSP_GAME] [--2p] [--log N]\n"
-	                "  (no folder: the current directory, or the one sr2recomp is in)\n"
+	fprintf(stderr, "usage: sr2recomp [folder containing PSP_GAME | your game.iso] [--2p] [--log N]\n"
+	                "  (no folder: the current directory, \"game\" or the folder sr2recomp is in;\n"
+	                "   an .iso is unpacked once into \"game\" next to sr2recomp)\n"
 	                "  env: SR2_HEADLESS=1, SR2_SCALE=N, SR2_SAVE_DIR=dir, PSPGPU_THREADS=N, SR2_LOG=N\n");
+	host_pause_before_exit();
 	exit(2);
 }
 
@@ -506,6 +509,18 @@ int main(int argc, char **argv) {
 	g_trace_fn = getenv("SR2_TRACE_FN");
 	const char *e = getenv("SR2_LOG");
 	if (e) g_loglevel = atoi(e);
+	// A disc image instead of a folder: unpack it once into "game" next to the program, then run from there.
+	size_t gl0 = strlen(given);
+	if (gl0 > 4 && !strcasecmp(given + gl0 - 4, ".iso")) {
+		extern bool iso_unpack(const char *iso_path, const char *out_dir);
+		char out[1024], sysdir[1100];
+		if (host_exe_path(out, sizeof out) == 0 && strrchr(out, '/')) strcpy(strrchr(out, '/'), "/game");
+		else snprintf(out, sizeof out, "game");
+		snprintf(sysdir, sizeof sysdir, "%s/PSP_GAME/SYSDIR/BOOT.BIN", out);
+		struct stat st;
+		if (stat(sysdir, &st) != 0 && !iso_unpack(given, out)) { host_pause_before_exit(); return 1; }
+		snprintf(given, sizeof given, "%s", out);
+	}
 	{
 		bool ok = false;
 		if (npath) {
@@ -514,6 +529,7 @@ int main(int argc, char **argv) {
 			if (!ok && npath > 1) for (int i = 1; i < argc && !ok; i++) if (strncmp(argv[i], "--", 2)) { ok = try_game_root(argv[i]); break; }
 		} else {
 			ok = try_game_root(".");
+			if (!ok) ok = try_game_root("game");
 			if (!ok) {
 				char exe[1024];
 				if (host_exe_path(exe, sizeof exe) == 0) { char *sl = strrchr(exe, '/'); if (sl) { *sl = 0; ok = try_game_root(exe[0] ? exe : "/"); } }
