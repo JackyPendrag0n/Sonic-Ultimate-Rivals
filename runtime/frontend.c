@@ -413,6 +413,8 @@ static void run_menu_pause(void) {
 	kb_buttons = 0; kb_w = kb_a = kb_s = kb_d = 0;
 }
 
+void fe_apply_display_settings(void);
+
 // SR2_CTL: drive a running game from a shell (see the top of this file)
 static u32 track[8]; static int ntrack;
 static void ctl_poll(void) {

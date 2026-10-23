@@ -198,6 +198,11 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	if (posix_memalign(&p, alignment, size) != 0) return nullptr;
 	return p;
 }
+#if defined(__aarch64__)
+// (the JIT disassembly view, never used: the JIT is off)
+std::vector<std::string> DisassembleArm64(const u8 *data, int size) { return {}; }
+#endif
+
 #ifdef _WIN32
 // PPSSPP's Windows-only shader log hook
 void OutputDebugStringUTF8(const char *p) { fputs(p, stderr); }

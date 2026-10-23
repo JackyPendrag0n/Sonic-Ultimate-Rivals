@@ -14,9 +14,10 @@ CPUInfo::CPUInfo() {
 void CPUInfo::Detect() {
 	memset(this, 0, sizeof(*this));
 	vendor = VENDOR_OTHER;
+	OS64bit = CPU64bit = Mode64bit = true;
+#if defined(__x86_64__) || defined(__i386__)
 	strcpy(cpu_string, "x86-64");
 	strcpy(brand_string, "x86-64");
-	OS64bit = CPU64bit = Mode64bit = true;
 	bLongMode = true;
 	__builtin_cpu_init();
 	bSSE = bSSE2 = true;
@@ -31,6 +32,12 @@ void CPUInfo::Detect() {
 	bBMI1 = __builtin_cpu_supports("bmi");
 	bBMI2 = __builtin_cpu_supports("bmi2");
 	bLZCNT = bBMI1;
+#else
+	// ARM64 (Apple Silicon, ARM Linux): NEON is always there
+	strcpy(cpu_string, "arm64");
+	strcpy(brand_string, "arm64");
+	bNEON = bASIMD = true;
+#endif
 	long n = sysconf(_SC_NPROCESSORS_ONLN);
 	logical_cpu_count = n > 0 ? (int)n : 1;
 	num_cores = logical_cpu_count;
@@ -38,5 +45,5 @@ void CPUInfo::Detect() {
 }
 
 std::vector<std::string> CPUInfo::Features() { return {}; }
-std::string CPUInfo::Summarize() { return "x86-64"; }
-const char *GetCompilerABI() { return "x86-64"; }
+std::string CPUInfo::Summarize() { return cpu_string; }
+const char *GetCompilerABI() { return cpu_info.cpu_string; }
