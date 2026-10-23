@@ -36,6 +36,8 @@ while read -r path name; do
   fi
 done < data/modules.txt
 python3 -I tools/gen_support.py "${names[@]}"
+# --gen: only the recompiled C and the generated headers (runtime/interp_list.h, which the libraries include)
+[ "$1" = --gen ] && exit 0
 CFLAGS="$OPT -g -fno-strict-aliasing -fwrapv -foptimize-sibling-calls -Iruntime $PLAT_CFLAGS -w"
 objs=()
 build() { # src obj compiler flags...

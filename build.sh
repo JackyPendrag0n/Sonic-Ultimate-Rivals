@@ -97,6 +97,9 @@ echo "modules: $(wc -l < data/modules.txt)   target: $TARGET ${MARCH:-(default C
 [ "$(cat build/march 2>/dev/null)" = "$TARGET $MARCH" ] || rm -rf build/libpsp*.a build/*_obj build/obj
 echo "$TARGET $MARCH" > build/march
 
+# recompile the game's code first: the libraries include the generated runtime/interp_list.h
+tools/build.sh --gen
+
 # runtime libraries (PPSSPP-derived GPU, audio, video, system dialogs)
 LIBFLAGS="-O3 $ARCHFLAG"
 case $TARGET in
