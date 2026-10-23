@@ -73,7 +73,7 @@ std::string GetGameID() {
 
 // From PPSSPP Core/Compatibility.cpp: no compat flags (no compat.ini is loaded). Weak: libpspgpu.a
 // has the same definition.
-SR2_FALLBACK void Compatibility::Clear() {
+__attribute__((weak)) void Compatibility::Clear() {
 	memset(&flags_, 0, sizeof(flags_));
 	memset(&vrCompat_, 0, sizeof(vrCompat_));
 }
