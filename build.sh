@@ -113,11 +113,10 @@ case $TARGET in
   windows) LIBFLAGS="$LIBFLAGS -D_FILE_OFFSET_BITS=64 -DUNICODE -D_UNICODE -I$PWD/runtime/win32 -include $PWD/runtime/win32/compat.h";;
   macos) LIBFLAGS="$LIBFLAGS -I$PWD/runtime/macos -DGL_SILENCE_DEPRECATION -Wno-deprecated-declarations";;
 esac
+# (each one only recompiles what changed, so this is quick after the first build)
 for lib in gpu audio mpeg utility; do
-  if [ ! -f build/libpsp$lib.a ]; then
-    echo "building libpsp$lib.a ..."
-    CXXFLAGS="$LIBFLAGS" runtime/$lib/build.sh lib > build/lib$lib.log 2>&1 || { tail -20 build/lib$lib.log; exit 1; }
-  fi
+  [ -f build/libpsp$lib.a ] || echo "building libpsp$lib.a ..."
+  CXXFLAGS="$LIBFLAGS" runtime/$lib/build.sh lib > build/lib$lib.log 2>&1 || { tail -20 build/lib$lib.log; exit 1; }
 done
 
 GENOPT="-O1 $ARCHFLAG -foptimize-sibling-calls -fno-strict-aliasing -fwrapv -Iruntime -w" \
