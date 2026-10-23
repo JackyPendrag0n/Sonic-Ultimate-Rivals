@@ -212,7 +212,10 @@ out, left / right picks its character); `mp_bots` keeps a bit per player number.
 game's computer rival is: its input block reads source -2 (no pad) and its driver flag is set (F_ade6c). Bots
 have no view. A bot that has made no headway for 4 s once it got going (stuck at the foot of a loop, in a wall,
 or bunched up with another) is moved further along the path, further each time it is stuck again soon after
-(`bot_unstick`). The experimental "smarter computer players" option (`mp_smart_ai`) changes how the game's
+(`bot_unstick`). Headway is the game's race progress (F_b070c) and, since that stands still for seconds on some
+stretches, also the straight-line distance covered. When "further" would reach past the loaded sections, the
+furthest loaded point ahead is used. On Blue Coast bots still catch on the two wall springs and the pulley near
+the goal (human players go through them); they are moved on from there. The experimental "smarter computer players" option (`mp_smart_ai`) changes how the game's
 driver paces itself: it eases off or pushes by how far along it is next to its opponent (F_b1924, hook 50: the
 other seat, else the local player), into racer+0x8dc by F_b1a84 (hook 51: 2 well behind, pushes; 1 well
 ahead, eases off). With it a bot's opponent is whoever is furthest along of the others, and no computer driver

@@ -62,6 +62,9 @@ echo "modules: $(wc -l < data/modules.txt)"
 echo "$MARCH" > build/march
 
 # runtime libraries (PPSSPP-derived GPU, audio, video, system dialogs)
+# (rt.h includes the generated runtime/interp_list.h, written by tools/gen_support.py further down; it only
+# declares functions, so on a fresh checkout an empty one does for the libraries)
+[ -f runtime/interp_list.h ] || : > runtime/interp_list.h
 for lib in gpu audio mpeg utility; do
   if [ ! -f build/libpsp$lib.a ]; then
     echo "building libpsp$lib.a ..."

@@ -1539,7 +1539,7 @@ static int mac_t, mac_tries, mac_hold; static u32 mac_button, mac_sel; static fl
 
 static u32 menu_screen(void) { return LW(MENUS + 0x9f4); }
 static u32 menu_hash(void) { u32 s = menu_screen(); return s ? LW(s) : 0; }
-bool mp_active(void) { return mp_mode || getenv("SR2_MP_TEST"); }
+bool mp_active(void) { return mp_mode || ENV_ON("SR2_MP_TEST"); }   // (looked up once: this runs in per-frame hooks)
 
 static u32 pad_pressed(int id, u32 b) {   // buttons newly down on that controller
 	int i = 0;
@@ -1778,7 +1778,7 @@ static u32 stream_pick(Ctx *c) {   // the leader: the player in the furthest sec
 		if (stream_sec[k] > best || (stream_sec[k] == best && r == stream_leader)) { best = stream_sec[k]; lead = r; }
 	}
 	if (!lead) lead = p1_racer;
-	if (lead != stream_leader && getenv("SR2_MP_TRACE")) LOGI("stream: following player %d (section %d)", player_index(lead) + 1, best);
+	if (lead != stream_leader && ENV_ON("SR2_MP_TRACE")) LOGI("stream: following player %d (section %d)", player_index(lead) + 1, best);
 	return stream_leader = lead;
 }
 // The loads (F_15e4a8) keep the current section and those in its list of neighbours (section +0x24, up to three,
@@ -1838,16 +1838,25 @@ static bool below_section(u32 r) {   // fallen through (its floor went away unde
 // purpose (the game's driver eases off when it is far ahead) and is left alone.
 #define UNSTICK_VB    240     // no headway for this long (vblanks)
 #define UNSTICK_GAIN  0.004f  // of the race
+#define UNSTICK_NET   12.0f   // and no further than this from where it was (straight line, world units)
 static void bot_unstick(Ctx *c, u32 r, int k) {
 	static float prog[1 + MAX_EXTRA]; static u64 since[1 + MAX_EXTRA]; static float moved[1 + MAX_EXTRA]; static int tries[1 + MAX_EXTRA]; static u64 trap[1 + MAX_EXTRA]; static bool going[1 + MAX_EXTRA];
+	static float pos0[1 + MAX_EXTRA][3];
 	float v[3]; memcpy(v, PTR(r + RACER_VEL), sizeof v);
 	moved[k] += sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 	if (g_vblank_count < since[k] + UNSTICK_VB && g_vblank_count >= since[k]) return;
 	float p = race_progress(c, r), m = moved[k] / UNSTICK_VB;
-	bool stuck = since[k] && g_vblank_count - since[k] < UNSTICK_VB * 2 && p - prog[k] < UNSTICK_GAIN && going[k] && !finish_place[k];   // (standing still counts too, once it got going)
-	if (ENV_ON("SR2_UNSTICK_TRACE")) LOGI("unstick: p%d progress %.4f -> %.4f, moving %.3f%s", k + 1, prog[k], p, m, stuck ? ": stuck" : "");
+	// The game's progress (F_b070c) stands still for seconds at a time on some stretches (springs, rails, the long
+	// runs near the end of Blue Coast) while the racer flies along, so it alone made bots that were going fine
+	// "stuck" and moved them on every few seconds. A stuck one also has got nowhere: it stands, or rolls to and
+	// fro, so it ends up close to where it was.
+	float pos[3], net2; memcpy(pos, PTR(LW(r + 4) + 0x20), sizeof pos);
+	net2 = (pos[0] - pos0[k][0]) * (pos[0] - pos0[k][0]) + (pos[1] - pos0[k][1]) * (pos[1] - pos0[k][1]) + (pos[2] - pos0[k][2]) * (pos[2] - pos0[k][2]);
+	bool stuck = since[k] && g_vblank_count - since[k] < UNSTICK_VB * 2 && p - prog[k] < UNSTICK_GAIN && going[k] && !finish_place[k]   // (standing still counts too, once it got going)
+	             && net2 < UNSTICK_NET * UNSTICK_NET;
+	if (ENV_ON("SR2_UNSTICK_TRACE")) LOGI("unstick: p%d progress %.4f -> %.4f, moving %.3f, got %.1f, section %d (cur %d, active %x %x %x)%s", k + 1, prog[k], p, m, sqrtf(net2), stream_sec[k], (int)LW(STREAM_CUR), LW(WORLD + 0x5d50), LW(WORLD + 0x5d54), LW(WORLD + 0x5d58), stuck ? ": stuck" : "");
 	if (p < 0.01f) going[k] = false; else if (m > 2.0f) going[k] = true;
-	prog[k] = p; since[k] = g_vblank_count; moved[k] = 0;
+	prog[k] = p; since[k] = g_vblank_count; moved[k] = 0; memcpy(pos0[k], pos, sizeof pos);
 	if (!stuck) return;
 	tries[k] = trap[k] && g_vblank_count - trap[k] < UNSTICK_VB * 8 ? tries[k] + 1 : 1;   // (stuck again soon after: further each time)
 	trap[k] = g_vblank_count;
@@ -1866,7 +1875,12 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 		}
 	}
 	if (!best) return;
-	for (int s = 0; s < 16; s++) {   // and the first one 25 or so further on
+	// and the first one 25 or so further on. Further each time can reach past the loaded part of the course, and
+	// then nothing qualified and the bot was left stuck for good (seen at Blue Coast's wall springs): the furthest
+	// loaded node ahead of it does then.
+	u32 to = 0, last = 0; float to_d = 1e9f, last_d = from + 10;
+	float want = from + 25 * (tries[k] < 8 ? tries[k] : 8) + 7 * k;   // (spread out: bots that bunch up block each other)
+	for (int s = 0; s < 16; s++) {
 		if (!section_live(s)) continue;
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
 		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
@@ -1874,19 +1888,21 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 			u32 nd = LW(arr + i * 4);
 			if (nd < 0x08800000 || nd >= 0x0A000000) break;
 			float d; memcpy(&d, PTR(nd + 0x34), 4);
-			if (d < from + 25 * (tries[k] < 8 ? tries[k] : 8) + 7 * k) continue;   // (spread out: bots that bunch up block each other)
-			float t[4]; memcpy(t, PTR(nd), 16); t[2] += 1; t[3] = 1;
-			racer_place_at(c, r, t, r);
-			float zero[3] = {0, 0, 0};
-			memcpy(PTR(r + RACER_VEL), zero, sizeof zero);
-			Ctx save = *c;
-			c->r[4] = r + 0x114; c->r[5] = body + 0x20; c->r[6] = 0; c->r[7] = 5;
-			rt_call(c, 0x08800000 + 0x9b2a8);
-			*c = save;
-			LOGI("unstick: player %d had no headway, on to %.0f along the course", k + 1, d);
-			return;
+			if (d >= want && d < to_d) to = nd, to_d = d;
+			if (d > last_d) last = nd, last_d = d;
 		}
 	}
+	if (!to) to = last, to_d = last_d;
+	if (!to) return;
+	float t[4]; memcpy(t, PTR(to), 16); t[2] += 1; t[3] = 1;
+	racer_place_at(c, r, t, r);
+	float zero[3] = {0, 0, 0};
+	memcpy(PTR(r + RACER_VEL), zero, sizeof zero);
+	Ctx save = *c;
+	c->r[4] = r + 0x114; c->r[5] = body + 0x20; c->r[6] = 0; c->r[7] = 5;
+	rt_call(c, 0x08800000 + 0x9b2a8);
+	*c = save;
+	LOGI("unstick: player %d had no headway, on to %.0f along the course", k + 1, to_d);
 }
 static void stream_keep_up(Ctx *c, u32 r, int k) {   // from the move step of player k's racer
 	int f = (s32)LW(STREAM_CUR);
