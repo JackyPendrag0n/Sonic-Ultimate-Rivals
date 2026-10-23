@@ -26,7 +26,7 @@ case "$GAME" in
     GAME=game;;
 esac
 [ -d "$GAME" ] || { echo "usage: $0 /path/to/game.iso   or   $0 /path/to/game (folder containing PSP_GAME)"; exit 2; }
-GAME=$(cd "$GAME" && pwd)
+GAME=$(cd "$GAME" && pwd -P)
 case "$GAME" in */PSP_GAME|*/psp_game) GAME=$(dirname "$GAME");; esac
 SKIP_MODULES=${SKIP_MODULES:-"rtpspnetah rtpspnetin"}
 
