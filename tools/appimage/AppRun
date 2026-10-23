@@ -1,6 +1,6 @@
 #!/bin/bash
 # Sonic Rivals 2 recomp (personal test build). Usage: SonicRivals2.AppImage [/path/to/game]
-# The game folder holds PSP_GAME with the decrypted EBOOT.BIN in PSP_GAME/SYSDIR.
+# The game folder holds PSP_GAME as unpacked from your ISO (tools/setup_iso.py).
 # With no argument it looks next to the AppImage, then in the current folder.
 HERE="$(dirname "$(readlink -f "$0")")"
 export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
