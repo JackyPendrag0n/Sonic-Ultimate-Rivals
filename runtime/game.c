@@ -1700,6 +1700,11 @@ static void macro_vblank(void) {
 		if (h != SCR_RIVAL) { if (mac_t > 600 || (mac_tries && h != SCR_RIVAL)) mac = MAC_IDLE; break; }
 		if (mac_t < 20 || mac_t % 40) break;
 		if (rival_from == SCR_STAGES) { mac_press(B_CIRCLE); mac_tries++; break; }
+		if (mac_tries < 12) {   // the cursor (RIVAL_CHOICE) to player 2's character: the grid's rows hold 0-3 and 4-7
+			int want = game_char_of[g_cfg.mp_char2], cur = LW(RIVAL_CHOICE);
+			if (cur != want) { mac_press((cur >> 2) != (want >> 2) ? ((want >> 2) ? B_DOWN : B_UP) : B_RIGHT); mac_tries++; mac_t = 30; break; }
+			mac_tries = 12;
+		}
 		if (mac_tries++ & 1) { mac_press(B_RIGHT); mac_t = 10; break; }   // still here: a greyed one (player 1's), try the next
 		mac_press(B_CROSS);
 		break;
@@ -1721,10 +1726,6 @@ static void mp_menu_vblank(void) {
 	if (tr && menu_hash() != shown) { shown = menu_hash(); LOGI("menu screen %08x", shown); }   // test aid
 	if (lobby.open) { lobby_input(fe_buttons); fe_buttons = 0; }
 	else if (mac != MAC_IDLE) macro_vblank();
-	if (mp_mode && mac == MAC_IDLE && g_cfg.mp_players > 1) {   // player 2 is the rival
-		static const int game_char[MP_CHARS] = {0, 1, 3, 2, 7, 5, 6, 4};
-		if (menu_hash() == SCR_STAGES) SW(RIVAL_CHOICE, game_char[g_cfg.mp_char2]);
-	}
 	if (!lobby.open && mac == MAC_IDLE && mp_mode) {   // back in the Single Player or Main Menu: the multiplayer Single Event is over
 		u32 h = menu_hash();
 		if (h == SCR_SINGLE || h == SCR_MAIN) { mp_mode = false; fe_set_seats(NULL); title_restore(); LOGI("multiplayer: ended"); }
