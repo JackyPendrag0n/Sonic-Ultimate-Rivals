@@ -18,16 +18,19 @@
 set -e
 cd "$(dirname "$0")"
 GAME=${1:-${GAME:-game}}
-case "$GAME" in
+CHECK=; [ "$1" = --check ] && CHECK=1   # (CI: compile everything that doesn't need the game, no game files)
+[ -n "$CHECK" ] || case "$GAME" in
   *.iso|*.ISO)
     [ -f "$GAME" ] || { echo "no such file: $GAME"; exit 2; }
     PY=$(command -v python3 || command -v python) || { echo "missing: python3"; exit 1; }
     "$PY" -I tools/setup_iso.py "$GAME" game
     GAME=game;;
 esac
+if [ -z "$CHECK" ]; then
 [ -d "$GAME" ] || { echo "usage: $0 /path/to/game.iso   or   $0 /path/to/game (folder containing PSP_GAME)"; exit 2; }
 GAME=$(cd "$GAME" && pwd -P)
 case "$GAME" in */PSP_GAME|*/psp_game) GAME=$(dirname "$GAME");; esac
+fi
 SKIP_MODULES=${SKIP_MODULES:-"rtpspnetah rtpspnetin"}
 
 # ---------------------------------------------------------------- platform
@@ -69,6 +72,7 @@ for p in sdl2 libavcodec libavformat libavutil libswscale libswresample libpng z
     exit 1; }
 done
 
+if [ -z "$CHECK" ]; then
 # find a path case-insensitively below $GAME
 ci() { find "$GAME" -ipath "$GAME/$1" -print -quit 2>/dev/null; }
 is_elf() { [ "$(head -c 4 "$1" | od -A n -t x1 | tr -d ' ')" = "7f454c46" ]; }
@@ -92,13 +96,16 @@ while IFS= read -r f; do
 done < <(find "$GAME" \( -ipath "*/PSP_GAME/USRDIR/BIN/*.prx" -o -ipath "*/PSP_GAME/USRDIR/MODULES/*.prx" \) | sort)
 mv "$tmp" data/modules.txt
 echo "modules: $(wc -l < data/modules.txt)   target: $TARGET ${MARCH:-(default CPU)}"
+fi
 
+mkdir -p build
 # a different target or MARCH needs the libraries rebuilt
 [ "$(cat build/march 2>/dev/null)" = "$TARGET $MARCH" ] || rm -rf build/libpsp*.a build/*_obj build/obj
 echo "$TARGET $MARCH" > build/march
 
 # recompile the game's code first: the libraries include the generated runtime/interp_list.h
-tools/build.sh --gen
+if [ -n "$CHECK" ]; then mkdir -p build; [ -f runtime/interp_list.h ] || : > runtime/interp_list.h
+else tools/build.sh --gen; fi
 
 # runtime libraries (PPSSPP-derived GPU, audio, video, system dialogs)
 LIBFLAGS="-O3 $ARCHFLAG"
@@ -114,7 +121,8 @@ for lib in gpu audio mpeg utility; do
 done
 
 GENOPT="-O1 $ARCHFLAG -foptimize-sibling-calls -fno-strict-aliasing -fwrapv -Iruntime -w" \
-OPT="-O2 $ARCHFLAG" tools/build.sh
+OPT="-O2 $ARCHFLAG" tools/build.sh ${CHECK:+--check}
+[ -n "$CHECK" ] && exit 0
 EXE=; [ $TARGET = windows ] && EXE=.exe
 echo
 echo "Done. Run:  build/sr2recomp$EXE \"$GAME\""

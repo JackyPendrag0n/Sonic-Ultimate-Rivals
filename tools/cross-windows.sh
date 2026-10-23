@@ -51,5 +51,5 @@ if [ ! -f "$DEPS/lib/libavcodec.a" ]; then
      --enable-protocol=file --enable-swscale --enable-swresample && make -j"$JOBS" && make install)
 fi
 
-export CC=$HOST-gcc-posix CXX=$HOST-g++-posix AR=$HOST-ar PKG_CONFIG_LIBDIR=$DEPS/lib/pkgconfig PKG_CONFIG_PATH=
+export CC=$HOST-gcc-posix CXX=$HOST-g++-posix AR=$HOST-ar PKG_CONFIG_LIBDIR=$DEPS/lib/pkgconfig PKG_CONFIG_PATH= WIN_STATIC=1
 exec ./build.sh "$@"

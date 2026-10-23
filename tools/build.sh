@@ -17,7 +17,10 @@ case $TARGET in
     EXE=.exe
     # (compat.h fills in the POSIX calls MinGW lacks; SDL_MAIN_HANDLED: our own main(), console subsystem so the log shows)
     PLAT_CFLAGS="-Iruntime/win32 -include runtime/win32/compat.h -D_FILE_OFFSET_BITS=64 -DSDL_MAIN_HANDLED"
-    PLAT_LIBS="-static -static-libgcc -static-libstdc++ -lws2_32 -lwinmm -lopengl32 -lbcrypt -lole32 -luser32 -lsecur32 -lpthread -Wl,--stack,16777216 -Wl,--allow-multiple-definition";;
+    PLAT_LIBS="-static-libgcc -static-libstdc++ -lws2_32 -lwinmm -lopengl32 -lbcrypt -lole32 -luser32 -lsecur32 -lpthread -Wl,--stack,16777216"
+    # WIN_STATIC=1 (tools/cross-windows.sh, whose libraries are static only): one .exe with no DLLs.
+    # Otherwise (MSYS2) the DLLs it needs are copied next to it after linking.
+    [ "$WIN_STATIC" = 1 ] && PLAT_LIBS="-static $PLAT_LIBS";;
   macos)
     # (runtime/macos: the standard GL/gl.h + glext.h, which macOS doesn't ship)
     PLAT_CFLAGS="-DGL_SILENCE_DEPRECATION -Wno-deprecated-declarations -Iruntime/macos"
@@ -27,6 +30,10 @@ esac
 SDL_CFLAGS="$(pkg-config --cflags sdl2 | sed 's/-Dmain=SDL_main//') -I$(pkg-config --variable=includedir sdl2)"
 mkdir -p build/obj gen
 names=()
+# --check (CI, no game files): compile the runtime only, with an empty interpreter list, and don't link
+if [ "$1" = --check ]; then
+  [ -f runtime/interp_list.h ] || : > runtime/interp_list.h
+else
 while read -r path name; do
   [ -z "$path" ] || [[ "$path" == \#* ]] && continue
   names+=("$name")
@@ -36,6 +43,7 @@ while read -r path name; do
   fi
 done < data/modules.txt
 python3 -I tools/gen_support.py "${names[@]}"
+fi
 # --gen: only the recompiled C and the generated headers (runtime/interp_list.h, which the libraries include)
 [ "$1" = --gen ] && exit 0
 CFLAGS="$OPT -g -fno-strict-aliasing -fwrapv -foptimize-sibling-calls -Iruntime $PLAT_CFLAGS -w"
@@ -56,7 +64,8 @@ for n in "${names[@]}"; do
     if [ ${#pids[@]} -ge ${JOBS:-$(nproc)} ]; then wait ${pids[0]} || fail=1; pids=("${pids[@]:1}"); fi
   done
 done
-for f in gen/modules.c gen/nidnames.c runtime/*.c; do
+support=(gen/modules.c gen/nidnames.c); [ "$1" = --check ] && support=()
+for f in "${support[@]}" runtime/*.c; do
   o=build/obj/$(basename ${f%.c}).o; objs+=($o)
   build $f $o $CC $CFLAGS $SDL_CFLAGS $(pkg-config --cflags libpng zlib) -Wall -Wno-unused-function -Wno-unused-variable &
   pids+=($!)
@@ -71,13 +80,19 @@ for f in runtime/vfpu/*.cpp; do
 done
 for p in "${pids[@]}"; do wait $p || fail=1; done
 if [ -n "$fail" ]; then echo "build FAILED (compile errors above)"; exit 1; fi
+[ "$1" = --check ] && { echo "compile check passed ($TARGET)"; exit 0; }
 [ -f build/libpspgpu.a ] || runtime/gpu/build.sh lib
 [ -f build/libpspaudio.a ] || runtime/audio/build.sh lib
 [ -f build/libpspmpeg.a ] || runtime/mpeg/build.sh lib
 [ -f build/libpsputility.a ] || runtime/utility/build.sh lib
 SDL_LIBS=$(pkg-config --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
 # Windows: SDL2 linked in statically, so the .exe needs no DLLs
-[ $TARGET = windows ] && SDL_LIBS=$(pkg-config --static --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
+[ "$WIN_STATIC" = 1 ] && SDL_LIBS=$(pkg-config --static --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
 $CXX -o build/sr2recomp$EXE "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a \
   $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) $SDL_LIBS $(pkg-config --libs libpng zlib) $PLAT_LIBS -lm
+if [ $TARGET = windows ] && [ "$WIN_STATIC" != 1 ] && command -v ldd >/dev/null; then
+  # MSYS2: copy the MinGW DLLs (SDL2, FFmpeg, ...) next to the .exe, so it also starts outside the MSYS2 shell
+  ldd build/sr2recomp$EXE | awk '$3 ~ /\/(ucrt64|mingw64|clang64)\/bin\// {print $3}' | sort -u | while read -r d; do cp -u "$d" build/; done
+  echo "copied $(ls build/*.dll 2>/dev/null | wc -l) DLLs into build/"
+fi
 echo "built build/sr2recomp$EXE"
