@@ -15,13 +15,16 @@ ROOT="$(cd "$AUD/../.." && pwd)"
 OUT="$ROOT/build"
 OBJ="$OUT/audio_obj"
 CXX="${CXX:-g++}"
-JOBS="$(nproc)"
+# x86 builds use SSE2; other CPUs (Apple Silicon, ARM Linux) take PPSSPP's NEON/plain paths
+case "$($CXX -dumpmachine)" in x86_64*|i?86*) SIMDFLAGS="-msse2";; *) SIMDFLAGS="";; esac
+case "$($CXX -dumpmachine)" in *mingw*|*windows*) PICFLAG="";; *) PICFLAG="-fPIC";; esac
+JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}"
 
 if [ "$1" = clean ]; then rm -rf "$OBJ" "$OUT/libpspaudio.a" "$OUT/test_audio"; exit 0; fi
 
 INCLUDES="-I$AUD/shim -I$AUD/ppsspp -iquote $AUD/ppsspp/Common"
 DEFINES="-DMASKED_PSP_MEMORY -DNDEBUG"
-CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 -fPIC -msse2 -fno-strict-aliasing -Wno-unused-result -Wno-deprecated-declarations -Wno-class-memaccess -Wno-format-truncation"
+CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 $PICFLAG $SIMDFLAGS -fno-strict-aliasing -Wno-unused-result -Wno-deprecated-declarations -Wno-class-memaccess -Wno-format-truncation"
 
 SOURCES="
 ppsspp/Core/HLE/sceSas.cpp
@@ -51,6 +54,13 @@ ppsspp/Common/Data/Format/RIFF.cpp
 stubs/stubs.cpp
 stubs/cpu_detect.cpp
 "
+
+# Windows (PE) has no weak symbols that work like ELF ones (a weakened copy of Memory::base in this library
+# would be a second variable), and macOS has no objcopy. libpspgpu.a has all of this support code, so there
+# it is left out (RIFF stays: libpspgpu.a doesn't have it). The standalone test_audio needs the ELF way.
+case "$($CXX -dumpmachine)" in
+	*mingw*|*windows*|*apple*|*darwin*) SOURCES="$SOURCES ppsspp/Common/Data/Format/RIFF.cpp"; SUPPORT="";;
+esac
 
 mkdir -p "$OBJ"
 
@@ -83,7 +93,7 @@ export OBJ AUD CXX CXXFLAGS DEFINES INCLUDES
 OBJS=""
 for s in $SOURCES $SUPPORT; do OBJS="$OBJS $(objname "$s")"; done
 rm -f "$OUT/libpspaudio.a"
-ar rcs "$OUT/libpspaudio.a" $OBJS
+${AR:-ar} rcs "$OUT/libpspaudio.a" $OBJS
 echo "built $OUT/libpspaudio.a"
 
 [ "$1" = lib ] && exit 0

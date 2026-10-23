@@ -17,15 +17,18 @@ ROOT="$(cd "$GPU/../.." && pwd)"
 OUT="$ROOT/build"
 OBJ="$OUT/gpu_obj"
 CXX="${CXX:-g++}"
+# x86 builds use SSE2; other CPUs (Apple Silicon, ARM Linux) take PPSSPP's NEON/plain paths
+case "$($CXX -dumpmachine)" in x86_64*|i?86*) SIMDFLAGS="-msse2";; *) SIMDFLAGS="";; esac
+case "$($CXX -dumpmachine)" in *mingw*|*windows*) PICFLAG="";; *) PICFLAG="-fPIC";; esac
 CC="${CC:-gcc}"
-JOBS="$(nproc)"
+JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}"
 
 if [ "$1" = clean ]; then rm -rf "$OBJ" "$OUT/libpspgpu.a" "$OUT/test_ge" "$OUT/test_ge_gl"; exit 0; fi
 
 # Shims first so they override PPSSPP headers; PPSSPP also uses bare "CommonTypes.h"-style includes.
-INCLUDES="-I$GPU/shim -I$GPU/ppsspp -iquote $GPU/ppsspp/Common"
+INCLUDES="-I$GPU/shim -I$GPU/ppsspp -iquote $GPU/ppsspp/Common $(pkg-config --cflags libpng 2>/dev/null)"
 DEFINES="-DMASKED_PSP_MEMORY -DNDEBUG -DRCSM_GL_SINGLE_THREAD"
-CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 -fPIC -msse2 -fno-strict-aliasing -Wno-unused-result -Wno-deprecated-declarations -Wno-class-memaccess -Wno-format-truncation"
+CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 $PICFLAG $SIMDFLAGS -fno-strict-aliasing -Wno-unused-result -Wno-deprecated-declarations -Wno-class-memaccess -Wno-format-truncation"
 
 SOURCES="
 ppsspp/GPU/GPUCommon.cpp
@@ -140,7 +143,7 @@ echo "$SOURCES" | grep -v '^$' | xargs -P "$JOBS" -I{} bash -c 'compile {}'
 
 OBJS=$(echo "$SOURCES" | grep -v '^$' | sed 's|/|_|g; s|\.cpp$|.o|; s|\.c$|.o|' | sed "s|^|$OBJ/|")
 rm -f "$OUT/libpspgpu.a"
-ar rcs "$OUT/libpspgpu.a" $OBJS
+${AR:-ar} rcs "$OUT/libpspgpu.a" $OBJS
 echo "built $OUT/libpspgpu.a"
 
 [ "$1" = lib ] && exit 0

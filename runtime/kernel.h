@@ -6,7 +6,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <ucontext.h>
+#include "platform.h"
 
 // ---------------------------------------------------------------- logging
 extern int g_loglevel;
@@ -87,7 +87,7 @@ typedef struct Thread {
 	u32 entry, prio, init_prio, stack_size, stack_addr, stack_uid, attr, gp;
 	int status;
 	Ctx ctx;
-	ucontext_t uc;
+	host_ctx uc;
 	void *hoststack;
 	int wait_type;
 	u32 wait_id;

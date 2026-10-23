@@ -126,7 +126,7 @@ u32 mem_total_free(void) { u32 m = 0; for (Block *b = user_blocks; b; b = b->nex
 // ================================================================= threads
 Thread *g_cur;
 static Thread *all_threads;
-static ucontext_t sched_uc;
+static host_ctx sched_uc;
 static u64 seq_counter;
 bool g_in_intr;
 u64 g_vblank_count;
@@ -143,7 +143,7 @@ static void thread_tramp(void) {
 	t->status = TS_DORMANT;
 	for (Thread *w = NULL; (w = thread_find_waiting(W_THREADEND, t->uid, w));) thread_wake(w, t->exit_status);
 	if (t->attr & 0x80000000u) {}  // main thread: keep going (game may have other threads)
-	swapcontext(&t->uc, &sched_uc);
+	host_ctx_swap(&t->uc, &sched_uc);
 	fatal("dead thread resumed");
 }
 
@@ -184,11 +184,7 @@ void thread_start(Thread *t, u32 argsize, u32 argp) {
 	t->ctx.r[31] = 0;
 	t->ctx.fcr31 = 0;
 	if (!t->hoststack) t->hoststack = malloc(1 << 20);
-	getcontext(&t->uc);
-	t->uc.uc_stack.ss_sp = t->hoststack;
-	t->uc.uc_stack.ss_size = 1 << 20;
-	t->uc.uc_link = NULL;
-	makecontext(&t->uc, thread_tramp, 0);
+	host_ctx_make(&t->uc, t->hoststack, 1 << 20, thread_tramp);
 	t->status = TS_READY;
 	t->seq = ++seq_counter;
 	t->wakeup_count = 0;
@@ -227,7 +223,7 @@ void thread_wake(Thread *t, s32 result) {
 
 static void switch_to_sched(void) {
 	Thread *t = g_cur;
-	swapcontext(&t->uc, &sched_uc);
+	host_ctx_swap(&t->uc, &sched_uc);
 }
 
 // Block until really woken. A thread in a CB-enabled wait may be resumed just to run notified
@@ -433,7 +429,7 @@ void sched_run(void) {
 		if (g_virtual) g_vtime += 2;
 		g_cur = t;
 		t->status = TS_RUNNING;
-		swapcontext(&sched_uc, &t->uc);
+		host_ctx_swap(&sched_uc, &t->uc);
 		if (t->status == TS_RUNNING) t->status = TS_READY;
 		g_cur = NULL;
 	}

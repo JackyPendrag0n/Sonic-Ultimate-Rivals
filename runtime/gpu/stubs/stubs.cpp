@@ -13,7 +13,12 @@
 #include <map>
 #include <mutex>
 #include <string>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <sys/mman.h>
+#endif
 
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
@@ -160,6 +165,14 @@ size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, size_t pref
 }
 bool MemBlockInfoDetailed() { return false; }
 
+#ifdef _WIN32
+void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
+	return VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, (memProtFlags & MEM_PROT_WRITE) ? PAGE_READWRITE : PAGE_READONLY);
+}
+void FreeMemoryPages(void *ptr, size_t size) {
+	if (ptr) VirtualFree(ptr, 0, MEM_RELEASE);
+}
+#else
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	int prot = 0;
 	if (memProtFlags & MEM_PROT_READ) prot |= PROT_READ;
@@ -171,6 +184,7 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 void FreeMemoryPages(void *ptr, size_t size) {
 	if (ptr) munmap(ptr, size);
 }
+#endif
 bool ProtectMemoryPages(const void *ptr, size_t size, uint32_t memProtFlags) { return true; }
 void *AllocateExecutableMemory(size_t size) {
 	gpu_log(0, "GE: executable memory requested, but the vertex decoder JIT is disabled");
@@ -184,7 +198,13 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	if (posix_memalign(&p, alignment, size) != 0) return nullptr;
 	return p;
 }
+#ifdef _WIN32
+// PPSSPP's Windows-only shader log hook
+void OutputDebugStringUTF8(const char *p) { fputs(p, stderr); }
+void FreeAlignedMemory(void *ptr) { _aligned_free(ptr); }
+#else
 void FreeAlignedMemory(void *ptr) { free(ptr); }
+#endif
 
 // ------------------------------------------------------------------ JIT (disabled)
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {

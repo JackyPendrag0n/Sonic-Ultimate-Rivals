@@ -19,15 +19,18 @@ ROOT="$(cd "$UTL/../.." && pwd)"
 OUT="$ROOT/build"
 OBJ="$OUT/utility_obj"
 CXX="${CXX:-g++}"
+# x86 builds use SSE2; other CPUs (Apple Silicon, ARM Linux) take PPSSPP's NEON/plain paths
+case "$($CXX -dumpmachine)" in x86_64*|i?86*) SIMDFLAGS="-msse2";; *) SIMDFLAGS="";; esac
+case "$($CXX -dumpmachine)" in *mingw*|*windows*) PICFLAG="";; *) PICFLAG="-fPIC";; esac
 CC="${CC:-gcc}"
-JOBS="$(nproc)"
+JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}"
 
 if [ "$1" = clean ]; then rm -rf "$OBJ" "$OUT/libpsputility.a" "$OUT/test_utility"; exit 0; fi
 
 # The utility shims first, then the audio library's (HLE bridge ABI), then the PPSSPP copies.
 INCLUDES="-I$UTL/shim -I$AUD/shim -I$UTL/ppsspp -iquote $UTL/ppsspp/Common $(pkg-config --cflags libpng)"
 DEFINES="-DMASKED_PSP_MEMORY -DNDEBUG"
-CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 -fPIC -msse2 -fno-strict-aliasing -Wno-unused-result -Wno-deprecated-declarations -Wno-class-memaccess -Wno-format-truncation"
+CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 $PICFLAG $SIMDFLAGS -fno-strict-aliasing -Wno-unused-result -Wno-deprecated-declarations -Wno-class-memaccess -Wno-format-truncation"
 CFLAGS="${CFLAGS:--O2} -std=gnu11 -g0 -fPIC -w"
 
 SOURCES="
@@ -82,7 +85,7 @@ echo "$SOURCES" | grep -v '^$' | xargs -P "$JOBS" -I{} bash -c 'compile {}'
 OBJS=""
 for s in $SOURCES; do OBJS="$OBJS $(objname "$s")"; done
 rm -f "$OUT/libpsputility.a"
-ar rcs "$OUT/libpsputility.a" $OBJS
+${AR:-ar} rcs "$OUT/libpsputility.a" $OBJS
 echo "built $OUT/libpsputility.a"
 
 [ "$1" = lib ] && exit 0

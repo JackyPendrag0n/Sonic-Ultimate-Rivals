@@ -1638,7 +1638,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 	AllocCodeSpace(1024 * 64 * 4);
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
-#if defined(_WIN32) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64))
+#if defined(_MSC_VER) && (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64))
 	using namespace Gen;
 	for (int i = 0; i < 100; i++) {
 		MOV(32, R(EAX), R(EBX));

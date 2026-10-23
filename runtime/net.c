@@ -16,10 +16,30 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <mstcpip.h>
+#ifndef SIO_UDP_CONNRESET
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
+#define close(s) closesocket(s)
+static void set_nonblock(int s) {
+	u_long one = 1;
+	ioctlsocket(s, FIONBIO, &one);
+	// Windows reports a datagram to a closed port (an ICMP reply) as an error on the next recv: turn that off,
+	// since beacons go to every port in the range
+	BOOL off = FALSE; DWORD n;
+	WSAIoctl(s, SIO_UDP_CONNRESET, &off, sizeof off, NULL, 0, &n, NULL, NULL);
+}
+#else
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+static void set_nonblock(int s) { fcntl(s, F_SETFL, O_NONBLOCK); }
+#endif
 
 #define ADHOC_INVALID_SOCKET 0x80410701u
 #define ADHOC_INVALID_ADDR   0x80410702u
@@ -103,7 +123,7 @@ static void net_open(void) {
 		if (bind(sock, (struct sockaddr *)&a, sizeof a) == 0) { self_n = n; break; }
 	}
 	if (!self_n) { LOGE("net: no free UDP port %d-%d: wireless play disabled", NET_BASE_PORT, NET_BASE_PORT + NET_MAX - 1); close(sock); sock = -1; return; }
-	fcntl(sock, F_SETFL, O_NONBLOCK);
+	set_nonblock(sock);
 	u8 mac[6] = {0x02, 0x53, 0x52, 0x32, 0x00, (u8)self_n};
 	memcpy(self_mac, mac, 6);
 	if ((e = getenv("SR2_NET_PEERS"))) {
@@ -136,9 +156,9 @@ static void send_raw(const u8 *dst, int type, const void *payload, int len) {
 		// local copies: unicast goes straight to the owner of that MAC
 		if (memcmp(dst, BCAST, 6) && !(dst[0] == 0x02 && dst[1] == 0x53 && dst[5] == n)) continue;
 		struct sockaddr_in a = {.sin_family = AF_INET, .sin_port = htons(NET_BASE_PORT + n - 1), .sin_addr.s_addr = htonl(INADDR_LOOPBACK)};
-		sendto(sock, buf, 13 + len, 0, (struct sockaddr *)&a, sizeof a);
+		sendto(sock, (const char *)buf, 13 + len, 0, (struct sockaddr *)&a, sizeof a);
 	}
-	for (int i = 0; i < nremote; i++) sendto(sock, buf, 13 + len, 0, (struct sockaddr *)&remote[i], sizeof remote[i]);
+	for (int i = 0; i < nremote; i++) sendto(sock, (const char *)buf, 13 + len, 0, (struct sockaddr *)&remote[i], sizeof remote[i]);
 }
 
 static Match *match_by_port(u16 port) {
@@ -223,7 +243,7 @@ static void net_pump(void) {
 	if (sock < 0) return;
 	u8 buf[2048];
 	int n;
-	while ((n = recv(sock, buf, sizeof buf, 0)) >= 13) {
+	while ((n = recv(sock, (char *)buf, sizeof buf, 0)) >= 13) {
 		const u8 *src = buf + 1, *dst = buf + 7, *p = buf + 13;
 		int len = n - 13;
 		if (!memcmp(src, self_mac, 6)) continue;

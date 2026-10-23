@@ -16,7 +16,10 @@ ROOT="$(cd "$MPG/../.." && pwd)"
 OUT="$ROOT/build"
 OBJ="$OUT/mpeg_obj"
 CXX="${CXX:-g++}"
-JOBS="$(nproc)"
+# x86 builds use SSE2; other CPUs (Apple Silicon, ARM Linux) take PPSSPP's NEON/plain paths
+case "$($CXX -dumpmachine)" in x86_64*|i?86*) SIMDFLAGS="-msse2";; *) SIMDFLAGS="";; esac
+case "$($CXX -dumpmachine)" in *mingw*|*windows*) PICFLAG="";; *) PICFLAG="-fPIC";; esac
+JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}"
 FFLIBS="libavformat libavcodec libswscale libswresample libavutil"
 
 if [ "$1" = clean ]; then rm -rf "$OBJ" "$OUT/libpspmpeg.a" "$OUT/test_mpeg"; exit 0; fi
@@ -25,7 +28,7 @@ if [ "$1" = clean ]; then rm -rf "$OBJ" "$OUT/libpspmpeg.a" "$OUT/test_mpeg"; ex
 INCLUDES="-I$MPG/shim -I$AUD/shim -I$MPG/ppsspp -iquote $MPG/ppsspp/Common $(pkg-config --cflags $FFLIBS)"
 DEFINES="-DMASKED_PSP_MEMORY -DNDEBUG -DUSE_FFMPEG"
 # -fpermissive: PPSSPP assigns avcodec_find_decoder()'s const AVCodec* to AVCodec* (FFmpeg >= 5).
-CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 -fPIC -msse2 -fno-strict-aliasing -fpermissive -w"
+CXXFLAGS="${CXXFLAGS:--O2} -std=c++17 -g0 $PICFLAG $SIMDFLAGS -fno-strict-aliasing -fpermissive -w"
 
 SOURCES="
 ppsspp/Core/HLE/sceMpeg.cpp
@@ -57,7 +60,7 @@ echo "$SOURCES" | grep -v '^$' | xargs -P "$JOBS" -I{} bash -c 'compile {}'
 OBJS=""
 for s in $SOURCES; do OBJS="$OBJS $(objname "$s")"; done
 rm -f "$OUT/libpspmpeg.a"
-ar rcs "$OUT/libpspmpeg.a" $OBJS
+${AR:-ar} rcs "$OUT/libpspmpeg.a" $OBJS
 echo "built $OUT/libpspmpeg.a"
 
 [ "$1" = lib ] && exit 0

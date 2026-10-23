@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
-#include <sys/mman.h>
 #include <strings.h>
 #include "mpeg/mpeg_hle.h"
 
@@ -296,7 +295,7 @@ static s32 do_open(const char *psp, u32 flags) {
 		if (strstr(m->path, "STREAMS/STORY_")) { void charslot_reset(void); charslot_reset(); }   // skins are for single events
 		char skin[1024];
 		if (racer_redirect(m->path, skin, sizeof skin)) { host = skin; LOGI("io: %s from the skin, %s", m->path, skin); }
-		int h = open(host, O_RDONLY);
+		int h = open(host, O_RDONLY | O_BINARY);
 		if (h < 0) LOGE("io: %s needs %s, which can't be opened", psp, host);
 		if (h < 0) return SCE_ERROR_FILE_NOT_FOUND;
 		int fd = alloc_fd();
@@ -322,7 +321,7 @@ static s32 do_open(const char *psp, u32 flags) {
 		char d[1024]; snprintf(d, sizeof d, "%s", hp);
 		for (char *p = d + strlen(g_save_root) + 1; (p = strchr(p, '/')); p++) { *p = 0; mkdir(d, 0755); *p = '/'; }
 	}
-	int h = open(hp, of, 0644);
+	int h = open(hp, of | O_BINARY, 0644);
 	bool faked = false;
 	{	// Rivals 1's movie reader spins on a full ring buffer here; it skips movies that don't open
 		size_t pl = strlen(psp);
@@ -356,12 +355,11 @@ static s32 do_open(const char *psp, u32 flags) {
 			}
 			unsigned sz = 0;
 			const unsigned char *data = mpeg_fake_pmf(&sz);
-			h = memfd_create("fakepmf", 0);
-			if (h >= 0 && write(h, data, sz) == (ssize_t)sz) {
-				lseek(h, 0, SEEK_SET);
+			h = host_memfile(data, sz);
+			if (h >= 0) {
 				LOGI("video %s is missing: substituting a 1 s black clip", psp);
 				faked = true;
-			} else if (h >= 0) { close(h); h = -1; }
+			}
 		}
 	}
 	if (h < 0) { LOGD("open %s (%s) -> errno %d", psp, hp, errno); return SCE_ERROR_FILE_NOT_FOUND; }

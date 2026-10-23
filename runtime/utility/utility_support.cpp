@@ -15,7 +15,9 @@
 #include <string_view>
 #include <vector>
 
+#ifndef _WIN32
 #include <sys/statvfs.h>
+#endif
 #include <zlib.h>
 
 #include "Common/CommonTypes.h"
@@ -46,6 +48,13 @@
 #include "zstd.h"
 
 #include "../audio/stubs/kernel_bridge.h"  // last: it defines short macros
+// The only definition in the program, but weak elsewhere so a fuller one can replace it. Windows (PE) links can't
+// resolve a reference to a symbol that is only ever defined weak in a static library, so it is strong there.
+#ifdef _WIN32
+#define SR2_FALLBACK
+#else
+#define SR2_FALLBACK __attribute__((weak))
+#endif
 
 extern "C" u32 fe_buttons;  // runtime/frontend.c: PSP button bits of the host controller
 
@@ -64,7 +73,7 @@ std::string GetGameID() {
 
 // From PPSSPP Core/Compatibility.cpp: no compat flags (no compat.ini is loaded). Weak: libpspgpu.a
 // has the same definition.
-__attribute__((weak)) void Compatibility::Clear() {
+SR2_FALLBACK void Compatibility::Clear() {
 	memset(&flags_, 0, sizeof(flags_));
 	memset(&vrCompat_, 0, sizeof(vrCompat_));
 }
@@ -221,11 +230,13 @@ u64 MemoryStick_SectorSize() {
 u64 MemoryStick_FreeSpace(std::string gameID) {
 	// The host's free space, capped at the configured stick size (games mishandle huge values).
 	const u64 cap = (u64)g_Config.iMemStickSizeGB << 30;
+#ifndef _WIN32
 	struct statvfs vfs;
 	if (g_save_root[0] && statvfs(g_save_root, &vfs) == 0) {
 		u64 avail = (u64)vfs.f_bavail * vfs.f_frsize;
 		return std::min(avail, cap);
 	}
+#endif
 	return cap;
 }
 void MemoryStick_NotifyGameName(std::string gameID) {}
@@ -301,14 +312,14 @@ size_t ZSTD_decompress(void *dst, size_t dstCapacity, const void *src, size_t co
 
 // ---------------------------------------------------------------- host files (PNG writing, unused)
 namespace File {
-__attribute__((weak)) FILE *OpenCFile(const Path &filename, const char *mode) {
+SR2_FALLBACK FILE *OpenCFile(const Path &filename, const char *mode) {
 	return nullptr;
 }
-__attribute__((weak)) bool Delete(const Path &filename, bool quiet) {
+SR2_FALLBACK bool Delete(const Path &filename, bool quiet) {
 	return false;
 }
 }
-__attribute__((weak)) std::string Path::GetFilename() const {
+SR2_FALLBACK std::string Path::GetFilename() const {
 	size_t pos = path_.rfind('/');
 	return pos != std::string::npos ? path_.substr(pos + 1) : path_;
 }

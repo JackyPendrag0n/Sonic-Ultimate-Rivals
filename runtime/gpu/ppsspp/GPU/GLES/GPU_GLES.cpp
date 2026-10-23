@@ -40,7 +40,7 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(RCSM_GL_SINGLE_THREAD)
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 

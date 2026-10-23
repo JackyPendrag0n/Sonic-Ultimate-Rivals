@@ -8,7 +8,7 @@
 #if PPSSPP_API(ANY_GL)
 #include "Common/GPU/OpenGL/GLCommon.h"
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(RCSM_GL_SINGLE_THREAD)
 #include "GL/wglew.h"
 #endif
 #endif
@@ -351,7 +351,7 @@ bool CheckGLExtensions() {
 		ParseExtensionsString(g_all_gl_extensions, g_set_gl_extensions);
 	}
 
-#if defined(WIN32) && !defined(__LIBRETRO__)
+#if defined(WIN32) && !defined(__LIBRETRO__) && !defined(RCSM_GL_SINGLE_THREAD)
 	const char *wglString = 0;
 	if (wglGetExtensionsStringEXT)
 		wglString = wglGetExtensionsStringEXT();

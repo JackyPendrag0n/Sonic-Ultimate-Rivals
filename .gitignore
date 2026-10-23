@@ -3,3 +3,8 @@ build/
 data/modules.txt
 gen/
 runtime/interp_list.h
+# your game files: never commit them
+game/
+*.iso
+*.ISO
+*.cso

@@ -112,7 +112,13 @@ int UtilityFileSystem::OpenFile(std::string filename, FileAccess access, const c
 	if (access & FILEACCESS_CREATE) flags |= O_CREAT;
 	if (access & FILEACCESS_TRUNCATE) flags |= O_TRUNC;
 	if (access & FILEACCESS_EXCL) flags |= O_EXCL;
-	int fd = open(host.c_str(), flags | O_CLOEXEC, 0644);
+	#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+	int fd = open(host.c_str(), flags | O_CLOEXEC | O_BINARY, 0644);
 	if (fd < 0) {
 		if (!(access & FILEACCESS_PPSSPP_QUIET))
 			DEBUG_LOG(Log::IO, "utility fs: can't open %s (%s): %s", filename.c_str(), host.c_str(), strerror(errno));

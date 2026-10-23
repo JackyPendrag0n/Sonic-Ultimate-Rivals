@@ -12,16 +12,29 @@
 #include "config.h"
 #include "gpu/ge_soft.h"
 #include <SDL2/SDL.h>
-#include <GL/gl.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
+typedef HANDLE proc_t;
+#define NO_PROC NULL
+#else
+#include <GL/gl.h>
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <dirent.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
+typedef pid_t proc_t;
+#define NO_PROC 0
+#endif
 
 #define SPLIT_MAGIC 0x53523250u   // 'SR2P'
 #define MAX_W (480 * 3)
@@ -39,7 +52,7 @@ typedef struct {
 } Shared;
 
 static Shared *sh;
-static pid_t child;
+static proc_t child = NO_PROC;
 static bool is_child;
 static u32 last_frame;
 static GLuint tex, fbo;
@@ -58,21 +71,110 @@ static void (*p_BlitFramebuffer)(GLint, GLint, GLint, GLint, GLint, GLint, GLint
 static void (*p_PixelStorei)(GLenum, GLint);
 
 bool split_is_child(void) { return is_child; }
-bool split_active(void) { return child > 0; }
+bool split_active(void) { return child != NO_PROC; }
 
-static void map_shared(int fd) {
-	sh = mmap(NULL, sizeof(Shared), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+// ---------------------------------------------------------------- host process and shared memory
+// The shared block is passed to the child as an inherited handle (Windows) or file descriptor, named in SR2_SPLIT_FD.
+#ifdef _WIN32
+static HANDLE job;
+
+static void map_shared(const char *handle) {
+	sh = MapViewOfFile((HANDLE)(uintptr_t)strtoull(handle, NULL, 10), FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared));
+	if (!sh) fatal("split screen: MapViewOfFile failed (%lu)", GetLastError());
+}
+static bool create_shared(char *name, size_t n) {
+	SECURITY_ATTRIBUTES sa = {sizeof sa, NULL, TRUE};
+	HANDLE h = CreateFileMappingA(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE, 0, sizeof(Shared), NULL);
+	if (!h) return false;
+	snprintf(name, n, "%llu", (unsigned long long)(uintptr_t)h);
+	map_shared(name);
+	return true;
+}
+static void parent_death_signal(void) {}   // the parent's job object closes this process with it
+static bool proc_running(proc_t p) { return WaitForSingleObject(p, 0) == WAIT_TIMEOUT; }
+static void proc_end(proc_t p) {
+	for (int i = 0; i < 50 && proc_running(p); i++) Sleep(10);
+	if (proc_running(p)) TerminateProcess(p, 1);
+	WaitForSingleObject(p, 2000);
+	CloseHandle(p);
+}
+// start "exe game_root" with these variables changed for the child only (value NULL: removed)
+static proc_t proc_spawn(const char *exe, const char *const *vars) {
+	char *saved[16] = {0}; int nv = 0;
+	for (int i = 0; vars[i]; i += 2, nv++) {
+		const char *o = getenv(vars[i]);
+		saved[nv] = o ? strdup(o) : NULL;
+		if (vars[i + 1]) setenv(vars[i], vars[i + 1], 1); else unsetenv(vars[i]);
+	}
+	char cmd[2200];
+	snprintf(cmd, sizeof cmd, "\"%s\" \"%s\"", exe, g_game_root);
+	STARTUPINFOA si = {sizeof si};
+	PROCESS_INFORMATION pi;
+	BOOL ok = CreateProcessA(exe, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+	for (int i = 0, k = 0; vars[i]; i += 2, k++) {
+		if (saved[k]) { setenv(vars[i], saved[k], 1); free(saved[k]); } else unsetenv(vars[i]);
+	}
+	if (!ok) { LOGE("split screen: CreateProcess failed (%lu)", GetLastError()); return NO_PROC; }
+	if (!job) {
+		job = CreateJobObjectA(NULL, NULL);
+		JOBOBJECT_EXTENDED_LIMIT_INFORMATION li = {0};
+		li.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+		if (job) SetInformationJobObject(job, JobObjectExtendedLimitInformation, &li, sizeof li);
+	}
+	if (job) AssignProcessToJobObject(job, pi.hProcess);
+	CloseHandle(pi.hThread);
+	return pi.hProcess;
+}
+#define proc_id(p) ((int)GetProcessId(p))
+#else
+static void map_shared(const char *fd) {
+	sh = mmap(NULL, sizeof(Shared), PROT_READ | PROT_WRITE, MAP_SHARED, atoi(fd), 0);
 	if (sh == MAP_FAILED) fatal("split screen: mmap failed");
 }
+static bool create_shared(char *name, size_t n) {
+#ifdef __linux__
+	int fd = memfd_create("sr2-split", 0);
+#else
+	char nm[64]; snprintf(nm, sizeof nm, "/sr2-split-%d", (int)getpid());
+	int fd = shm_open(nm, O_RDWR | O_CREAT | O_EXCL, 0600);
+	if (fd >= 0) shm_unlink(nm);
+#endif
+	if (fd < 0 || ftruncate(fd, sizeof(Shared))) return false;
+	snprintf(name, n, "%d", fd);
+	map_shared(name);
+	return true;
+}
+static void parent_death_signal(void) {
+#ifdef __linux__
+	prctl(PR_SET_PDEATHSIG, SIGTERM);   // close with player 1's window
+#endif
+	if (getppid() == 1) exit(0);
+}
+static bool proc_running(proc_t p) { return waitpid(p, NULL, WNOHANG) == 0; }
+static void proc_end(proc_t p) {
+	for (int i = 0; i < 50 && waitpid(p, NULL, WNOHANG) == 0; i++) usleep(10000);
+	if (waitpid(p, NULL, WNOHANG) == 0) { kill(p, SIGTERM); waitpid(p, NULL, 0); }
+}
+static proc_t proc_spawn(const char *exe, const char *const *vars) {
+	pid_t pid = fork();
+	if (pid < 0) return NO_PROC;
+	if (pid == 0) {
+		for (int i = 0; vars[i]; i += 2) { if (vars[i + 1]) setenv(vars[i], vars[i + 1], 1); else unsetenv(vars[i]); }
+		execl(exe, exe, g_game_root, (char *)NULL);
+		_exit(127);
+	}
+	return pid;
+}
+#define proc_id(p) ((int)(p))
+#endif
 
 // ---------------------------------------------------------------- child side
 void split_child_init(void) {
 	const char *e = getenv("SR2_SPLIT_FD");
 	if (!e) return;
 	is_child = true;
-	map_shared(atoi(e));
-	prctl(PR_SET_PDEATHSIG, SIGTERM);   // close with player 1's window
-	if (getppid() == 1) exit(0);
+	map_shared(e);
+	parent_death_signal();
 	LOGI("split screen: running as player 2");
 }
 
@@ -120,23 +222,20 @@ static void copy_dir(const char *from, const char *to) {
 }
 
 static void kill_child(void) {
-	if (child <= 0) return;
+	if (child == NO_PROC) return;
 	sh->quit = 1;
-	for (int i = 0; i < 50 && waitpid(child, NULL, WNOHANG) == 0; i++) usleep(10000);
-	if (waitpid(child, NULL, WNOHANG) == 0) { kill(child, SIGTERM); waitpid(child, NULL, 0); }
-	child = 0;
+	proc_end(child);
+	child = NO_PROC;
 }
 
 void fe_split_layout_changed(void);
 
 bool split_start(void) {
-	if (child > 0 || is_child) return child > 0;
+	if (child != NO_PROC || is_child) return child != NO_PROC;
 	if (!sh) {
-		int fd = memfd_create("sr2-split", 0);
-		if (fd < 0 || ftruncate(fd, sizeof(Shared))) { LOGE("split screen: no shared memory"); return false; }
-		map_shared(fd);
+		char v[32];
+		if (!create_shared(v, sizeof v)) { LOGE("split screen: no shared memory"); return false; }
 		sh->magic = SPLIT_MAGIC;
-		char v[16]; snprintf(v, sizeof v, "%d", fd);
 		setenv("SR2_SPLIT_FD", v, 1);
 	}
 	sh->ready = 0; sh->quit = 0; sh->buttons = 0; sh->lx = sh->ly = 128;
@@ -146,23 +245,20 @@ bool split_start(void) {
 	struct stat st;
 	if (stat(p2, &st)) { copy_dir(g_save_root, p2); LOGI("split screen: player 2's saves start as a copy of yours (%s)", p2); }
 	char exe[1024];
-	ssize_t n = readlink("/proc/self/exe", exe, sizeof exe - 1);
-	if (n <= 0) return false;
-	exe[n] = 0;
-	pid_t pid = fork();
-	if (pid < 0) return false;
-	if (pid == 0) {
-		setenv("SR2_SAVE_DIR", p2, 1);
-		setenv("SR2_DATA_ROOT", g_save_root, 1);   // mods still come from player 1's folder
-		setenv("SR2_NICKNAME", "PLAYER 2", 1);
-		setenv("SR2_HEADLESS", "1", 1);
-		unsetenv("SR2_CTL");
-		execl(exe, exe, g_game_root, (char *)NULL);
-		_exit(127);
-	}
+	if (host_exe_path(exe, sizeof exe)) return false;
+	const char *const vars[] = {
+		"SR2_SAVE_DIR", p2,
+		"SR2_DATA_ROOT", g_save_root,   // mods still come from player 1's folder
+		"SR2_NICKNAME", "PLAYER 2",
+		"SR2_HEADLESS", "1",
+		"SR2_CTL", NULL,
+		NULL};
+	proc_t pid = proc_spawn(exe, vars);
+	if (pid == NO_PROC) return false;
 	child = pid;
-	atexit(kill_child);
-	LOGI("split screen: started player 2 (pid %d)", pid);
+	static bool registered;
+	if (!registered) { registered = true; atexit(kill_child); }
+	LOGI("split screen: started player 2 (pid %d)", proc_id(pid));
 	fe_split_layout_changed();
 	return true;
 }
@@ -174,15 +270,18 @@ void split_stop(void) {
 
 // once per frame in the parent: notice a child that ended by itself
 void split_poll(void) {
-	if (child > 0 && waitpid(child, NULL, WNOHANG) == child) {
+	if (child != NO_PROC && !proc_running(child)) {
 		LOGI("split screen: player 2's game ended");
-		child = 0;
+#ifdef _WIN32
+		CloseHandle(child);
+#endif
+		child = NO_PROC;
 		fe_split_layout_changed();
 	}
 }
 
 void split_set_input(u32 buttons, u8 lx, u8 ly) {
-	if (!sh || child <= 0) return;
+	if (!sh || child == NO_PROC) return;
 	sh->buttons = buttons; sh->lx = lx; sh->ly = ly;
 }
 
@@ -202,7 +301,7 @@ static void gl_load(void) {
 
 // draw player 2's latest image into (x, y, w, h) of the default framebuffer (glViewport convention)
 void split_draw(int x, int y, int w, int h) {
-	if (!sh || child <= 0 || !sh->ready) return;
+	if (!sh || child == NO_PROC || !sh->ready) return;
 	gl_load();
 	if (!tex) {
 		p_GenTextures(1, &tex);

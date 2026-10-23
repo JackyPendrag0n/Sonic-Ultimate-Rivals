@@ -422,7 +422,9 @@ static void ctl_poll(void) {
 	if (fd == -2) {
 		const char *e = getenv("SR2_CTL");
 		fd = -1;
-		if (e) { mkfifo(e, 0644); fd = open(e, O_RDWR | O_NONBLOCK); }
+		#ifndef _WIN32
+		if (e) { mkfifo(e, 0644); fd = open(e, O_RDWR | O_NONBLOCK); }   // (test aid; no FIFOs on Windows)
+#endif
 	}
 	if (fd < 0) return;
 	if (ntrack) {

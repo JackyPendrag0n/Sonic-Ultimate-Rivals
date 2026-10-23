@@ -27,7 +27,7 @@
 
 // Some functions here support Android content URIs. These are marked as such.
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_POSIX_THREAD_SAFE_FUNCTIONS)
 inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 	if (localtime_s(result, clock) == 0)
 		return result;

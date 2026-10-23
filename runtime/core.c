@@ -2,12 +2,19 @@
 #define _GNU_SOURCE
 #include "kernel.h"
 #include <stdarg.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
+#ifdef _WIN32
+// (the backtraces are only used by the memory-watch debug tools)
+static int backtrace(void **f, int n) { (void)f; (void)n; return 0; }
+static char **backtrace_symbols(void *const *f, int n) { (void)f; (void)n; return NULL; }
+#else
 #include <execinfo.h>
+#endif
+#ifndef _WIN32
 #include <fnmatch.h>
+#endif
 #include <ctype.h>
 #include <strings.h>
 
@@ -490,6 +497,10 @@ int main(int argc, char **argv) {
 		if (npath++) strncat(given, " ", sizeof given - strlen(given) - 1);
 		strncat(given, argv[i], sizeof given - strlen(given) - 1);
 	}
+#ifdef _WIN32
+	for (char *p = given; *p; p++) if (*p == '\\') *p = '/';
+#endif
+	host_init();
 	const char *w = getenv("SR2_WATCH");  // "lo-hi" hex guest addresses (needs a watch build of the module)
 	if (w) { g_watch_lo = strtoul(w, NULL, 16) & MEM_MASK; const char *d = strchr(w, '-'); g_watch_hi = d ? strtoul(d + 1, NULL, 16) & MEM_MASK : g_watch_lo + 4; }
 	g_trace_fn = getenv("SR2_TRACE_FN");
@@ -505,8 +516,10 @@ int main(int argc, char **argv) {
 			ok = try_game_root(".");
 			if (!ok) {
 				char exe[1024];
-				ssize_t n = readlink("/proc/self/exe", exe, sizeof exe - 1);
-				if (n > 0) { exe[n] = 0; char *sl = strrchr(exe, '/'); if (sl) { *sl = 0; ok = try_game_root(exe[0] ? exe : "/"); } }
+				if (host_exe_path(exe, sizeof exe) == 0) { char *sl = strrchr(exe, '/'); if (sl) { *sl = 0; ok = try_game_root(exe[0] ? exe : "/"); } }
+				// the setup script extracts the disc into "game" next to the program
+				if (!ok && host_exe_path(exe, sizeof exe) == 0) { char *sl = strrchr(exe, '/'); if (sl) { strcpy(sl, "/game"); ok = try_game_root(exe); } }
+				if (!ok && host_exe_path(exe, sizeof exe) == 0) { char *sl = strrchr(exe, '/'); if (sl) { *sl = 0; sl = strrchr(exe, '/'); if (sl) { strcpy(sl, "/game"); ok = try_game_root(exe); } } }
 			}
 			if (!ok) usage();
 		}
@@ -519,16 +532,15 @@ int main(int argc, char **argv) {
 	// Saves: $SR2_SAVE_DIR, else $XDG_DATA_HOME/sr2recomp, else ~/.local/share/sr2recomp  (memory stick root)
 	const char *sd = getenv("SR2_SAVE_DIR");
 	if (sd) snprintf(g_save_root, sizeof g_save_root, "%s", sd);
-	else if (getenv("XDG_DATA_HOME")) snprintf(g_save_root, sizeof g_save_root, "%s/sr2recomp", getenv("XDG_DATA_HOME"));
-	else snprintf(g_save_root, sizeof g_save_root, "%s/.local/share/sr2recomp", getenv("HOME") ? getenv("HOME") : ".");
+	else host_data_dir(g_save_root, sizeof g_save_root);
 	{
 		char d[600];
 		snprintf(d, sizeof d, "%s", g_save_root);
 		for (char *p = d + 1; *p; p++) if (*p == '/') { *p = 0; mkdir(d, 0755); *p = '/'; }
 		mkdir(d, 0755);
 	}
-	g_mem = mmap(NULL, 0x40000000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-	if (g_mem == MAP_FAILED) { perror("mmap"); return 1; }
+	g_mem = host_mem_reserve(0x40000000);
+	if (!g_mem) { perror("guest memory"); return 1; }
 	vfpu_init();
 	kernel_init();
 	io_init();

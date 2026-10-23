@@ -21,10 +21,8 @@ const char *const mp_char_files[MP_CHARS] = {"SONIC", "SHADOW", "SILVER", "KNUCK
 static char cfg_path[600];
 const char *config_path(void) {
 	if (!cfg_path[0]) {
-		const char *x = getenv("XDG_CONFIG_HOME"), *h = getenv("HOME");
 		char dir[512];
-		if (x) snprintf(dir, sizeof dir, "%s/sr2recomp", x);
-		else snprintf(dir, sizeof dir, "%s/.config/sr2recomp", h ? h : ".");
+		host_config_dir(dir, sizeof dir);
 		char tmp[512]; snprintf(tmp, sizeof tmp, "%s", dir);
 		for (char *p = tmp + 1; *p; p++) if (*p == '/') { *p = 0; mkdir(tmp, 0755); *p = '/'; }
 		mkdir(tmp, 0755);

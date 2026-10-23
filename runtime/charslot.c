@@ -20,6 +20,7 @@
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <strings.h>

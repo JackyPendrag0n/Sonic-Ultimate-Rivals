@@ -14,6 +14,7 @@
 // See LICENSE.TXT. Parts are derived from PPSSPP (Copyright (c) 2012- PPSSPP Project).
 
 #include <algorithm>
+#include <cmath>
 #include <array>
 #include <cstddef>
 #include <cstdlib>
@@ -416,3 +417,19 @@ void audio_hle_init(void) {
 	int n = hle_bridge_register_pending();
 	LOGI("audio: PPSSPP SAS + Atrac HLE, %d functions", n);
 }
+
+// Support functions only this library needs (the rest of its support code is in stubs/, shared with libpspgpu.a).
+// From PPSSPP's Core/Config.cpp.
+float Volume100ToMultiplier(int volume) {
+	if (volume > 100)
+		return volume / 100.0f;
+	return powf(volume * 0.01f, 1.75f);
+}
+
+namespace Memory {
+void WriteOrException_U32(const u32 data, const u32 address) {
+	if (!IsValid4AlignedAddress(address))
+		ERROR_LOG(Log::MemMap, "unknown memory write %08x", address);
+	WriteUnchecked_U32(data, address);
+}
+}  // namespace Memory

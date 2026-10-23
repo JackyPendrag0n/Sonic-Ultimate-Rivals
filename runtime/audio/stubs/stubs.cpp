@@ -97,13 +97,6 @@ void DataToHexString(const uint8_t *data, size_t size, std::string *output, bool
 	}
 }
 
-// From PPSSPP's Core/Config.cpp.
-float Volume100ToMultiplier(int volume) {
-	if (volume > 100)
-		return volume / 100.0f;
-	return powf(volume * 0.01f, 1.75f);
-}
-
 void Compatibility::Clear() { flags_ = {}; vrCompat_ = {}; ignored_.clear(); activeList_.clear(); }
 
 // ------------------------------------------------------------------ memory (g_mem, masked)
@@ -138,11 +131,6 @@ const u8 *GetPointerRangeOrException(const u32 address, const u32 size) {
 void Memset(const u32 address, const u8 value, const u32 length, const char *tag) {
 	memset(GetPointerWriteUnchecked(address), value, length);
 }
-void WriteOrException_U32(const u32 data, const u32 address) {
-	if (!IsValid4AlignedAddress(address))
-		ERROR_LOG(Log::MemMap, "unknown memory write %08x", address);
-	WriteUnchecked_U32(data, address);
-}
 }  // namespace Memory
 
 void PSPPointerNotifyRW(int rw, uint32_t ptr, uint32_t bytes, const char *tag, size_t tagLen) {}
@@ -161,7 +149,11 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	if (posix_memalign(&p, alignment, size) != 0) return nullptr;
 	return p;
 }
+#ifdef _WIN32
+void FreeAlignedMemory(void *ptr) { _aligned_free(ptr); }
+#else
 void FreeAlignedMemory(void *ptr) { free(ptr); }
+#endif
 
 // ------------------------------------------------------------------ savestates (unused)
 PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) {
