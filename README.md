@@ -1,4 +1,4 @@
-# sr2recomp: Sonic Rivals 2 for PC
+# Sonic Ultimate Rivals: Sonic Rivals 2 for PC
 
 A native PC port of **Sonic Rivals 2** (PSP, 2007) for Linux, Windows and macOS, made by static
 recompilation: the game's own code is translated into C and compiled for your computer, so it runs natively
@@ -6,7 +6,24 @@ instead of in an emulator. It adds higher frame rates (60 to 240 fps), higher re
 windows, controller support, split-screen multiplayer for up to four players on one PC, mods and texture
 packs.
 
-> **You need your own copy of the game.** This repository contains no game files, no game code and no
+![Sonic racing through Blue Coast at 2x resolution](docs/images/race.jpg)
+
+| Two players, split screen | Four players in one race |
+|---|---|
+| ![Sonic and Knuckles racing side by side in split screen](docs/images/split-screen.jpg) | ![A four-way split-screen race](docs/images/four-players.jpg) |
+
+![The game's Options screen with the added Graphics menu: resolution, frame rate up to 240, fullscreen, V-Sync and filtering](docs/images/graphics-options.jpg)
+
+**Features**
+- The whole game: story, races, battles, boss stages, cutscenes and videos, with its own menus and saves.
+- 60, 120, 144, 165 or 240 fps (the PSP ran races at 30), 1x to 8x resolution, fullscreen, V-Sync and
+  texture filtering, set from a new Graphics entry in the game's own Options screen.
+- Controllers (Xbox/PlayStation layouts via SDL) and keyboard.
+- Multiplayer on one PC: two-player Wireless Play in split screen, and races, battles and boss stages with
+  two to four players (or computer players) in one game.
+- Mods: replace any game file or texture, character skins, texture dumping.
+
+> **You need your own copy of the game.** Apart from the screenshots above, this repository contains no game files, no game code and no
 > game assets. The build reads the program from your own disc image, and the port loads the levels, music
 > and videos from it when it runs. Builds made from it contain code derived from your copy of the game:
 > keep them for your own use and don't share them.
@@ -44,8 +61,8 @@ sudo apt install git build-essential pkg-config python3 libsdl2-dev libavcodec-d
 # Fedora:  sudo dnf install git gcc-c++ pkgconf python3 SDL2-devel ffmpeg-free-devel libpng-devel zlib-devel
 # Arch:    sudo pacman -S git base-devel python sdl2 ffmpeg libpng zlib
 
-git clone https://github.com/<you>/sr2recomp.git
-cd sr2recomp
+git clone https://github.com/sparkybutterfloof-eng/Sonic-Ultimate-Rivals.git
+cd Sonic-Ultimate-Rivals
 ./build.sh ~/Games/SonicRivals2.iso
 build/sr2recomp
 ```
@@ -63,8 +80,8 @@ Builds use [MSYS2](https://www.msys2.org), a free set of the GCC tools for Windo
 3. Get the code and build it. Windows paths are written with forward slashes in this shell (`C:\Games` is
    `/c/Games`):
    ```sh
-   git clone https://github.com/<you>/sr2recomp.git
-   cd sr2recomp
+   git clone https://github.com/sparkybutterfloof-eng/Sonic-Ultimate-Rivals.git
+   cd Sonic-Ultimate-Rivals
    ./build.sh "/c/Games/Sonic Rivals 2.iso"
    ```
 4. `build` now holds `sr2recomp.exe` and the DLLs it needs. Run it from the shell (`build/sr2recomp.exe`)
@@ -83,8 +100,8 @@ Needs the Xcode command line tools and [Homebrew](https://brew.sh). Apple Silico
 ```sh
 xcode-select --install
 brew install git python pkg-config sdl2 ffmpeg libpng
-git clone https://github.com/<you>/sr2recomp.git
-cd sr2recomp
+git clone https://github.com/sparkybutterfloof-eng/Sonic-Ultimate-Rivals.git
+cd Sonic-Ultimate-Rivals
 ./build.sh ~/Downloads/SonicRivals2.iso
 build/sr2recomp
 ```
