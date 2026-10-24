@@ -921,6 +921,111 @@
     "ae0902d0",
     "0c000000/fc000000"
    ]
+  },
+  {
+   "id": 60,
+   "name": "SEC_INIT",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_15ea70(world, slot): a course section's read is done (buffer state 16): make its objects and set its buffer live (32), with per-buffer pointers into its data (world +0x5d7c, +0x5d8c). With a section context per player it is only made once.",
+   "pattern": [
+    "27bdffc0",
+    "afbf003c",
+    "afb60038",
+    "afb3002c",
+    "afb20028",
+    "afb50034",
+    "00a0a821",
+    "afb40030"
+   ]
+  },
+  {
+   "id": 61,
+   "name": "SEC_RELEASE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_15f274(world, buffer, flag): release a course section's buffer (its objects, sounds and models; state 1). With a section context per player only the last context holding it releases it.",
+   "pattern": [
+    "27bdffb0",
+    "afb7003c",
+    "00a0b821",
+    "afb60038",
+    "0080b021",
+    "00052100"
+   ]
+  },
+  {
+   "id": 62,
+   "name": "SEC_READ_DONE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_159128(?, ?, section): the read of a course section is done (the loader's callback): its buffer goes from 8 to 16 (from 256, cancelled, to 1). With a section context per player it goes to the context that asked for the read.",
+   "pattern": [
+    "3c030000/ffff0000",
+    "10c00014",
+    "24650000/ffff0000",
+    "8ca74d10",
+    "00e6182b"
+   ]
+  },
+  {
+   "id": 63,
+   "name": "RACER_CORE",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_b8720(racer, ...): a racer's frame in the world update (its actions, physics F_a35f0 and the ground and wall checks against the live course sections). With a section context per player it runs in that player's.",
+   "pattern": [
+    "27bdff80",
+    "afb3005c",
+    "00a09821",
+    "afb10054",
+    "00808821",
+    "e7b40070",
+    "afbf0060"
+   ]
+  },
+  {
+   "id": 64,
+   "name": "RACER_PHYS",
+   "kind": "entry",
+   "index": 0,
+   "_doc": "F_a35f0(racer, dt): a racer's physics, the ground and wall checks (F_abecc, F_1636d0) against the live course sections. With a section context per player it runs in that player's.",
+   "pattern": [
+    "27bdf9f0",
+    "afb305ec",
+    "00809821",
+    "e7b40600",
+    "afbf05fc",
+    "afb605f8",
+    "afb505f4",
+    "afb405f0"
+   ]
+  },
+  {
+   "id": 65,
+   "name": "RACER_STATE_STEP",
+   "kind": "call",
+   "index": 0,
+   "_doc": "F_b8720 (a racer's frame): F_b9b2c(racer, racer +0x4b4), the step of its current state, again with the next state until one says it is done for the frame. A state that keeps handing over to another without settling (seen with a section context per player, when a section an object stands in comes and goes) would hang the game: after many hand-overs in one frame it is done.",
+   "pattern": [
+    "0c000000/fc000000",
+    "02002821",
+    "02202021",
+    "14400008"
+   ]
+  },
+  {
+   "id": 66,
+   "name": "DEBUG_DL",
+   "kind": "call",
+   "index": 0,
+   "_doc": "temp",
+   "pattern": [
+    "0c000000/fc000000",
+    "afa00070",
+    "8e0e02e8",
+    "c7a30020"
+   ]
   }
  ]
 }
