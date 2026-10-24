@@ -806,6 +806,77 @@ static void cam_swap(int k) {   // swap extra racer k's camera state in or out
 	zones_swap(k);
 }
 
+// A view context: what the game keeps one of for "the" player's view, kept per player and swapped in as one unit
+// while the game steps or draws for that player: the race camera and its transform node, the camera-zone flags
+// (cam_swap) and the local player (world +0x5024), whose position, path and section the camera and the scenery
+// go by. Player 1's context lives in the game; extra racer k's is kept here and is in between view_enter(k) and
+// view_leave(k). SR2_VIEW_DIFF=1 (test aid) lists what else a camera step writes (see view_diff).
+static int view_cur = -1;      // the extra racer whose context is in (-1: player 1's)
+static u32 view_p1_local;      // player 1's local player meanwhile
+static void view_enter(int k) {
+	if (k < 0) return;
+	cam_swap(k);
+	view_p1_local = LW(WORLD + 0x5024);
+	SW(WORLD + 0x5024, extra_racer[k]);
+	view_cur = k;
+}
+static void view_leave(int k) {
+	if (k < 0) return;
+	SW(WORLD + 0x5024, view_p1_local);
+	cam_swap(k);
+	view_cur = -1;
+}
+
+// test aid: the words a camera step writes outside the view context (camera, node, zone flags, the stack), which
+// would carry over from one player's view to the next. Logged once, a few seconds into a race with players 2-4.
+#define DIFF_LO 0x08800000u
+#define DIFF_HI 0x0A800000u
+static void view_diff(Ctx *c, void (*orig)(Ctx *c), int k) {
+	static u8 *snap; static int done;
+	if (done >= 2) { if (k >= 0) view_enter(k); orig(c); if (k >= 0) view_leave(k); return; }
+	if (!snap) snap = malloc(DIFF_HI - DIFF_LO);
+	if (k >= 0) view_enter(k);
+	memcpy(snap, PTR(DIFF_LO), DIFF_HI - DIFF_LO);
+	u32 sp = c->r[29];
+	orig(c);
+	u32 cam = LW(CAM_MAIN), node = LW(cam + 4);
+	u32 run_lo = 0, run_hi = 0; int runs = 0;
+	for (u32 a = DIFF_LO; a < DIFF_HI; a += 4) {
+		if (!memcmp(snap + (a - DIFF_LO), PTR(a), 4)) continue;
+		if ((a >= cam && a < cam + CAM_SIZE) || (a >= node && a < node + CAM_NODE_SZ) || (a >= sp - 0x4000 && a < sp + 0x100)) continue;
+		bool zone = false;
+		for (int i = 0; i < cam_nzone[0] && !zone; i++) zone = (a & ~3u) == ((cam_zone[0][i].zone + ZONE_IN) & ~3u);
+		if (zone) continue;
+		if (run_hi && a <= run_hi + 16) { run_hi = a + 4; continue; }
+		if (run_hi && runs++ < 200) LOGI("viewdiff: %s camera step writes %08x..%08x", k < 0 ? "player 1's" : "an extra", run_lo, run_hi);
+		run_lo = a; run_hi = a + 4;
+	}
+	if (run_hi && runs++ < 200) LOGI("viewdiff: %s camera step writes %08x..%08x", k < 0 ? "player 1's" : "an extra", run_lo, run_hi);
+	LOGI("viewdiff: %d runs (cam %08x node %08x)", runs, cam, node);
+	if (k >= 0) view_leave(k);
+	done++;
+}
+
+// test aid: the same for one of the race render's draw calls in an extra racer's view (the display list it writes
+// shows up too, as one long run from the list pointer on)
+static void draw_diff(Ctx *c, void (*orig)(Ctx *c)) {
+	static u8 *snap;
+	if (!snap) snap = malloc(DIFF_HI - DIFF_LO);
+	memcpy(snap, PTR(DIFF_LO), DIFF_HI - DIFF_LO);
+	u32 sp = c->r[29], list = LW(GE_LIST_PTR);
+	orig(c);
+	u32 run_lo = 0, run_hi = 0; int runs = 0;
+	for (u32 a = DIFF_LO; a < DIFF_HI; a += 4) {
+		if (!memcmp(snap + (a - DIFF_LO), PTR(a), 4)) continue;
+		if (a >= sp - 0x8000 && a < sp + 0x100) continue;
+		if (run_hi && a <= run_hi + 16) { run_hi = a + 4; continue; }
+		if (run_hi && runs++ < 300) LOGI("drawdiff: %08x..%08x", run_lo, run_hi);
+		run_lo = a; run_hi = a + 4;
+	}
+	if (run_hi && runs++ < 300) LOGI("drawdiff: %08x..%08x", run_lo, run_hi);
+	LOGI("drawdiff: %d runs (list from %08x to %08x)", runs, list, LW(GE_LIST_PTR));
+}
+
 // rebuild the view from the current camera state, as F_581b0 does at the start of the race render
 static void view_refresh(Ctx *c) {
 	Ctx save = *c;
@@ -899,18 +970,21 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 	if (!bt_mp() && !boss_mp()) live_places(c, p1);
 	for (int v = 1; v < nv; v++) {
 		int k = view_player[v] - 1;
-		cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); view_refresh(c);
-		ge_region(v); orig(c);
+		view_enter(k); view_refresh(c);
+		ge_region(v);
+		static int ddiff = -1, dsteps;
+		if (ddiff < 0) ddiff = ENV_ON("SR2_VIEW_DIFF");
+		if (ddiff && ++dsteps > 2400 && dsteps < 2410) draw_diff(c, orig);
+		else orig(c);
 		*c = save;
-		SW(WORLD + 0x5024, p1); cam_swap(k);
+		view_leave(k);
 	}
 	if (nv == 3) {   // three views: the fourth quarter follows whoever leads the race
 		int lead = split_leader(c, p1);
-		if (lead) { cam_swap(lead - 1); SW(WORLD + 0x5024, extra_racer[lead - 1]); }
-		view_refresh(c);
+		view_enter(lead - 1); view_refresh(c);
 		ge_region(3); orig(c);
 		*c = save;
-		if (lead) { SW(WORLD + 0x5024, p1); cam_swap(lead - 1); }
+		view_leave(lead - 1);
 	}
 	view_refresh(c);
 	ge_region(-1);
@@ -1797,6 +1871,52 @@ static void stream_links(bool on) {   // (off: back as the course has them, for 
 	}
 	if (on) stream4 = true;   // (stays: with two neighbours the fourth place is never filled)
 }
+// Course sections at addresses of their own (work in progress). A level file (STREAMS/R2_ZONE_*.STR) starts with a
+// table of its chunks (+4 + 8k: file offset, size; read into the world at WORLD) and each section k is a memory image
+// made for the address the race load gives its load slot (F_158184 fills SLOT_BASES: slot 0 the level, then the
+// four section buffers in turn, so sections k and k+4 are made for the same address). Inside a section, every
+// pointer to its own data is a plain word in [base, base + SEC_BUF_SIZE) (Blue Coast 1: 1,324 in section 1), as are
+// the pointers into it in its slot header. That is not all: the level image (tables at level +0x54 + 0x40 k and
+// around level +0x328000) and the world beyond the slot headers point into the buffers too, and section k's entries
+// there can't be told from section k+4's by value. SR2_RELOC_TEST=k:addr (test aid) moves slot k with only its own
+// words and its slot header fixed: the race hangs on its first frame (F_46c6c, an animation with a length of 0), so
+// those tables have to be mapped first.
+#define SLOT_BASES   0x08AAC6C0   // per load slot: where its data goes
+#define SEC_BUF_SIZE 0x133340     // a section buffer (the distance between two)
+#define LEVEL_CHUNKS (WORLD + 4)  // the level file's chunk table, as read into the world
+static int reloc_slot = -2; static u32 reloc_to, reloc_from;
+static int reloc_chunk(const char *host, s64 at) {   // which chunk of the level file a read at `at` is (-1: none)
+	if (reloc_slot == -2) {
+		const char *e = getenv("SR2_RELOC_TEST");
+		reloc_slot = -1;
+		if (e) { reloc_slot = atoi(e); const char *c = strchr(e, ':'); reloc_to = c ? (u32)strtoul(c + 1, NULL, 16) : 0x0B000000; }
+	}
+	if (reloc_slot < 1 || !strstr(host, "R2_ZONE_")) return -1;
+	for (int k = 1; k < 16; k++) if (LW(LEVEL_CHUNKS + 8 * k) == (u32)at && LW(LEVEL_CHUNKS + 8 * k + 4)) return k;
+	return -1;
+}
+static void reloc_words(u32 a, u32 n, u32 from, u32 to) {   // words in [a, a+n) that point into [from, from+SEC_BUF_SIZE) move to `to`
+	int cnt = 0;
+	for (u32 p = a; p + 4 <= a + n; p += 4) {
+		u32 v = LW(p);
+		if (v >= from && v < from + SEC_BUF_SIZE) { SW(p, v - from + to); cnt++; }
+	}
+	LOGI("reloc: %08x..%08x: %d pointers %08x -> %08x", a, a + n, cnt, from, to);
+}
+u32 game_read_dest(const char *host, s64 at, u32 buf, u32 size) {
+	int k = reloc_chunk(host, at);
+	if (k < 1 || k != reloc_slot) return buf;
+	if (LW(SLOT_BASES + 4 * k) != reloc_to) { reloc_from = LW(SLOT_BASES + 4 * k); SW(SLOT_BASES + 4 * k, reloc_to); }
+	LOGI("reloc: slot %d read to %08x instead of %08x", k, reloc_to, buf);
+	return reloc_to;
+}
+void game_read_done(const char *host, s64 at, u32 buf, u32 n) {
+	int k = reloc_chunk(host, at);
+	if (k < 1 || k != reloc_slot || !reloc_from) return;
+	reloc_words(buf, n, reloc_from, reloc_to);
+	reloc_words(WORLD_SLOT(k), 0x4c0, reloc_from, reloc_to);
+}
+
 // put racer r back on the course: a third of the way into section s's path, facing like racer `like`
 static bool racer_to_section(Ctx *c, u32 r, int s, u32 like) {
 	u32 arr = LW(WORLD_SLOT(s) + 0x444), nodes[4096]; int n = 0;
@@ -2094,12 +2214,18 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			Ctx save = *c;
 			orig(c);
 			*c = save;
-			u32 p1 = LW(WORLD + 0x5024);   // the camera reads the local player (where it stands, its path) too
 			bool lead_view = n_views() == 3;   // (the fourth quarter may follow a computer player)
+			static int diff = -1;
+			if (diff < 0) diff = ENV_ON("SR2_VIEW_DIFF");
+			static int steps;   // (a few seconds into the race)
+			bool diff_now = diff && ++steps > 600;
 			for (int k = 0; k < n_extra; k++) {   // the players' cameras (computer players need none)
 				if (extra_cpu[k] && !lead_view) continue;
-				cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); orig(c); SW(WORLD + 0x5024, p1); cam_swap(k); *c = save;
+				if (diff_now) view_diff(c, orig, k);
+				else { view_enter(k); orig(c); view_leave(k); }   // (the camera reads the local player: where it stands, its path)
+				*c = save;
 			}
+			if (diff_now) view_diff(c, orig, -1), *c = save;   // and player 1's step again, for comparison
 			return;
 		}
 		break;

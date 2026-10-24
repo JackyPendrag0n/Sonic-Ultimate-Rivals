@@ -281,7 +281,12 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
 vblank), `bosshit K` (player K+1 lands a boss hit), `btcall K FN A2 A3 [N]` (call battle rules function
 0x08800000+FN for player K+1) commands, see `runtime/frontend.c`), `SR2_UNLOCK_ALL=1` (every stage open), `SR2_MP_CPU=1` (players 2-4 are left to the computer), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
 the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
-backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
+backtrace when a sector read misses). `SR2_READ_TRACE=1` logs every file read and where it lands.
+`SR2_VIEW_DIFF=1` (races with players 2-4) lists, once, every word an extra player's camera step and one of their
+view's draws write outside their view context: the camera step writes nothing else; a world draw writes about 85
+runs (per-object state of the scenery and the sections), the list to check when a view picks up another's state.
+`SR2_RELOC_TEST=k:addr` loads course section k at another address (see "Course sections" in `runtime/game.c`;
+it does not run yet). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
 `SR2_WATCH=lo-hi` memory watches (VFPU stores included). `SR2_GPU=soft SR2_DRAW_EVERY=N` draws only every
 Nth frame in the software renderer, which makes long headless runs several times faster (screenshots then
 often catch a skipped frame).

@@ -390,6 +390,8 @@ static void h_IoClose(Ctx *c) {
 	RET(0);
 }
 static void h_IoCloseAsync(Ctx *c) { PspFile *f = getf(A(0)); if (f) { close(f->hostfd); f->hostfd = -1; f->async_res = 0; f->async_pending = 1; } RET(f ? 0 : 0x80020323); }
+u32 game_read_dest(const char *host, s64 at, u32 buf, u32 size);
+void game_read_done(const char *host, s64 at, u32 buf, u32 n);
 static s32 do_read(u32 fd, u32 buf, u32 size) {
 	PspFile *f = getf(fd);
 	if (!f) return 0x80020323;
@@ -399,8 +401,13 @@ static s32 do_read(u32 fd, u32 buf, u32 size) {
 		if ((s64)size > f->win_len - pos) size = (u32)(f->win_len - pos);
 	}
 	s64 at = lseek(f->hostfd, 0, SEEK_CUR);
+	buf = game_read_dest(f->host, at, buf, size);   // (a level section the runtime keeps at an address of its own)
 	ssize_t n = read(f->hostfd, PTR(buf), size);
-	LOGV("read fd %d %s @%llx -> %08x, %x bytes (got %zd)", fd, f->path, (long long)at, buf, size, n);
+	if (n > 0) game_read_done(f->host, at, buf, (u32)n);
+	static int read_trace = -1;   // test aid: SR2_READ_TRACE=1 logs every read (where it lands) at the normal level
+	if (read_trace < 0) read_trace = getenv("SR2_READ_TRACE") != NULL;
+	if (read_trace) LOGI("read fd %d %s @%llx -> %08x, %x bytes (got %zd)", fd, f->path, (long long)at, buf, size, n);
+	else LOGV("read fd %d %s @%llx -> %08x, %x bytes (got %zd)", fd, f->path, (long long)at, buf, size, n);
 	return n < 0 ? (s32)0x80010005 : (s32)n;
 }
 static void h_IoRead(Ctx *c) { RET(do_read(A(0), A(1), A(2))); }
