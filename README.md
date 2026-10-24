@@ -61,7 +61,7 @@ sudo apt install git build-essential pkg-config python3 libsdl2-dev libavcodec-d
 # Fedora:  sudo dnf install git gcc-c++ pkgconf python3 SDL2-devel ffmpeg-free-devel libpng-devel zlib-devel
 # Arch:    sudo pacman -S git base-devel python sdl2 ffmpeg libpng zlib
 
-git clone https://github.com/sparkybutterfloof-eng/Sonic-Ultimate-Rivals.git
+git clone https://github.com/JackyPendrag0n/Sonic-Ultimate-Rivals.git
 cd Sonic-Ultimate-Rivals
 ./build.sh ~/Games/SonicRivals2.iso
 build/sr2recomp
@@ -80,7 +80,7 @@ Builds use [MSYS2](https://www.msys2.org), a free set of the GCC tools for Windo
 3. Get the code and build it. Windows paths are written with forward slashes in this shell (`C:\Games` is
    `/c/Games`):
    ```sh
-   git clone https://github.com/sparkybutterfloof-eng/Sonic-Ultimate-Rivals.git
+   git clone https://github.com/JackyPendrag0n/Sonic-Ultimate-Rivals.git
    cd Sonic-Ultimate-Rivals
    ./build.sh "/c/Games/Sonic Rivals 2.iso"
    ```
@@ -100,7 +100,7 @@ Needs the Xcode command line tools and [Homebrew](https://brew.sh). Apple Silico
 ```sh
 xcode-select --install
 brew install git python pkg-config sdl2 ffmpeg libpng
-git clone https://github.com/sparkybutterfloof-eng/Sonic-Ultimate-Rivals.git
+git clone https://github.com/JackyPendrag0n/Sonic-Ultimate-Rivals.git
 cd Sonic-Ultimate-Rivals
 ./build.sh ~/Downloads/SonicRivals2.iso
 build/sr2recomp
