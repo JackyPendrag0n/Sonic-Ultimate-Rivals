@@ -285,8 +285,10 @@ backtrace when a sector read misses). `SR2_READ_TRACE=1` logs every file read an
 `SR2_VIEW_DIFF=1` (races with players 2-4) lists, once, every word an extra player's camera step and one of their
 view's draws write outside their view context: the camera step writes nothing else; a world draw writes about 85
 runs (per-object state of the scenery and the sections), the list to check when a view picks up another's state.
-`SR2_RELOC_TEST=k:addr` loads course section k at another address (see "Course sections" in `runtime/game.c`;
-it does not run yet). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
+In multiplayer races, course sections 5 and up load at their own addresses (0x0B000000 up, 2 MB each) instead of
+sharing the four stream buffers, with every pointer into them moved at level load (see "Course sections" in
+`runtime/game.c`, and `tools/secrefs.py` for the offline scan); `SR2_SECTIONS=1` does this in every race,
+`SR2_SECTIONS=0` in none. `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
 `SR2_WATCH=lo-hi` memory watches (VFPU stores included). `SR2_GPU=soft SR2_DRAW_EVERY=N` draws only every
 Nth frame in the software renderer, which makes long headless runs several times faster (screenshots then
 often catch a skipped frame).

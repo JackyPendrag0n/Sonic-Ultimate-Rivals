@@ -692,10 +692,10 @@ static void warp_pending(Ctx *c) {
 	if (warp_dist < 0 && k) { extra_racer_place(c, r, LW(WORLD + 0x5024), k - 1); LOGI("warp: player %d beside player 1", k + 1); return; }
 	for (int s = 0; s < 16; s++) {
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 n = LW(arr + i * 4);
-			if (n < 0x08800000 || n >= 0x0A000000) break;
+			if (n < 0x08800000 || n >= 0x0C000000) break;
 			float d; memcpy(&d, PTR(n + 0x34), 4);
 			if (d >= warp_dist) {
 				float t[4]; memcpy(t, PTR(n), 16); t[2] += 1; t[3] = 1;
@@ -771,10 +771,10 @@ static void zones_swap(int k) {
 	for (int s = 0; s < count && s < 16; s++) {
 		if (!(s == 0 || s >= 14 || section_live(s) || (s == 1 && LW(0x08A80000 + 0x5860) == 1))) continue;
 		u32 list = LW(WORLD_SLOT(s) + 0x45c), nz = LB(WORLD_SLOT(s) + 0x460);
-		if (list < 0x08800000 || list >= 0x0A000000 || nz > 32) continue;
+		if (list < 0x08800000 || list >= 0x0C000000 || nz > 32) continue;
 		for (u32 i = 0; i < nz && n < MAX_ZONES; i++) {
 			u32 z = LW(list + i * 4);
-			if (z >= 0x08800000 && z < 0x0A000000) zl[n++] = z;
+			if (z >= 0x08800000 && z < 0x0C000000) zl[n++] = z;
 		}
 	}
 	if (!cam_in[k]) {   // in: the flags this camera left (out of a zone it has not seen yet)
@@ -1827,7 +1827,7 @@ static bool section_live(int k) {
 	u32 nb = LW(STREAM_BUF_N);
 	if (k < 1 || !nb || nb > 16) return false;
 	u32 e = STREAM_BUFS + ((k - 1) & (nb - 1)) * 16, sp = LW(e + 4);
-	return LW(e + 8) == 0x20 && sp >= 0x08800000 && sp < 0x0A000000 && (s32)LW(sp + 0x20) == k;
+	return LW(e + 8) == 0x20 && sp >= 0x08800000 && sp < 0x0C000000 && (s32)LW(sp + 0x20) == k;
 }
 static u32 player_racer(int k) { return k ? (k <= n_extra ? extra_racer[k - 1] : 0) : p1_racer; }
 static int racer_section(Ctx *c, u32 r) {   // F_15e0e8(world, racer, 0): the section a racer stands in, or -1
@@ -1871,58 +1871,118 @@ static void stream_links(bool on) {   // (off: back as the course has them, for 
 	}
 	if (on) stream4 = true;   // (stays: with two neighbours the fourth place is never filled)
 }
-// Course sections at addresses of their own (work in progress). A level file (STREAMS/R2_ZONE_*.STR) starts with a
-// table of its chunks (+4 + 8k: file offset, size; read into the world at WORLD) and each section k is a memory image
-// made for the address the race load gives its load slot (F_158184 fills SLOT_BASES: slot 0 the level, then the
-// four section buffers in turn, so sections k and k+4 are made for the same address). Inside a section, every
-// pointer to its own data is a plain word in [base, base + SEC_BUF_SIZE) (Blue Coast 1: 1,324 in section 1), as are
-// the pointers into it in its slot header. That is not all: the level image (tables at level +0x54 + 0x40 k and
-// around level +0x328000) and the world beyond the slot headers point into the buffers too, and section k's entries
-// there can't be told from section k+4's by value. SR2_RELOC_TEST=k:addr (test aid) moves slot k with only its own
-// words and its slot header fixed: the race hangs on its first frame (F_46c6c, an animation with a length of 0), so
-// those have to move too. tools/secrefs.py finds them and tells which section each belongs to (per-slot blocks and
-// arrays, and the level's objects with an array of 12 entries indexed by slot - 1).
+// Course sections at addresses of their own. A level file (STREAMS/R2_ZONE_*.STR) starts with a table of its chunks
+// (+4 + 8k: file offset, size; read into the world at WORLD): 0 the level, then the course sections. Each section k
+// is a memory image made for the address the race load gives its load slot (F_158184 fills SLOT_BASES: slot 0 the
+// level, then the four section buffers in turn), so sections k and k+4 are made for the same address and the game
+// keeps at most four. Here sections 5 and up get addresses of their own above the PSP's memory (SEC_HOME), and every
+// word that points into one is moved with it:
+//   - inside the section, its pointers to its own data (plain words in [base, base + SEC_BUF_SIZE): 1,324 in Blue
+//     Coast 1's first section), moved as it is read;
+//   - outside it, in the world header (its slot header, and arrays indexed by slot further on) and the level image
+//     (a block per slot at level +0x14 + 0x40 k, arrays indexed by slot, and the level's objects, each with 12
+//     entries indexed by slot - 1), moved once when the level is read. A word into a buffer there belongs to
+//     section k or k+4; which one is told by where it sits (sec_owner, the same rules as tools/secrefs.py).
+// Words that only look like pointers (mesh data, which has no rule) stay as they are.
+// This is done in multiplayer races; SR2_SECTIONS=1 does it in every race, SR2_SECTIONS=0 in none.
 #define SLOT_BASES   0x08AAC6C0   // per load slot: where its data goes
 #define SEC_BUF_SIZE 0x133340     // a section buffer (the distance between two)
 #define LEVEL_CHUNKS (WORLD + 4)  // the level file's chunk table, as read into the world
-static int reloc_slot = -2; static u32 reloc_to, reloc_from;
-static int reloc_chunk(const char *host, s64 at) {   // which chunk of the level file a read at `at` is (-1: none)
-	if (reloc_slot == -2) {
-		const char *e = getenv("SR2_RELOC_TEST");
-		reloc_slot = -1;
-		if (e) { reloc_slot = atoi(e); const char *c = strchr(e, ':'); reloc_to = c ? (u32)strtoul(c + 1, NULL, 16) : 0x0B000000; }
-	}
-	if (reloc_slot < 1 || !strstr(host, "R2_ZONE_")) return -1;
-	for (int k = 1; k < 16; k++) if (LW(LEVEL_CHUNKS + 8 * k) == (u32)at && LW(LEVEL_CHUNKS + 8 * k + 4)) return k;
+#define LEVEL_BASE   0x0922E350   // where the level image goes (SLOT_BASES slot 0)
+#define SEC_HOME(k)  (0x0B000000u + ((k) - 5) * 0x200000u)   // section k >= 5 (+ its buffer's low 16 bits)
+#define MAX_SECTIONS 12
+static int sec_n;                     // the level's sections (0: not a level, or moving them is off)
+static u32 sec_buf[4];                // the four buffers, as the race load set them
+static u32 sec_size[MAX_SECTIONS + 1];
+static bool sections_own(void) {   // multiplayer races (SR2_SECTIONS=1 every race, 0 never)
+	const char *e = getenv("SR2_SECTIONS");
+	return e ? strcmp(e, "0") != 0 : mp_active();
+}
+static int sec_bufof(u32 v) {   // which buffer v points into (-1: none)
+	for (int b = 0; b < 4; b++) if (v >= sec_buf[b] && v < sec_buf[b] + SEC_BUF_SIZE) return b;
 	return -1;
 }
-static void reloc_words(u32 a, u32 n, u32 from, u32 to) {   // words in [a, a+n) that point into [from, from+SEC_BUF_SIZE) move to `to`
-	int cnt = 0;
-	for (u32 p = a; p + 4 <= a + n; p += 4) {
-		u32 v = LW(p);
-		if (v >= from && v < from + SEC_BUF_SIZE) { SW(p, v - from + to); cnt++; }
+u32 sec_addr(int k) { return k >= 5 && k <= sec_n ? SEC_HOME(k) + (sec_buf[(k - 1) & 3] & 0xFFFF) : 0; }
+static int sec_chunk(const char *host, s64 at) {   // which chunk of the level file a read at `at` is (-1: none)
+	if (!strstr(host, "R2_ZONE_") && !strstr(host, "r2_zone_")) return -1;
+	for (int k = 0; k <= MAX_SECTIONS; k++) if (LW(LEVEL_CHUNKS + 8 * k) == (u32)at && LW(LEVEL_CHUNKS + 8 * k + 4)) return k;
+	return -1;
+}
+static bool sec_in_window(u32 a) {   // a word of the world header or of the level image
+	return (a >= WORLD && a < WORLD + 0x5800) || (a >= LEVEL_BASE && a < LEVEL_BASE + sec_size[0]);
+}
+// which section the word at a (outside the sections, pointing into a buffer) belongs to: 0 none we can tell
+static int sec_owner(u32 a) {
+	u32 v = LW(a); int b = sec_bufof(v);
+	if (b < 0 || (v & 3)) return 0;
+	if (a >= WORLD_SLOT(0) && a < WORLD_SLOT(16)) return (a - WORLD_SLOT(0)) / 0x4c0;   // a slot header
+	if (a >= LEVEL_BASE + 0x54 && a < LEVEL_BASE + 0x14 + 0x40 * 16) return (a - LEVEL_BASE - 0x14) / 0x40;   // the level's per-slot blocks
+	for (int k = b + 1; k <= sec_n; k += 4) {   // an array indexed by slot: entry 0 not in a buffer, most entries in theirs
+		u32 s = a - 4 * k; int ok = 0;
+		if (!sec_in_window(s) || sec_bufof(LW(s)) >= 0) continue;
+		for (int j = 1; j <= sec_n; j++) if (sec_in_window(s + 4 * j) && sec_bufof(LW(s + 4 * j)) == ((j - 1) & 3)) ok++;
+		if (ok >= (sec_n < 6 ? sec_n : 6)) return k;
 	}
-	LOGI("reloc: %08x..%08x: %d pointers %08x -> %08x", a, a + n, cnt, from, to);
+	int cand[3], nc = 0;   // only one section of that buffer is big enough
+	for (int k = b + 1; k <= sec_n; k += 4) if (v - sec_buf[b] < sec_size[k] && nc < 3) cand[nc++] = k;
+	if (nc == 1) return cand[0];
+	int ok_k = 0, n_ok = 0;   // a level object's 12 entries, indexed by slot - 1: each zero or in its slot's buffer
+	for (int i = 0; i < nc; i++) {
+		u32 s = a - 4 * (cand[i] - 1); bool good = true;
+		for (int j = 0; j < 12 && good; j++) {
+			if (!sec_in_window(s + 4 * j)) { good = false; break; }
+			u32 w = LW(s + 4 * j);
+			if (w && sec_bufof(w) != (j & 3)) good = false;
+		}
+		if (good) { ok_k = cand[i]; n_ok++; }
+	}
+	return n_ok == 1 ? ok_k : 0;
+}
+static void sec_level_read(void) {   // the level image is in: the world header and it, pointing at sections 5 and up
+	sec_n = 0;
+	if (!sections_own()) return;
+	for (int b = 0; b < 4; b++) sec_buf[b] = LW(SLOT_BASES + 4 * (b + 1));
+	for (int k = 0; k <= MAX_SECTIONS; k++) sec_size[k] = LW(LEVEL_CHUNKS + 8 * k + 4);
+	int n = 0;
+	while (n < MAX_SECTIONS && sec_size[n + 1]) n++;
+	if (n < 5 || LW(SLOT_BASES) != LEVEL_BASE) { LOGI("sections: %d, all in the game's buffers", n); return; }
+	for (int b = 0; b < 4; b++) if (sec_buf[b] != LW(SLOT_BASES + 4 * (b + 5)) && b + 5 <= n) { LOGI("sections: unexpected slot addresses, left alone"); return; }
+	sec_n = n;
+	static u32 moves[4096][2]; int nm = 0, kinds[MAX_SECTIONS + 1] = {0};
+	for (int part = 0; part < 2; part++) {   // decide every word first: moving one changes what its neighbours look like
+		u32 lo = part ? LEVEL_BASE : WORLD, hi = part ? LEVEL_BASE + sec_size[0] : WORLD + 0x5800;
+		for (u32 a = lo; a < hi; a += 4) {
+			int k = sec_owner(a);
+			if (k >= 5 && k <= sec_n && sec_bufof(LW(a)) == ((k - 1) & 3) && nm < 4096) { moves[nm][0] = a; moves[nm][1] = k; nm++; kinds[k]++; }
+		}
+	}
+	for (int i = 0; i < nm; i++) { u32 a = moves[i][0]; int k = moves[i][1]; SW(a, LW(a) - sec_buf[(k - 1) & 3] + sec_addr(k)); }
+	for (int k = 5; k <= sec_n; k++) SW(SLOT_BASES + 4 * k, sec_addr(k));
+	LOGI("sections: %d; 5..%d moved to their own addresses (%d words outside them point at them)", sec_n, sec_n, nm);
 }
 u32 game_read_dest(const char *host, s64 at, u32 buf, u32 size) {
-	int k = reloc_chunk(host, at);
-	if (k < 1 || k != reloc_slot) return buf;
-	if (LW(SLOT_BASES + 4 * k) != reloc_to) { reloc_from = LW(SLOT_BASES + 4 * k); SW(SLOT_BASES + 4 * k, reloc_to); }
-	LOGI("reloc: slot %d read to %08x instead of %08x", k, reloc_to, buf);
-	return reloc_to;
+	if (!sec_n) return buf;
+	int k = sec_chunk(host, at);
+	if (k < 5 || k > sec_n) return buf;
+	return sec_addr(k);
 }
 void game_read_done(const char *host, s64 at, u32 buf, u32 n) {
-	int k = reloc_chunk(host, at);
-	if (k < 1 || k != reloc_slot || !reloc_from) return;
-	reloc_words(buf, n, reloc_from, reloc_to);
-	reloc_words(WORLD_SLOT(k), 0x4c0, reloc_from, reloc_to);
+	int k = sec_chunk(host, at);
+	if (k == 0 && buf == LEVEL_BASE) { sec_level_read(); return; }
+	if (k < 5 || k > sec_n || buf != sec_addr(k)) return;
+	u32 from = sec_buf[(k - 1) & 3], cnt = 0;
+	for (u32 p = buf; p + 4 <= buf + n; p += 4) {
+		u32 v = LW(p);
+		if (v >= from && v < from + SEC_BUF_SIZE) { SW(p, v - from + buf); cnt++; }
+	}
+	if (ENV_ON("SR2_STREAM_TRACE")) LOGI("sections: %d read to %08x, %u of its words point into it", k, buf, cnt);
 }
 
 // put racer r back on the course: a third of the way into section s's path, facing like racer `like`
 static bool racer_to_section(Ctx *c, u32 r, int s, u32 like) {
 	u32 arr = LW(WORLD_SLOT(s) + 0x444), nodes[4096]; int n = 0;
-	if (arr < 0x08800000 || arr >= 0x0A000000) return false;
-	for (; n < 4096; n++) { u32 nd = LW(arr + n * 4); if (nd < 0x08800000 || nd >= 0x0A000000) break; nodes[n] = nd; }
+	if (arr < 0x08800000 || arr >= 0x0C000000) return false;
+	for (; n < 4096; n++) { u32 nd = LW(arr + n * 4); if (nd < 0x08800000 || nd >= 0x0C000000) break; nodes[n] = nd; }
 	if (!n) return false;
 	float t[4]; memcpy(t, PTR(nodes[n / 3]), 16); t[2] += 1; t[3] = 1;
 	racer_place_at(c, r, t, like);
@@ -1941,10 +2001,10 @@ static bool below_section(u32 r) {   // fallen through (its floor went away unde
 	float lo = 1e9f, z, v[3];
 	for (int s = 0; s < 16; s++) {
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (!section_live(s) || arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (!section_live(s) || arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 nd = LW(arr + i * 4);
-			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			if (nd < 0x08800000 || nd >= 0x0C000000) break;
 			memcpy(&z, PTR(nd + 8), 4); if (z < lo) lo = z;
 		}
 	}
@@ -1983,10 +2043,10 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 	for (int s = 0; s < 16; s++) {   // its nearest node on the path, of a live section
 		if (!section_live(s)) continue;
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 nd = LW(arr + i * 4);
-			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			if (nd < 0x08800000 || nd >= 0x0C000000) break;
 			float q[3]; memcpy(q, PTR(nd), sizeof q);
 			float d = (q[0] - at[0]) * (q[0] - at[0]) + (q[1] - at[1]) * (q[1] - at[1]) + (q[2] - at[2]) * (q[2] - at[2]);
 			if (d < bd) { bd = d; best = nd; memcpy(&from, PTR(nd + 0x34), 4); }
@@ -2001,10 +2061,10 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 	for (int s = 0; s < 16; s++) {
 		if (!section_live(s)) continue;
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 nd = LW(arr + i * 4);
-			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			if (nd < 0x08800000 || nd >= 0x0C000000) break;
 			float d; memcpy(&d, PTR(nd + 0x34), 4);
 			if (d >= want && d < to_d) to = nd, to_d = d;
 			if (d > last_d) last = nd, last_d = d;
@@ -2712,7 +2772,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (ENV_ON("SR2_STREAM_TRACE")) {
 			static u32 seen[4][2];
 			for (int b = 0; b < 4; b++) {
-				u32 e = STREAM_BUFS + b * 16, sp = LW(e + 4), st = LW(e + 8), sn = sp >= 0x08800000 && sp < 0x0A000000 ? LW(sp + 0x20) : 0;
+				u32 e = STREAM_BUFS + b * 16, sp = LW(e + 4), st = LW(e + 8), sn = sp >= 0x08800000 && sp < 0x0C000000 ? LW(sp + 0x20) : 0;
 				if (seen[b][0] != sn || seen[b][1] != st) { seen[b][0] = sn; seen[b][1] = st; LOGI("stream: buffer %d section %d state %x (cur %d)", b, sn, st, (int)LW(STREAM_CUR)); }
 			}
 		}
@@ -2791,7 +2851,7 @@ static void mp_trace(void) {
 		LOGI("mp:%s spring %08x cam target %08x seats %08x %08x", line, LW(0x08AB4B90), cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
 		o = 0;
 		for (int k = 0; k <= n_extra; k++) { u32 r = rs[k]; o += snprintf(line + o, sizeof line - o, " p%d sec %d", k + 1, r && LW(r + 4) ? (int)LW(LW(r + 4) + 0xc) : -9); }
-		for (u32 i = 0; i < LW(0x0899FF4C) && i < 8; i++) { u32 e = WORLD + 0x5d18 + i * 16, sp = LW(e + 4); o += snprintf(line + o, sizeof line - o, " buf%u st %x slot %d", i, LW(e + 8), sp >= 0x08800000 && sp < 0x0A000000 ? (int)LW(sp + 0x20) : -1); }
+		for (u32 i = 0; i < LW(0x0899FF4C) && i < 8; i++) { u32 e = WORLD + 0x5d18 + i * 16, sp = LW(e + 4); o += snprintf(line + o, sizeof line - o, " buf%u st %x slot %d", i, LW(e + 8), sp >= 0x08800000 && sp < 0x0C000000 ? (int)LW(sp + 0x20) : -1); }
 		LOGI("mp sections: cur %d n %d%s", LW(WORLD + 0x5da0), LW(WORLD + 0x4d10), line);
 	}
 }

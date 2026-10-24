@@ -8,7 +8,7 @@ sections (the world header, read to WORLD, and the level image) that point into 
 section each one belongs to:
   slothdr   the slot headers (WORLD + 0x90 + 0x4c0 k)
   leveltab  the level's per-slot blocks (level + 0x14 + 0x40 k)
-  array     arrays indexed by slot (entry k in buffer (k-1) & 3 for most k)
+  array     arrays indexed by slot (entry k in buffer (k-1) & 3 for most k, entry 0 not in a buffer)
   sparse    the level's objects: 12 entries indexed by slot - 1, zero or in that slot's buffer
   size      only one section is big enough
 and prints the rest (on Blue Coast 1 they are runtime state in the world, slot 1's, and words of mesh data that
@@ -41,7 +41,7 @@ def owners(d):
         for k in range(1, nsec + 1):
             s = a - 4 * k
             ok = sum(1 for j in range(1, nsec + 1) if mem.get(s + 4 * j) is not None and buf(mem[s + 4 * j]) == (j - 1) % 4)
-            if ok >= min(nsec, 6) and buf(mem[a]) == (k - 1) % 4: own[a] = ('array', k); break
+            if ok >= min(nsec, 6) and buf(mem[a]) == (k - 1) % 4 and buf(mem.get(s, 0)) is None: own[a] = ('array', k); break
     for a in refs:
         if a in own: continue
         c = cands(mem[a])
@@ -54,5 +54,8 @@ if __name__ == '__main__':
     d = open(sys.argv[1], 'rb').read()
     nsec, chunks, mem, refs, own, cands = owners(d)
     print('%d sections; %d words point into the buffers: %s' % (nsec, len(refs), dict(collections.Counter(o[0] for o in own.values()))))
+    if '-v' in sys.argv:
+        for a in refs:
+            if a in own and own[a][1] > 4: print('  %-8s %08x -> %08x section %d' % (own[a][0], a, mem[a], own[a][1]))
     for a in refs:
         if a not in own: print('  undecided %08x -> %08x (could be section %s)' % (a, mem[a], cands(mem[a]) or 'none: too far in'))
