@@ -29,6 +29,7 @@ static void (*p_glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, vo
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
 
 // menu.cpp
 void menu_init(SDL_Window *w, void *glctx);

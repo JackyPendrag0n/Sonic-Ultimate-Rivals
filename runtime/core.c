@@ -2,6 +2,7 @@
 #define _GNU_SOURCE
 #include "kernel.h"
 #include <stdarg.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>

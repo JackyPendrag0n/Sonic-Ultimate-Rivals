@@ -30,7 +30,7 @@ if [ ! -f "$DEPS/lib/libz.a" ]; then
   get https://github.com/madler/zlib/releases/download/v$ZLIB_VER/zlib-$ZLIB_VER.tar.gz zlib.tar.gz
   tar -C "$SRC" -xf "$SRC/zlib.tar.gz"
   make -C "$SRC/zlib-$ZLIB_VER" -f win32/Makefile.gcc PREFIX=$HOST- -j"$JOBS" libz.a
-  make -C "$SRC/zlib-$ZLIB_VER" -f win32/Makefile.gcc install BINARY_PATH="$DEPS/bin" INCLUDE_PATH="$DEPS/include" \
+  make -C "$SRC/zlib-$ZLIB_VER" -f win32/Makefile.gcc PREFIX=$HOST- install BINARY_PATH="$DEPS/bin" INCLUDE_PATH="$DEPS/include" \
     LIBRARY_PATH="$DEPS/lib" SHARED_MODE=0
 fi
 if [ ! -f "$DEPS/lib/libpng.a" ]; then

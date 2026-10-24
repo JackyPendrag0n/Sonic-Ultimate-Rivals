@@ -1956,7 +1956,7 @@ static void banter_stop(void) { if (banter_on) memcpy(PTR(BANTER_SHOT), banter_d
 static u32 sig_target[1 + MAX_EXTRA];
 static u32 sig_player(int k) { u32 r = player_racer(k); return r && (!k || !extra_pending[k - 1]) ? r : 0; }
 static float racer_dist2(u32 a, u32 b) {
-	float *p = PTR(LW(a + 4) + 0x20), *q = PTR(LW(b + 4) + 0x20);
+	float *p = (float *)PTR(LW(a + 4) + 0x20), *q = (float *)PTR(LW(b + 4) + 0x20);
 	float dx = p[0] - q[0], dy = p[1] - q[1], dz = p[2] - q[2];
 	return dx * dx + dy * dy + dz * dz;
 }

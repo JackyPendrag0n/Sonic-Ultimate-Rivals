@@ -7,6 +7,7 @@
 #define _DARWIN_C_SOURCE
 #endif
 #include "platform.h"
+#include <limits.h>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
