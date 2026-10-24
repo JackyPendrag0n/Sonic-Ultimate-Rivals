@@ -32,7 +32,7 @@ const char *config_path(void) {
 }
 
 #define CFG_FIELDS(X) \
-	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(fullscreen, b) \
+	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(vsync_lock, b) X(fullscreen, b) \
 	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
 	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b) X(unlock_outfits, b)
 
@@ -116,7 +116,6 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
        HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK, HOOK_OUTFIT_OWNED, HOOK_ALPHA_DRAW, HOOK_ENTITY_DT, HOOK_SIG_START, HOOK_SIG_END, HOOK_BAT_TARGET };
 #define DISP_MGR 0x089A0BE4
-extern u32 g_vblank_us;
 static bool in_race;
 
 static void apply_frame_rate(void) {

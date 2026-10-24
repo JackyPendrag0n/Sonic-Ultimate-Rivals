@@ -149,6 +149,8 @@ void ge_vblank(void) {
 		LOGI("status: vblank %llu, display flips %llu (last 5s: %llu flips, %llu vblanks)", (unsigned long long)g_vblank_count,
 		     (unsigned long long)frames_flipped, (unsigned long long)(frames_flipped - last_flips),
 		     (unsigned long long)(g_vblank_count - last_vb));
+		extern char fe_perf_text[];
+		if (fe_perf_text[0]) LOGI("        %s", fe_perf_text);
 		last_report = n; last_flips = frames_flipped; last_vb = g_vblank_count;
 	}
 }

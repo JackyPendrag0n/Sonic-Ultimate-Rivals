@@ -347,8 +347,40 @@ unsigned *g_fcount;   // test aid: calls per function (build/sr2recomp_fc), see 
 int fe_game_rect[4];   // where the game image is in the window (x, y, w, h; y from the top), for the overlay
 static bool overlay_headless;
 
+// V-Sync lock (setting vsync_lock, experimental): when the display refreshes at the game's vblank rate (or a
+// whole multiple of it) and the swaps are seen to wait for it, the next emulated vblank is moved to just before
+// the display's next refresh. Without it the emulated 59.94 Hz timer and the display drift against each other,
+// and the swap stalls the game for 0 to 16 ms per frame, which drops a frame whenever the stall plus the game's
+// own work runs past the next vblank.
+#define ENV_FAKE_HZ ({ static int on_ = -1; if (on_ < 0) on_ = getenv("SR2_FAKE_VSYNC_HZ") != NULL; on_; })
+static int display_hz;          // the window's display refresh rate (0: unknown)
+static u64 last_swap_us;        // how long the last present waited for the display
+static bool vsync_phase_locked;  // the emulated vblank follows the display (see fe_vblank)
+static bool vsync_locked(void) {
+	static u64 checked;
+	u64 t = now_us();
+	if (!checked || t - checked > 1000000) {   // (the window can move to another display)
+		SDL_DisplayMode m;
+		display_hz = win && SDL_GetWindowDisplayMode(win, &m) == 0 ? m.refresh_rate : 0;
+		if (display_hz == 0 && win && SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(win), &m) == 0) display_hz = m.refresh_rate;
+		checked = t;
+	}
+	if (ENV_FAKE_HZ) display_hz = atoi(getenv("SR2_FAKE_VSYNC_HZ"));
+	if (!g_cfg.vsync || !g_cfg.vsync_lock || headless || display_hz <= 0) return false;
+	double hz = display_hz == 59 ? 59.94 : display_hz == 119 ? 119.88 : display_hz;
+	double r = hz * g_vblank_us / 1e6;   // display refreshes per emulated vblank
+	return r > 0.97 && fabs(r - floor(r + 0.5)) < 0.03;
+}
+
+// frame-time readout (FPS counter, and the log's status line)
+char fe_perf_text[128];
+static u64 perf_t0, perf_last, perf_worst, perf_swap_sum, perf_n;
+
+static double pre_swap_us;      // how long a present takes before its swap (recent maximum)
+
 static void present(void) {
 	if (!have_gl) return;
+	u64 p0 = now_us();
 	int w, h;
 	SDL_GL_GetDrawableSize(win, &w, &h);
 	glViewport(0, 0, w, h);
@@ -384,7 +416,19 @@ static void present(void) {
 		free(px); free(fl);
 		want_winshot = false;
 	}
+	u64 s0 = now_us();
+	pre_swap_us = s0 - p0 > pre_swap_us * 0.97 ? s0 - p0 : pre_swap_us * 0.97;
 	SDL_GL_SwapWindow(win);
+	{	// test aid: SR2_FAKE_VSYNC_HZ=60 makes every present wait for the next tick of a simulated display
+		static double fhz = -1;
+		if (fhz < 0) { const char *f = getenv("SR2_FAKE_VSYNC_HZ"); fhz = f ? atof(f) : 0; }
+		if (fhz > 0 && g_cfg.vsync) {
+			u64 pd = (u64)(1e6 / fhz), t = now_us(), next = (t / pd + 1) * pd;
+			struct timespec ts = {0, (long)(next - t) * 1000};
+			nanosleep(&ts, NULL);
+		}
+	}
+	last_swap_us = now_us() - s0;
 	fps_frames++;
 	u64 n = SDL_GetTicks64();
 	if (n - fps_t0 >= 500) {
@@ -572,6 +616,48 @@ void fe_vblank(void) {
 	if (flips != presented_flips || want_winshot || g_cfg.show_fps || t - presented_at > 100000) {
 		presented_flips = flips; presented_at = t;
 		present();
+		u64 e = now_us();
+		{	// Line the next emulated vblank up with the display, but only once the presents are seen to end on
+			// the display's refresh grid: a swap that is merely slow (no real V-Sync wait, as in some
+			// compositors or a software GL) must not stretch the game's frames.
+			static u64 prev_end, prev_vb; static int grid_ok, nlate, nframes, backoff;
+			bool on_grid = false;
+			// (if the lock makes frames late, e.g. the machine can't do a frame plus the lead time in one
+			// refresh, it is switched off for a while: it must never be worse than the free-running timer)
+			if (vsync_phase_locked && prev_end) {
+				nframes++;
+				u64 vbs = g_vblank_count - prev_vb;   // a present that took longer than the vblanks in between
+				if (e - prev_end > (vbs ? vbs : 1) * g_vblank_us * 3 / 2) nlate++;
+				if (nframes >= 120) {
+					if (nlate * 20 > nframes) { backoff = 1200; LOGI("v-sync lock: %d of %d frames late, off for a while", nlate, nframes); }
+					nframes = nlate = 0;
+				}
+			}
+			prev_vb = g_vblank_count;
+			if (vsync_locked() && prev_end && display_hz > 0) {
+				double pd = 1e6 / (display_hz == 59 ? 59.94 : display_hz == 119 ? 119.88 : display_hz);
+				double ph = fmod((double)(e - prev_end), pd);
+				on_grid = ph < 600 || ph > pd - 600;
+			}
+			prev_end = e;
+			grid_ok = on_grid ? (grid_ok < 8 ? grid_ok + 1 : 8) : (grid_ok > 0 ? grid_ok - 1 : 0);
+			if (backoff) backoff--;
+			vsync_phase_locked = grid_ok >= 3 && !backoff && vsync_locked();
+			// (the swap should start about 1 ms before the refresh: the present's own work goes before it)
+			double lead = pre_swap_us + 1000 < g_vblank_us * 3 / 4 ? pre_swap_us + 1000 : g_vblank_us * 3 / 4;
+			if (vsync_phase_locked && last_swap_us >= 500 && !menu_is_open()) kernel_vblank_rephase(e + g_vblank_us - (u64)lead);
+			if (getenv("SR2_VSYNC_DEBUG")) LOGI("vs: vb %llu e %llu swap %llu pre %.0f grid %d locked %d", (unsigned long long)g_vblank_count, (unsigned long long)e, (unsigned long long)last_swap_us, pre_swap_us, grid_ok, vsync_phase_locked);
+		}
+		if (perf_last && e - perf_last > perf_worst) perf_worst = e - perf_last;
+		perf_last = e; perf_swap_sum += last_swap_us; perf_n++;
+		if (!perf_t0) perf_t0 = e;
+		if (e - perf_t0 >= 1000000) {
+			snprintf(fe_perf_text, sizeof fe_perf_text, "slowest frame %.1f ms  |  swap %.1f ms  |  %s",
+			         perf_worst / 1000.0, perf_swap_sum / 1000.0 / perf_n,
+			         vsync_phase_locked ? "locked to display" : !g_cfg.vsync ? "v-sync off" : g_cfg.vsync_lock ? "v-sync on, lock not engaged" : "v-sync on");
+			if (display_hz > 0) snprintf(fe_perf_text + strlen(fe_perf_text), sizeof fe_perf_text - strlen(fe_perf_text), " (%d Hz)", display_hz);
+			perf_t0 = e; perf_worst = 0; perf_swap_sum = 0; perf_n = 0;
+		}
 	}
 }
 

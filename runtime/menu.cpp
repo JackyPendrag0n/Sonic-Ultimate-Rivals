@@ -86,6 +86,13 @@ static void graphics_tab() {
 	help("The PSP runs races at 30 fps and menus at 60. The game times its races by the clock, so they play the same "
 	     "at any frame rate. Above 60, keep VSync off or use a monitor with that refresh rate.");
 	if (ImGui::Checkbox("VSync", &g_cfg.vsync)) changed();
+	ImGui::BeginDisabled(!g_cfg.vsync);
+	if (ImGui::Checkbox("Lock game timing to the display (experimental)", &g_cfg.vsync_lock)) changed();
+	ImGui::EndDisabled();
+	help("With VSync on, the game's 60 Hz clock and the monitor drift against each other, and every so often a frame "
+	     "waits too long for the monitor and is dropped. This lines the game's clock up with the monitor instead. "
+	     "Works when the frame rate matches the monitor (or divides it, like 60 on 120 Hz). The FPS counter shows "
+	     "whether it is locked.");
 	if (ImGui::Checkbox("Fullscreen (F11)", &g_cfg.fullscreen)) { changed(); fe_apply_display_settings(); }
 	ImGui::BeginDisabled(g_cfg.fullscreen);
 	if (ImGui::SliderInt("Window scale", &g_cfg.window_scale, 1, 6, "%dx")) { changed(); fe_apply_display_settings(); }
@@ -374,6 +381,7 @@ static void placings_draw(const int *game) {   // game: the game image in the wi
 
 extern "C" int fe_game_rect[4];
 
+extern "C" char fe_perf_text[];   // frontend.c
 extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 	if (!g_ready) return;
 	ImGui_ImplOpenGL3_NewFrame();
@@ -386,6 +394,7 @@ extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 		ImGui::SetNextWindowBgAlpha(0.45f);
 		ImGui::Begin("##fps", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav);
 		ImGui::Text("game %.0f fps  |  display %.0f Hz", game_fps, fps);
+		if (fe_perf_text[0]) ImGui::TextUnformatted(fe_perf_text);
 		ImGui::End();
 	}
 	if (g_open) {

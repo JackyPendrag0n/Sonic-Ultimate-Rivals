@@ -131,6 +131,10 @@ static u64 seq_counter;
 bool g_in_intr;
 u64 g_vblank_count;
 static u64 next_vblank;
+static u64 vblank_rephase;   // set by the frontend to line the emulated vblank up with the display's
+// The frontend's presents are V-Synced: it moves the next emulated vblank to just before the display's next
+// refresh, so the swap doesn't stall the game for a varying part of every frame (see fe_vblank).
+void kernel_vblank_rephase(u64 at) { vblank_rephase = at; }
 u32 g_vblank_us = 16683;            // emulated vblank period (the races can ask for more than 60 Hz, see game.c)
 
 static void thread_tramp(void) {
@@ -408,6 +412,7 @@ void sched_run(void) {
 			do_vblank();
 			next_vblank += g_vblank_us;
 			if (next_vblank < n) next_vblank = n + g_vblank_us;
+			if (vblank_rephase) { next_vblank = vblank_rephase; vblank_rephase = 0; }
 		}
 		run_interrupts();
 		process_timers(n);

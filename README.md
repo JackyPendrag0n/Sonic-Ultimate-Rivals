@@ -146,6 +146,14 @@ the other mod types are explained in [docs/TECHNICAL.md](docs/TECHNICAL.md#mods)
   looks stale, delete the `build` folder and build again.
 - **The window opens black or the build says OpenGL failed**: the port needs OpenGL 3.3. Update the graphics
   driver, or switch F1 > Graphics > Renderer to Software (CPU).
+- **Stutter or lag:** turn on F1 > Graphics > Show FPS counter. "game 60 fps" with a "slowest frame" near
+  17 ms is smooth; higher numbers mean dropped frames.
+  - Match the frame rate to your monitor: on a 120, 144 or 165 Hz screen, pick that rate in Options >
+    Graphics (60 fps can't step evenly on 144 Hz), or turn VSync off.
+  - Try fullscreen (F11) and, on a laptop, plug it in and use the Windows "Best performance" power mode.
+  - With VSync on, try F1 > Graphics > "Lock game timing to the display". The counter then says "locked to
+    display".
+  - Lower F1 > Graphics > Resolution for weaker GPUs. The default 2x is light for any recent GPU.
 - The log goes to the terminal (the console window on Windows). `--log 2` shows more.
 
 ## How it works

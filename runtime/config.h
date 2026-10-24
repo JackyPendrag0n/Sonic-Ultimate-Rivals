@@ -13,6 +13,7 @@ typedef struct GameConfig {
 	int tex_filter;        // 0 auto, 1 nearest, 2 linear
 	int anisotropy;        // 0,2,4,8,16
 	bool vsync;
+	bool vsync_lock;   // move the emulated vblank onto the display's refresh (frontend.c, experimental)
 	bool fullscreen;
 	int window_scale;      // 1..6
 	bool keep_aspect;      // letterbox to 480:272

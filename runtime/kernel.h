@@ -106,6 +106,8 @@ typedef struct Thread {
 
 extern Thread *g_cur;
 u64 now_us(void);
+void kernel_vblank_rephase(u64 at);
+extern u32 g_vblank_us;   // emulated vblank period
 void kernel_add_pause_time(u64 us);
 bool kernel_is_virtual_time(void);
 void kernel_init(void);
