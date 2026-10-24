@@ -1880,7 +1880,8 @@ static void stream_links(bool on) {   // (off: back as the course has them, for 
 // around level +0x328000) and the world beyond the slot headers point into the buffers too, and section k's entries
 // there can't be told from section k+4's by value. SR2_RELOC_TEST=k:addr (test aid) moves slot k with only its own
 // words and its slot header fixed: the race hangs on its first frame (F_46c6c, an animation with a length of 0), so
-// those tables have to be mapped first.
+// those have to move too. tools/secrefs.py finds them and tells which section each belongs to (per-slot blocks and
+// arrays, and the level's objects with an array of 12 entries indexed by slot - 1).
 #define SLOT_BASES   0x08AAC6C0   // per load slot: where its data goes
 #define SEC_BUF_SIZE 0x133340     // a section buffer (the distance between two)
 #define LEVEL_CHUNKS (WORLD + 4)  // the level file's chunk table, as read into the world
