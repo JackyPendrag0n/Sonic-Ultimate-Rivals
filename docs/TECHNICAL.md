@@ -289,9 +289,10 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
 - The Size Matters debug menu, mods, control schemes and test scripts are gone.
 
 ## Native renderer
-`runtime/ngpu` is a GE implementation of its own, chosen with `renderer = 2` in settings.ini, the Options
-screen's "Native OpenGL" or `SR2_GPU=native`. PPSSPP's OpenGL renderer (`renderer = 1`) stays the default
-and the fallback. It covers what the game sends: triangles, strips and through-mode rectangles; skinned,
+`runtime/ngpu` is a GE implementation of its own and the default renderer (`renderer = 2` in settings.ini,
+"OpenGL" in the F1 menu, `SR2_GPU=native`). PPSSPP's OpenGL renderer (`renderer = 1`, "OpenGL, PPSSPP's",
+`SR2_GPU=gl`) is still there, for the F10 scene rips and the shadow comparisons below; settings saved with
+renderer 1 before the switch move to 2 once (`settings_version`). It covers what the game sends: triangles, strips and through-mode rectangles; skinned,
 morphed and plain vertices; CLUT4/CLUT8/8888 swizzled textures from RAM and framebuffers sampled as
 textures (8888 for the glow, CLUT32 for the colour grading); lighting, fog, alpha test, blending and depth.
 Files: `ng_list.cpp` (display lists and the sceGe calls), `ng_core.cpp` (GE registers), `ng_vertex.cpp`,
@@ -307,7 +308,7 @@ for pixel sample nearest. The split-screen view commands (0xFA, above) work the 
 To check it against PPSSPP, `SR2_NGPU_SHADOW=1` (with `SR2_GPU=gl`) runs both renderers on the same lists,
 and `SR2_NGPU_COMPARE=N` writes `cmp_NNNNNN.png` (native, PPSSPP, difference x4) every N frames into
 `SR2_NGPU_COMPARE_DIR` (default `build/ngcmp`) and logs the mean difference. `SR2_NGPU_CENSUS=file` lists
-the draw states, formats and commands the game used. A 2P Blue Coast race matches to 0.02% of pixels.
+the draw states, formats and commands the game used, and `SR2_NGPU_TRACE=N` logs every draw of frame N. A 2P Blue Coast race matches to 0.02% of pixels.
 
 ## Headless testing
 `./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables:

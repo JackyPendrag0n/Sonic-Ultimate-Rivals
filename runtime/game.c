@@ -11,7 +11,7 @@
 #define ENV_ON(name) ({ static int on_ = -1; if (on_ < 0) on_ = getenv(name) != NULL; on_; })   // a test switch, looked up once
 
 GameConfig g_cfg = {
-	.renderer = 1, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
+	.renderer = 2, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
 	.window_scale = 2, .keep_aspect = true, .fps = 60, .show_fps = false, .stick_deadzone = 15, .volume = 100,
 	.mp_players = 1, .mp_char2 = 1, .mp_char3 = 3, .mp_char4 = 4,
 };
@@ -35,7 +35,7 @@ const char *config_path(void) {
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(vsync_lock, b) X(fullscreen, b) \
 	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
-	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b) X(unlock_outfits, b)
+	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b) X(unlock_outfits, b) X(settings_version, i)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
@@ -60,10 +60,15 @@ void config_load(void) {
 		config_set(line, eq + 1);
 	}
 	if (f) fclose(f);
+	if (g_cfg.settings_version < 1) {   // PPSSPP's renderer was the default before the runtime's own
+		if (g_cfg.renderer == 1) g_cfg.renderer = 2;
+		g_cfg.settings_version = 1;
+		if (existed) config_save();
+	}
 	// environment overrides for testing
 	const char *e;
 	if ((e = getenv("SR2_FPS"))) g_cfg.fps = atoi(e);
-	if ((e = getenv("SR2_GPU"))) g_cfg.renderer = !strcmp(e, "soft") ? 0 : !strcmp(e, "native") ? 2 : 1;
+	if ((e = getenv("SR2_GPU"))) g_cfg.renderer = !strcmp(e, "soft") ? 0 : !strcmp(e, "native") ? 2 : !strcmp(e, "gl") || !strcmp(e, "ppsspp") ? 1 : 2;
 	if ((e = getenv("SR2_GL_SCALE"))) g_cfg.internal_scale = atoi(e);
 	if ((e = getenv("SR2_CFG"))) {   // "key=value,key=value"
 		char tmp[1024]; snprintf(tmp, sizeof tmp, "%s", e);

@@ -61,7 +61,7 @@ static void help(const char *t) {
 }
 
 static void graphics_tab() {
-	const char *renderers[] = {"Software (CPU)", "OpenGL (GPU)", "Native OpenGL (GPU, new)"};
+	const char *renderers[] = {"Software (CPU)", "OpenGL, PPSSPP's (GPU, old)", "OpenGL (GPU)"};
 	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 3)) changed();
 	if (g_cfg.renderer != g_renderer_at_start) ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Restart the game to switch renderer.");
 	ImGui::BeginDisabled(g_renderer_at_start < 1);

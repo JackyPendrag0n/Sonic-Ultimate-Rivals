@@ -538,6 +538,9 @@ static void set_sampler(bool linMin, bool linMag, bool clampS, bool clampT) {
 	else if (s_filter == 2) linMin = linMag = true;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, linMin ? GL_LINEAR : GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, linMag ? GL_LINEAR : GL_NEAREST);
+	// anisotropic filtering, like PPSSPP's, only for mipmapped textures (the GE's max level above 0), which the game
+	// doesn't use: on others it would blend the texels of pixel-sharp menus and sharpen distant ground
+	if (s_aniso > 1) glTexParameterf(GL_TEXTURE_2D, 0x84FE /*GL_TEXTURE_MAX_ANISOTROPY*/, linMin && ((g_ge.cmd[CMD_TEXMODE] >> 16) & 7) ? (float)s_aniso : 1.0f);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clampS ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clampT ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 }
@@ -694,7 +697,6 @@ static bool bind_texture(Ubo &u, u64 &key) {
 			if (fresh || e.w != pw || e.h != ph) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, pw, ph, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
 			else glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pw, ph, GL_RGBA, GL_UNSIGNED_BYTE, px);
 			e.w = pw; e.h = ph;
-			if (fresh && s_aniso > 1) glTexParameterf(GL_TEXTURE_2D, 0x84FE /*GL_TEXTURE_MAX_ANISOTROPY*/, (float)s_aniso);
 		}
 	}
 	set_sampler(linMin, linMag, clampS, clampT);
@@ -983,6 +985,16 @@ void ng_gl_prim(int prim, const NgVert *v, int count, const NgLayout &L) {
 		}
 	}
 
+	{   // SR2_NGPU_TRACE=N: every draw of frame N in the log
+		static int tf = getenv("SR2_NGPU_TRACE") ? atoi(getenv("SR2_NGPU_TRACE")) : -1;
+		if ((int)s_frame == tf)
+			NG_LOGE("trace texmode %06x texlevel %06x fb %08x prim %d n %d thr %d tex %d %08x fmt %d %dx%d filt %06x wrap %06x ctest %d/%06x atest %d/%06x blend %d/%06x tfunc %06x map %06x scale %f %f off %f %f v0 %.1f,%.1f uv %.3f,%.3f v1 %.1f,%.1f uv %.3f,%.3f",
+			        g.cmd[CMD_TEXMODE] & 0xFFFFFF, g.cmd[CMD_TEXLEVEL] & 0xFFFFFF, f->addr, prim, count, through, tex, g.texAddr(0), g.texFormat(), g.texW(0), g.texH(0), g.cmd[CMD_TEXFILTER] & 0xFFFFFF,
+			        g.cmd[CMD_TEXWRAP] & 0xFFFFFF, g.cmd[CMD_CTEST_EN] & 1, g.cmd[CMD_CTEST] & 0xFFFFFF, g.cmd[CMD_ATEST_EN] & 1,
+			        g.cmd[CMD_ATEST] & 0xFFFFFF, g.cmd[CMD_BLEND_EN] & 1, g.cmd[CMD_BLEND] & 0xFFFFFF, g.cmd[CMD_TEXFUNC] & 0xFFFFFF,
+			        g.cmd[CMD_TEXMAPMODE] & 0xFFFFFF, g.f(CMD_TEX_SU), g.f(CMD_TEX_SV), g.f(CMD_TEX_OU), g.f(CMD_TEX_OV),
+			        v[0].pos[0], v[0].pos[1], v[0].uv[0], v[0].uv[1], v[count > 1].pos[0], v[count > 1].pos[1], v[count > 1].uv[0], v[count > 1].uv[1]);
+	}
 	GLuint prog = program_for(key);
 	st_program(prog);
 	if (!st.bound) {   // (other GL code may have used binding 0)

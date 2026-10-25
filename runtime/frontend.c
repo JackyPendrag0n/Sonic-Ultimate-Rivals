@@ -184,6 +184,7 @@ static void rip_frame(void) {
 	snprintf(d, sizeof d, "%s/rips", g_save_root);
 	mkdir(d, 0755);
 	snprintf(d, sizeof d, "%s/rips/rip_%llu", g_save_root, (unsigned long long)g_vblank_count);
+	if (g_cfg.renderer != 1) { LOGE("F10 scene rips need PPSSPP's renderer (F1 > Graphics > Renderer)"); return; }
 	ge_rip_request(d);
 	LOGE("ripping the next frame to %s", d);
 }
@@ -756,7 +757,7 @@ void fe_init(void) {
 		for (int i = 0; i < SDL_NumJoysticks(); i++)
 			if (SDL_IsGameController(i)) pad_add(SDL_GameControllerOpen(i));
 		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
-		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer == 2 ? "Native OpenGL" : g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
+		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer == 2 ? "OpenGL" : g_cfg.renderer ? "PPSSPP OpenGL" : "software", g_cfg.fps);
 	}
 	if (!split_is_child() && (g_start_2p || (getenv("SR2_2P") && atoi(getenv("SR2_2P"))))) split_start();
 }
