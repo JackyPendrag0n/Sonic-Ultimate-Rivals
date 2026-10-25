@@ -14,6 +14,7 @@
 #include "kernel.h"
 #include "config.h"
 #include "gpu/ge_soft.h"
+#include "ngpu/ngpu.h"
 #include <SDL2/SDL.h>
 #include <GL/gl.h>
 // GL entry points are fetched through SDL so the binary doesn't link libGL directly.
@@ -678,7 +679,8 @@ void fe_preinit(void) {
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");  // let Ctrl+C / SIGTERM end the process normally
 	config_load();
 	headless = getenv("SR2_HEADLESS") && atoi(getenv("SR2_HEADLESS"));
-	if (g_cfg.renderer == 1) {
+	ngpu_register();   // renderer 2: the runtime's own (runtime/ngpu)
+	if (g_cfg.renderer >= 1) {
 		// probe for a display: OpenGL needs a (possibly hidden) window
 		if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 			LOGE("no display available (%s): using the software renderer", SDL_GetError());
@@ -686,6 +688,7 @@ void fe_preinit(void) {
 		}
 	}
 	ge_select_backend(g_cfg.renderer);
+	if (g_cfg.renderer == 1 && getenv("SR2_NGPU_SHADOW") && atoi(getenv("SR2_NGPU_SHADOW"))) ngpu_shadow_enable();
 }
 
 void fe_init(void) {
@@ -711,7 +714,7 @@ void fe_init(void) {
 		free(tmp);
 	}
 	if (SDL_Init(SDL_INIT_VIDEO | (headless ? 0 : SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER)) != 0) {
-		if (g_cfg.renderer == 1) fatal("SDL init failed (%s)", SDL_GetError());
+		if (g_cfg.renderer >= 1) fatal("SDL init failed (%s)", SDL_GetError());
 		LOGE("SDL init failed (%s); running without a window", SDL_GetError());
 		headless = true;
 		return;
@@ -725,7 +728,7 @@ void fe_init(void) {
 	                       480 * scale, 272 * scale, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
 	                       (headless ? SDL_WINDOW_HIDDEN : 0));
 	if (!win) {
-		if (g_cfg.renderer == 1) fatal("could not create an OpenGL window (%s)", SDL_GetError());
+		if (g_cfg.renderer >= 1) fatal("could not create an OpenGL window (%s)", SDL_GetError());
 		LOGE("no window (%s)", SDL_GetError());
 		headless = true;
 		return;
@@ -753,7 +756,7 @@ void fe_init(void) {
 		for (int i = 0; i < SDL_NumJoysticks(); i++)
 			if (SDL_IsGameController(i)) pad_add(SDL_GameControllerOpen(i));
 		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
-		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
+		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer == 2 ? "Native OpenGL" : g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
 	}
 	if (!split_is_child() && (g_start_2p || (getenv("SR2_2P") && atoi(getenv("SR2_2P"))))) split_start();
 }

@@ -61,10 +61,10 @@ static void help(const char *t) {
 }
 
 static void graphics_tab() {
-	const char *renderers[] = {"Software (CPU)", "OpenGL (GPU)"};
-	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 2)) changed();
+	const char *renderers[] = {"Software (CPU)", "OpenGL (GPU)", "Native OpenGL (GPU, new)"};
+	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 3)) changed();
 	if (g_cfg.renderer != g_renderer_at_start) ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Restart the game to switch renderer.");
-	ImGui::BeginDisabled(g_renderer_at_start != 1);
+	ImGui::BeginDisabled(g_renderer_at_start < 1);
 	if (ImGui::SliderInt("Internal resolution", &g_cfg.internal_scale, 1, 8, "%dx")) { changed(); fe_apply_display_settings(); }
 	ImGui::SameLine(); ImGui::TextDisabled("%dx%d", 480 * g_cfg.internal_scale, 272 * g_cfg.internal_scale);
 	const char *filters[] = {"Auto (game's choice)", "Nearest", "Linear"};

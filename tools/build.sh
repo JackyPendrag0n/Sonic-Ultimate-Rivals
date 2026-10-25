@@ -52,6 +52,7 @@ build() { # src obj compiler flags...
   local src=$1 obj=$2; shift 2
   local dep=runtime/kernel.h
   case $src in gen/*) dep=runtime/rt.h;; esac
+  case $src in runtime/ngpu/*) dep=$(ls -t runtime/ngpu/*.h | head -1);; esac
   local dep2=runtime/config.h
   case $src in gen/*) dep2=runtime/rt.h;; esac
   if [ ! -f $obj ] || [ $src -nt $obj ] || [ runtime/rt.h -nt $obj ] || [ runtime/interp_list.h -nt $obj ] || [ $dep -nt $obj ] || [ $dep2 -nt $obj ]; then "$@" -c $src -o $obj || exit 1; fi
@@ -73,6 +74,10 @@ done
 for f in runtime/*.cpp runtime/imgui/*.cpp; do
   o=build/obj/cxx_$(basename ${f%.cpp}).o; objs+=($o)
   build $f $o $CXX -std=c++17 -O2 -g -Iruntime $PLAT_CFLAGS $SDL_CFLAGS -w & pids+=($!)
+done
+for f in runtime/ngpu/*.cpp; do
+  o=build/obj/ngpu_$(basename ${f%.cpp}).o; objs+=($o)
+  build $f $o $CXX -std=c++17 -O2 -g -Iruntime $PLAT_CFLAGS -Wall -Wno-unused-function & pids+=($!)
 done
 for f in runtime/vfpu/*.cpp; do
   o=build/obj/vfpu_$(basename ${f%.cpp}).o; objs+=($o)

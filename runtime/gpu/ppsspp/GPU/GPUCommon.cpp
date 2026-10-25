@@ -38,6 +38,9 @@
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 
+// rcsm: native renderer shadow mode (runtime/ngpu): every command executed is also fed to it (slow run loop only)
+extern "C" { void (*g_ngpu_shadow_op)(uint32_t pc, uint32_t op, uint32_t offset); }
+
 bool __KernelIsDispatchEnabled();
 
 void GPUCommon::Flush() {
@@ -833,6 +836,8 @@ bool GPUCommon::SlowRunLoop(DisplayList &list) {
 		}
 		gstate.cmdmem[cmd] = op;
 
+		if (g_ngpu_shadow_op)
+			g_ngpu_shadow_op(list.pc, op, gstate_c.offsetAddr);
 		ExecuteOp(op, diff);
 
 		list.pc += 4;
@@ -977,7 +982,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
 			debugRecording_ = recorder_.IsActive();
-			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || NeedsSlowInterpreter() || breakpoints_.HasBreakpoints());
+			useFastRunLoop_ = !(dumpThisFrame_ || debugRecording_ || NeedsSlowInterpreter() || breakpoints_.HasBreakpoints() || g_ngpu_shadow_op);
 		} else {
 			resumingFromDebugBreak_ = false;
 			// The bottom part of the gpuState loop below, that wasn't executed

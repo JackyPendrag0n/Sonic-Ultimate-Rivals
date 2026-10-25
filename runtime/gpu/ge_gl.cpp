@@ -63,13 +63,15 @@ static int g_outW, g_outH;
 static bool g_outValid;
 
 int ge_backend(void) { return g_backend; }
+GeNativeHooks g_ge_native;
+#define NATIVE (g_backend == GE_BACKEND_NATIVE)
 
 extern "C" void ge_select_backend(int backend) {
 	if (g_backendLocked) {
 		LOGE("GE: ge_select_backend(%d) after the GPU was created - ignored", backend);
 		return;
 	}
-	g_backend = backend == GE_BACKEND_OPENGL ? GE_BACKEND_OPENGL : GE_BACKEND_SOFTWARE;
+	g_backend = backend == GE_BACKEND_OPENGL ? GE_BACKEND_OPENGL : backend == GE_BACKEND_NATIVE && g_ge_native.init ? GE_BACKEND_NATIVE : GE_BACKEND_SOFTWARE;
 	// The settings PPSSPP's hardware backends use (the software renderer ignores most of them).
 	g_Config.bSoftwareRendering = g_backend == GE_BACKEND_SOFTWARE;
 	g_Config.bHardwareTransform = g_backend == GE_BACKEND_OPENGL;
@@ -194,6 +196,10 @@ GPUCommon *ge_gl_create_gpu(void) {
 }
 
 extern "C" void ge_gl_init(void *(*get_proc)(const char *), int internal_scale) {
+	if (NATIVE || g_ge_native.shadow) {
+		if (g_ge_native.gl_init(get_proc, internal_scale) == 0 && NATIVE) g_glLoaded = true;
+		if (NATIVE) return;
+	}
 	if (!g_glLoaded) {
 		int missing = rcsm_gl_load(get_proc);
 		if (!rcsm_glGetString || !glGetString(GL_VERSION)) {
@@ -222,10 +228,15 @@ extern "C" void ge_gl_init(void *(*get_proc)(const char *), int internal_scale) 
 }
 
 // texture replacements changed: drop every cached texture so they are looked up again
-extern "C" void ge_tex_cache_clear(void) { g_pendingTexClear = true; }
+extern "C" void ge_tex_cache_clear(void) {
+	if (g_ge_native.tex_cache_clear) g_ge_native.tex_cache_clear();
+	g_pendingTexClear = true;
+}
 
 extern "C" void ge_gl_set_internal_scale(int scale) {
 	scale = std::max(1, std::min(scale, 8));
+	if (NATIVE || g_ge_native.shadow) g_ge_native.set_internal_scale(scale);
+	if (NATIVE) return;
 	if (g_backend != GE_BACKEND_OPENGL || !g_draw) {
 		g_scale = scale;
 		return;
@@ -235,6 +246,8 @@ extern "C" void ge_gl_set_internal_scale(int scale) {
 }
 
 extern "C" void ge_gl_set_options(int texture_filtering, int anisotropy, int msaa) {
+	if (NATIVE || g_ge_native.shadow) g_ge_native.set_options(texture_filtering, anisotropy);
+	if (NATIVE) return;
 	// PPSSPP: 1 = auto, 2 = nearest, 3 = linear.
 	g_Config.iTexFiltering = texture_filtering == 1 ? TEX_FILTER_FORCE_NEAREST : texture_filtering == 2 ? TEX_FILTER_FORCE_LINEAR : TEX_FILTER_AUTO;
 	// PPSSPP stores the anisotropy level as log2(samples).
@@ -377,10 +390,12 @@ static Draw::Framebuffer *g_viewMainFbo;
 extern "C" int ge_views_available(void) {
 	static int off = -1;
 	if (off < 0) { const char *e = getenv("SR2_VIEW_TARGETS"); off = e && !strcmp(e, "0"); }
+	if (NATIVE) return !off && g_ge_native.views_available();
 	return g_backend == GE_BACKEND_OPENGL && gpu && g_draw && !off;
 }
 
 extern "C" void ge_views_layout(int n, const int *dst, const int *src) {
+	if (NATIVE || g_ge_native.shadow) g_ge_native.views_layout(n, dst, src);
 	g_viewN = std::max(0, std::min(n, MAX_VIEWS));
 	memcpy(g_viewDst, dst, sizeof(int) * 4 * g_viewN);
 	memcpy(g_viewSrc, src, sizeof(int) * 4 * g_viewN);
@@ -452,6 +467,10 @@ static void ViewOp(u32 op) {
 
 // ================================================================= frontend API
 extern "C" void ge_present(int fb_x, int fb_y, int fb_w, int fb_h) {
+	if (NATIVE) {
+		g_ge_native.present(fb_x, fb_y, fb_w, fb_h);
+		return;
+	}
 	if (!g_glLoaded)
 		return;
 	ViewsNewFrame();
@@ -466,9 +485,13 @@ extern "C" void ge_present(int fb_x, int fb_y, int fb_w, int fb_h) {
 		g_renderManager->ForgetBoundFramebuffers();
 	if (g_backend == GE_BACKEND_OPENGL)
 		BeginHostFrame();
+	if (g_ge_native.shadow && g_ge_native.shadow_present)
+		g_ge_native.shadow_present();
 }
 
 extern "C" int ge_read_display(uint8_t *rgba, int w, int h) {
+	if (NATIVE)
+		return g_ge_native.read_display(rgba, w, h);
 	if (!g_glLoaded || !g_outValid || w <= 0 || h <= 0)
 		return -1;
 	GLuint fbo = 0, tex = 0;
@@ -499,5 +522,5 @@ extern "C" int ge_read_display(uint8_t *rgba, int w, int h) {
 // sr2recomp frame ripper (rip.cpp): called at every display flip
 void rip_flip(TextureCacheCommon *tc);
 extern "C" void ge_rip_flip(void) {
-	if (gpu) rip_flip(gpu->GetTextureCacheCommon());
+	if (gpu && !NATIVE) rip_flip(gpu->GetTextureCacheCommon());
 }

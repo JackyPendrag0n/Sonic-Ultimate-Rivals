@@ -63,7 +63,7 @@ void config_load(void) {
 	// environment overrides for testing
 	const char *e;
 	if ((e = getenv("SR2_FPS"))) g_cfg.fps = atoi(e);
-	if ((e = getenv("SR2_GPU"))) g_cfg.renderer = !strcmp(e, "soft") ? 0 : 1;
+	if ((e = getenv("SR2_GPU"))) g_cfg.renderer = !strcmp(e, "soft") ? 0 : !strcmp(e, "native") ? 2 : 1;
 	if ((e = getenv("SR2_GL_SCALE"))) g_cfg.internal_scale = atoi(e);
 	if ((e = getenv("SR2_CFG"))) {   // "key=value,key=value"
 		char tmp[1024]; snprintf(tmp, sizeof tmp, "%s", e);

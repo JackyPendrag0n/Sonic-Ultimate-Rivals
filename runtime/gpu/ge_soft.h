@@ -7,8 +7,31 @@
 extern "C" {
 #endif
 
-// Backend, chosen once at startup before ge_soft_init(): 0 = software (default), 1 = OpenGL.
+// Backend, chosen once at startup before ge_soft_init(): 0 = software (default), 1 = OpenGL, 2 = the runtime's
+// own renderer (runtime/ngpu), which needs g_ge_native filled in first.
 void ge_select_backend(int backend);
+
+// The native renderer (runtime/ngpu): with backend 2 the functions in this header forward to it. In shadow mode
+// (backend 1 with shadow set) PPSSPP drives the game and the native renderer draws the same frames beside it.
+typedef struct GeNativeHooks {
+	void (*init)(void);                                      // register its sceGe HLE
+	int (*gl_init)(void *(*get_proc)(const char *), int internal_scale);
+	void (*set_internal_scale)(int scale);
+	void (*set_options)(int texture_filtering, int anisotropy);
+	void (*present)(int fb_x, int fb_y, int fb_w, int fb_h);
+	int (*read_display)(uint8_t *rgba, int w, int h);
+	void (*set_display)(uint32_t topaddr, int stride, int format);
+	void (*set_view_offset)(float x, float y);
+	int (*views_available)(void);
+	void (*views_layout)(int n, const int *dst, const int *src);
+	void (*memory_written)(uint32_t addr, uint32_t size);   // the CPU wrote guest memory the GPU may hold
+	uint32_t (*enqueue)(uint32_t list, uint32_t stall, int cbid, uint32_t opt, int head);   // for PPGe
+	void (*enable_interrupts)(int enable);
+	void (*tex_cache_clear)(void);
+	void (*shadow_present)(void);                            // shadow mode: after PPSSPP presented a frame
+	int shadow;
+} GeNativeHooks;
+extern GeNativeHooks g_ge_native;
 
 // Register the sceGe HLE functions with hle_register() and create the GPU of the selected backend.
 // Call once, after g_mem is mapped and after any other code that registers placeholder sceGe NIDs

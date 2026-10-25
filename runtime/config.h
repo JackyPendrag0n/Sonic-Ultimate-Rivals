@@ -8,7 +8,7 @@ extern "C" {
 
 typedef struct GameConfig {
 	// graphics
-	int renderer;          // 0 software, 1 OpenGL            (restart required)
+	int renderer;          // 0 software, 1 OpenGL (PPSSPP), 2 native OpenGL (restart required)
 	int internal_scale;    // 1..8 (OpenGL)
 	int tex_filter;        // 0 auto, 1 nearest, 2 linear
 	int anisotropy;        // 0,2,4,8,16
