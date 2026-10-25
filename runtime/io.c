@@ -161,6 +161,7 @@ static const char *racer_redirect(const char *rel, char *buf, size_t n) {
 	return NULL;
 }
 
+static bool no_mods;   // io_game_path: the game's own file, not a mod's
 int io_host_path(const char *psp, char *out, size_t outsz) {
 	const char *colon = strchr(psp, ':');
 	const char *dev = psp;
@@ -171,7 +172,7 @@ int io_host_path(const char *psp, char *out, size_t outsz) {
 		// relative to the boot directory
 		char rel[600];
 		snprintf(rel, sizeof rel, "PSP_GAME/SYSDIR/%s", psp);
-		if (mod_lookup(rel, out, outsz)) return 0;
+		if (!no_mods && mod_lookup(rel, out, outsz)) return 0;
 		snprintf(out, outsz, "%s/%s", root, rel);
 		resolve_ci(out);
 		return 0;
@@ -182,10 +183,17 @@ int io_host_path(const char *psp, char *out, size_t outsz) {
 	else if (!strncasecmp(dev, "host", 4)) return -1;
 	else { LOGI("io: unsupported device in '%s'", psp); return -1; }
 	while (*rest == '/') rest++;
-	if (root == g_game_root && mod_lookup(rest, out, outsz)) return 0;
+	if (root == g_game_root && !no_mods && mod_lookup(rest, out, outsz)) return 0;
 	snprintf(out, outsz, "%s/%s", root, rest);
 	resolve_ci(out);
 	return 0;
+}
+// io_host_path, ignoring mods
+int io_game_path(const char *psp, char *out, size_t outsz) {
+	no_mods = true;
+	int r = io_host_path(psp, out, outsz);
+	no_mods = false;
+	return r;
 }
 
 // ---- raw sector access (disc0:/sce_lbn0x<lbn>_size0x<size>)

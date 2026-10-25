@@ -159,6 +159,7 @@ u32 module_start_thread(LoadedModule *m, u32 argsize, u32 argp);
 
 // ---------------------------------------------------------------- io
 int io_host_path(const char *psp, char *out, size_t outsz);
+int io_game_path(const char *psp, char *out, size_t outsz);   // the game's own file, never a mod's
 const char *io_fd_path(u32 fd);
 extern char g_game_root[512];
 extern char g_save_root[512];
