@@ -22,6 +22,8 @@ static void (*p_glViewport)(GLint, GLint, GLsizei, GLsizei);
 static void (*p_glClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
 static void (*p_glClear)(GLbitfield);
 static void (*p_glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
+static void (*p_glBindFramebuffer)(GLenum, GLuint);
+static void (*p_glDisable)(GLenum);
 #define glViewport p_glViewport
 #define glClearColor p_glClearColor
 #define glClear p_glClear
@@ -386,6 +388,10 @@ static void present(void) {
 	u64 p0 = now_us();
 	int w, h;
 	SDL_GL_GetDrawableSize(win, &w, &h);
+	// The renderer may still have one of the game's framebuffers bound, and a scissor rect set, from its last
+	// draw: clearing that instead of the window would wipe the frame about to be shown.
+	p_glBindFramebuffer(0x8D40 /*GL_FRAMEBUFFER*/, 0);
+	p_glDisable(GL_SCISSOR_TEST);
 	glViewport(0, 0, w, h);
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -741,6 +747,8 @@ void fe_init(void) {
 	p_glClearColor = SDL_GL_GetProcAddress("glClearColor");
 	p_glClear = SDL_GL_GetProcAddress("glClear");
 	p_glReadPixels = SDL_GL_GetProcAddress("glReadPixels");
+	p_glBindFramebuffer = SDL_GL_GetProcAddress("glBindFramebuffer");
+	p_glDisable = SDL_GL_GetProcAddress("glDisable");
 	SDL_GL_SetSwapInterval(headless ? 0 : (g_cfg.vsync ? 1 : 0));
 	ge_gl_init(SDL_GL_GetProcAddress, g_cfg.internal_scale);
 	ge_gl_set_options(g_cfg.tex_filter, g_cfg.anisotropy, 0);
