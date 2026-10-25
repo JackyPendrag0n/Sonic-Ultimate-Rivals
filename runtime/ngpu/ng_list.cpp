@@ -241,7 +241,21 @@ void ngpu_views_layout(int n, const int *dst, const int *src);
 void ngpu_memory_written(uint32_t addr, uint32_t size);
 void ngpu_tex_cache_clear(void);
 void ngpu_shadow_present(void);
+int ngvk_gl_init(void *(*get_proc)(const char *), int scale);
+void ngvk_present(int x, int y, int w, int h);
+int ngvk_read_display(uint8_t *rgba, int w, int h);
+void ngvk_set_internal_scale(int scale);
+void ngvk_set_options(int filter, int aniso);
+void ngvk_set_view_offset(float x, float y);
+void ngvk_set_display(uint32_t addr, int stride, int fmt);
+void ngvk_views_layout(int n, const int *dst, const int *src);
+void ngvk_memory_written(uint32_t addr, uint32_t size);
+void ngvk_tex_cache_clear(void);
 }
+
+static bool s_vulkan;
+// Vulkan (ng_vk.cpp) draws instead of OpenGL; takes effect at the next ngpu_register()
+extern "C" void ngpu_use_vulkan(int on) { s_vulkan = on != 0; }
 
 static void hle_init(void) {
 	hle_register(kEnts, (int)(sizeof kEnts / sizeof kEnts[0]));
@@ -266,4 +280,16 @@ extern "C" void ngpu_register(void) {
 	h.enable_interrupts = api_interrupts;
 	h.tex_cache_clear = ngpu_tex_cache_clear;
 	h.shadow_present = ngpu_shadow_present;
+	if (s_vulkan) {
+		h.gl_init = ngvk_gl_init;
+		h.set_internal_scale = ngvk_set_internal_scale;
+		h.set_options = ngvk_set_options;
+		h.present = ngvk_present;
+		h.read_display = ngvk_read_display;
+		h.set_display = ngvk_set_display;
+		h.set_view_offset = ngvk_set_view_offset;
+		h.views_layout = ngvk_views_layout;
+		h.memory_written = ngvk_memory_written;
+		h.tex_cache_clear = ngvk_tex_cache_clear;
+	}
 }

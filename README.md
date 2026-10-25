@@ -138,7 +138,9 @@ F11 fullscreen, F12 screenshot.
 
 The game's Options screen has a fifth entry, **Graphics**: resolution, frame rate (30, 60, 120, 144, 165 or
 240 fps), fullscreen, V-Sync and filtering. F1 opens the same settings over the game, with window, audio
-and multiplayer options.
+and multiplayer options. F1 > Graphics > Renderer switches between OpenGL (the default) and Vulkan, which
+draws the same picture through the Vulkan driver (restart to switch; it falls back to OpenGL by itself where
+the drivers don't support it).
 
 ### Multiplayer on one PC
 
@@ -174,6 +176,7 @@ the other mod types are explained in [docs/TECHNICAL.md](docs/TECHNICAL.md#mods)
   - With VSync on, try F1 > Graphics > "Lock game timing to the display". The counter then says "locked to
     display".
   - Lower F1 > Graphics > Resolution for weaker GPUs. The default 2x is light for any recent GPU.
+  - Try F1 > Graphics > Renderer > Vulkan (GPU); some drivers run it faster than OpenGL.
 - The log goes to the terminal (the console window on Windows). `--log 2` shows more.
 
 ## How it works

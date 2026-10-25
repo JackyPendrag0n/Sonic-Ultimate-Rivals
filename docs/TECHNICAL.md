@@ -299,8 +299,24 @@ renderer 1 before the switch move to 2 once (`settings_version`). It covers what
 morphed and plain vertices; CLUT4/CLUT8/8888 swizzled textures from RAM and framebuffers sampled as
 textures (8888 for the glow, CLUT32 for the colour grading); lighting, fog, alpha test, blending and depth.
 Files: `ng_list.cpp` (display lists and the sceGe calls), `ng_core.cpp` (GE registers), `ng_vertex.cpp`,
-`ng_tex.cpp`, and `ng_gl.cpp` (shaders, framebuffers, split views, presenting). Guest threads run on the GL
-thread, so lists execute, and draw, when they're enqueued.
+`ng_tex.cpp`, `ng_common.cpp` (draw keys, uniforms, primitive assembly, texture decoding and replacement),
+and `ng_gl.cpp` (shaders, framebuffers, split views, presenting). Guest threads run on the GL thread, so
+lists execute, and draw, when they're enqueued.
+
+`ng_vk.cpp` draws the same way with Vulkan (`renderer = 3`, "Vulkan" in the F1 menu, `SR2_GPU=vulkan`).
+The window, the F1 overlay and the system dialogs stay OpenGL: each presented frame is copied into an image
+that Vulkan shares with OpenGL (`GL_EXT_memory_object`, with `GL_EXT_semaphore` to order the two without a
+CPU wait where the driver has it), and `ng_gl.cpp` draws that into the window. The Vulkan library is loaded
+at run time, so the build needs no Vulkan SDK (the headers are PPSSPP's, in `runtime/gpu/ppsspp/ext`); where
+there's no Vulkan driver, or it can't share images with the OpenGL one (macOS), the OpenGL renderer runs
+instead. The shaders are one vertex and one fragment shader in `runtime/ngpu/vk`, specialized per draw key
+(specialization constants), precompiled to SPIR-V in `ng_vk_spv.h`: run `tools/gen_vk_shaders.sh`
+(glslangValidator) after changing them. Work goes into a ring of six contexts (command buffers, a 16 MB
+buffer that vertices, uniforms and texture uploads stream through, descriptor sets), submitted at the end of
+every display list and every present. Framebuffers stay in the GENERAL layout, with a barrier after every
+render pass and copy. Pipelines are compiled on a thread with a 64 MB stack (guest threads have 1 MB, too
+little for LLVM in Mesa's drivers). `SR2_VK_VALIDATE=1` turns on the Khronos validation layer. With the
+same input, Vulkan's frames match OpenGL's to within a few levels per channel (lavapipe and llvmpipe).
 
 Its framebuffers keep PSP rows top-down (the picture is flipped when it's shown), and the PSP's framebuffer
 alpha is its stencil, so colour writes leave alpha alone except in clears. The exposure buffer (VRAM

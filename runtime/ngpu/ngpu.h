@@ -8,6 +8,9 @@ extern "C" {
 
 // Fills in the GE backend's hook table (gpu/ge_soft.h: g_ge_native), so that renderer 2 can be selected.
 void ngpu_register(void);
+// Renderer 3: the same renderer drawing with Vulkan (ng_vk.cpp; OpenGL still shows the frames). Call before
+// ngpu_register(); if Vulkan can't be used, it falls back to OpenGL by itself.
+void ngpu_use_vulkan(int on);
 
 // Shadow mode (SR2_NGPU_SHADOW=1 with the PPSSPP OpenGL backend): PPSSPP runs the lists and drives the
 // game, and every command it executes is also fed to the native renderer, for comparisons. offset is the

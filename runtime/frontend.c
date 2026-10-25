@@ -704,7 +704,8 @@ void fe_preinit(void) {
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");  // let Ctrl+C / SIGTERM end the process normally
 	config_load();
 	headless = getenv("SR2_HEADLESS") && atoi(getenv("SR2_HEADLESS"));
-	ngpu_register();   // renderer 2: the runtime's own (runtime/ngpu)
+	ngpu_use_vulkan(g_cfg.renderer == 3);
+	ngpu_register();   // renderers 2 and 3: the runtime's own (runtime/ngpu), drawing with OpenGL or Vulkan
 	if (g_cfg.renderer >= 1) {
 		// probe for a display: OpenGL needs a (possibly hidden) window
 		if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -712,7 +713,7 @@ void fe_preinit(void) {
 			g_cfg.renderer = 0;
 		}
 	}
-	ge_select_backend(g_cfg.renderer);
+	ge_select_backend(g_cfg.renderer == 3 ? 2 : g_cfg.renderer);
 	if (g_cfg.renderer == 1 && getenv("SR2_NGPU_SHADOW") && atoi(getenv("SR2_NGPU_SHADOW"))) ngpu_shadow_enable();
 }
 
@@ -783,7 +784,7 @@ void fe_init(void) {
 		for (int i = 0; i < SDL_NumJoysticks(); i++)
 			if (SDL_IsGameController(i)) pad_add(SDL_GameControllerOpen(i));
 		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
-		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer == 2 ? "OpenGL" : g_cfg.renderer ? "PPSSPP OpenGL" : "software", g_cfg.fps);
+		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer == 3 ? "Vulkan" : g_cfg.renderer == 2 ? "OpenGL" : g_cfg.renderer ? "PPSSPP OpenGL" : "software", g_cfg.fps);
 	}
 	if (!split_is_child() && (g_start_2p || (getenv("SR2_2P") && atoi(getenv("SR2_2P"))))) split_start();
 }

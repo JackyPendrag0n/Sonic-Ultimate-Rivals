@@ -8,7 +8,7 @@ extern "C" {
 
 typedef struct GameConfig {
 	// graphics
-	int renderer;          // 0 software, 1 PPSSPP's OpenGL renderer, 2 OpenGL (the runtime's own; restart required)
+	int renderer;          // 0 software, 1 PPSSPP's OpenGL renderer, 2 OpenGL, 3 Vulkan (2 and 3: the runtime's own; restart required)
 	int internal_scale;    // 1..8 (OpenGL)
 	int tex_filter;        // 0 auto, 1 nearest, 2 linear
 	int anisotropy;        // 0,2,4,8,16

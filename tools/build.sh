@@ -11,7 +11,7 @@ case "$($CC -dumpmachine)" in
   *apple*|*darwin*) TARGET=macos;;
   *) TARGET=linux;;
 esac
-EXE=; PLAT_CFLAGS=; PLAT_LIBS="-lpthread"
+EXE=; PLAT_CFLAGS=; PLAT_LIBS="-lpthread -ldl"
 case $TARGET in
   windows)
     EXE=.exe

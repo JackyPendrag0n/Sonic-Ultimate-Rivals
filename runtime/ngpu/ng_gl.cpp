@@ -447,7 +447,13 @@ static void blit(GLuint from, GLuint to, int s0, int s1, int s2, int s3, int d0,
 }
 
 void ng_gl_sync(void);
+extern bool g_ng_vk;   // the Vulkan side draws (ng_vk.cpp); this one only presents
+void ng_vk_rcsm(u32 data);
+void ng_vk_prim(int prim, const NgVert *v, int count, const NgLayout &L);
+void ng_vk_list_done(void);
+
 void ng_gl_rcsm(u32 data) {
+	if (g_ng_vk) { ng_vk_rcsm(data); return; }
 	if (!s_ready) return;
 	ng_gl_sync();
 	int kind = data & 0xFF, arg = (data >> 8) & 0xFF;
@@ -730,6 +736,7 @@ static void flush_batch() {
 void ng_gl_sync(void) { flush_batch(); g_ng_dirty = true; }
 
 void ng_gl_prim(int prim, const NgVert *v, int count, const NgLayout &L) {
+	if (g_ng_vk) { ng_vk_prim(prim, v, count, L); return; }
 	if (!s_ready || count <= 0) return;
 	const GeState &g = g_ge;
 	bool through = L.through, clear = g.clearMode();
@@ -931,6 +938,7 @@ static void writeback(Fb *f) {
 }
 
 void ng_gl_list_done(void) {
+	if (g_ng_vk) { ng_vk_list_done(); return; }
 	if (!s_ready) return;
 	ng_gl_sync();
 	s_texEpoch++;
@@ -958,11 +966,18 @@ void main() { o_col = vec4(texture(u_tex, v_uv).rgb, 1.0); }
 
 // Draws the displayed framebuffer (or the display memory, before the GE drew it) into the bound framebuffer at
 // GL viewport (x, y, w, h), upright.
+static GLuint s_extTex;
+static float s_extUv[2];
+// The Vulkan side's frame (a texture on its image), shown instead of this side's framebuffers; 0: none
+void ng_gl_external_display(unsigned tex, float u1, float v1) { s_extTex = tex; s_extUv[0] = u1; s_extUv[1] = v1; }
+
 static void draw_display(int x, int y, int w, int h) {
 	if (!s_dispAddr) return;
 	Fb *f = fb_find(s_dispAddr);
 	st_viewport(x, y, w, h);
-	if (f) {
+	if (s_extTex) {
+		draw_textured_quad(s_extTex, -1, 1, 1, -1, 0, 0, s_extUv[0], s_extUv[1]);
+	} else if (f) {
 		glBindTexture(GL_TEXTURE_2D, f->color);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

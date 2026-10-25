@@ -62,8 +62,8 @@ static void help(const char *t) {
 }
 
 static void graphics_tab() {
-	const char *renderers[] = {"Software (CPU)", "OpenGL, PPSSPP's (GPU, old)", "OpenGL (GPU)"};
-	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 3)) changed();
+	const char *renderers[] = {"Software (CPU)", "OpenGL, PPSSPP's (GPU, old)", "OpenGL (GPU)", "Vulkan (GPU)"};
+	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 4)) changed();
 	if (g_cfg.renderer != g_renderer_at_start) ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Restart the game to switch renderer.");
 	ImGui::BeginDisabled(g_renderer_at_start < 1);
 	if (ImGui::SliderInt("Internal resolution", &g_cfg.internal_scale, 1, 8, "%dx")) { changed(); fe_apply_display_settings(); }
