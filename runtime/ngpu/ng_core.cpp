@@ -103,6 +103,15 @@ void ng_exec(u32 pc, u32 op) {
 	GeState &g = g_ge;
 	u32 cmd = op >> 24, data = op & 0xFFFFFF;
 	if (g_ng_census) census_cmds[cmd]++;
+	// anything but the vertex and index addresses may change what the next draw looks like (ng_gl.cpp merges
+	// draws until then); a register written with the value it has changes nothing, except the data ports
+	extern bool g_ng_dirty;
+	// (bones and morph weights are applied to the vertices here, so they don't count)
+	if (cmd != CMD_PRIM && cmd != CMD_VADDR && cmd != CMD_IADDR && cmd != CMD_BASE && cmd != CMD_NOP &&
+	    cmd != CMD_BONE_NUM && cmd != CMD_BONE_DATA && !(cmd >= CMD_MORPH0 && cmd < CMD_MORPH0 + 8) &&
+	    (g.cmd[cmd] != op || (cmd >= CMD_WORLD_NUM && cmd <= CMD_TGEN_DATA) ||
+	     cmd == CMD_LOADCLUT || cmd == CMD_TRANS_START || cmd == CMD_RCSM || cmd == CMD_END || cmd == CMD_FINISH || cmd == CMD_SIGNAL))
+		g_ng_dirty = true;
 	switch (cmd) {
 	case CMD_VADDR: g.vaddr = g.rel(data); break;
 	case CMD_IADDR: g.iaddr = g.rel(data); break;

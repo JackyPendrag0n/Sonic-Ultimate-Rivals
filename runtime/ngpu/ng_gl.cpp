@@ -302,6 +302,9 @@ static std::string gen_fs(u64 k) {
 
 static std::unordered_map<u64, GLuint> s_programs;
 static GLuint s_ubo;
+// The uniforms go into a ring, each draw's at a new offset, so a draw never rewrites a block the GPU may still be reading
+static const int kUboRing = 1 << 20;
+static int s_uboPos, s_uboAlign = 256;
 
 static GLuint program_for(u64 key) {
 	auto it = s_programs.find(key);
@@ -470,8 +473,10 @@ static void blit(GLuint from, GLuint to, int s0, int s1, int s2, int s3, int d0,
 	st.fbo = ~0u;
 }
 
+void ng_gl_sync(void);
 void ng_gl_rcsm(u32 data) {
 	if (!s_ready) return;
+	ng_gl_sync();
 	int kind = data & 0xFF, arg = (data >> 8) & 0xFF;
 	s_viewCur = -1;
 	Fb *f = s_cur;
@@ -924,10 +929,59 @@ static int assemble(int prim, const NgVert *v, int count, bool through, GLenum *
 	return (int)s_idx.size();
 }
 
+// Draws in a row with no state command between them (the same render state, texture and matrices) are merged
+// into one GL draw: a frame is a few thousand small draws, and the GL calls per draw were most of its cost.
+bool g_ng_dirty = true;   // a command since the last draw may have changed the state (ng_core.cpp sets it)
+static struct {
+	bool open;
+	int prim;
+	GLenum mode;
+	bool pixelMapped;
+	std::vector<NgVert> verts;
+	std::vector<u16> idx;
+} s_batch;
+static void flush_batch() {
+	if (!s_batch.open) return;
+	s_batch.open = false;
+	int nv = (int)s_batch.verts.size(), n = (int)s_batch.idx.size();
+	if (!n || nv > kVboVerts || n > kIboIdx) { s_batch.verts.clear(); s_batch.idx.clear(); return; }
+	glBindVertexArray(s_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+	if (s_vboPos + nv > kVboVerts) { glBufferData(GL_ARRAY_BUFFER, kVboVerts * sizeof(NgVert), nullptr, GL_STREAM_DRAW); s_vboPos = 0; }
+	glBufferSubData(GL_ARRAY_BUFFER, s_vboPos * sizeof(NgVert), nv * sizeof(NgVert), s_batch.verts.data());
+	if (s_iboPos + n > kIboIdx) { glBufferData(GL_ELEMENT_ARRAY_BUFFER, kIboIdx * 2, nullptr, GL_STREAM_DRAW); s_iboPos = 0; }
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, s_iboPos * 2, n * 2, s_batch.idx.data());
+	glDrawElementsBaseVertex(s_batch.mode, n, GL_UNSIGNED_SHORT, (void *)(uintptr_t)(s_iboPos * 2), s_vboPos);
+	extern u32 g_ng_gl_draws;
+	g_ng_gl_draws++;
+	s_vboPos += nv;
+	s_iboPos += n;
+	s_batch.verts.clear();
+	s_batch.idx.clear();
+}
+// Everything else that touches GL or the state the draws depend on comes through here first
+void ng_gl_sync(void) { flush_batch(); g_ng_dirty = true; }
+
 void ng_gl_prim(int prim, const NgVert *v, int count, const NgLayout &L) {
 	if (!s_ready || count <= 0) return;
 	const GeState &g = g_ge;
 	bool through = L.through, clear = g.clearMode();
+	extern u32 g_ng_draws;
+	g_ng_draws++;
+	static int nobatch = -1;   // SR2_NGPU_NOBATCH=1: every draw on its own, for comparisons
+	if (nobatch < 0) nobatch = getenv("SR2_NGPU_NOBATCH") && atoi(getenv("SR2_NGPU_NOBATCH"));
+	if (s_batch.open && !g_ng_dirty && prim == s_batch.prim && !nobatch) {
+		bool pm = !clear && (g.cmd[CMD_TEX_EN] & 1) && (g.cmd[CMD_TEXFILTER] & 0x101) && pixel_mapped(prim, v, count, through);
+		GLenum mode;
+		int n = pm == s_batch.pixelMapped ? assemble(prim, v, count, through, &mode) : 0;
+		int base = (int)s_batch.verts.size();
+		if (n && mode == s_batch.mode && base + (int)s_verts.size() <= 65536 && (int)s_batch.idx.size() + n <= kIboIdx) {
+			s_batch.verts.insert(s_batch.verts.end(), s_verts.begin(), s_verts.end());
+			for (u16 i : s_idx) s_batch.idx.push_back((u16)(base + i));
+			return;
+		}
+	}
+	flush_batch();
 	int sx1 = g.scissorX1(), sy1 = g.scissorY1(), sx2 = g.scissorX2(), sy2 = g.scissorY2();
 	if (sx2 < sx1 || sy2 < sy1) return;
 	Fb *f = fb_get(g.fbAddr(), g.fbStride(), g.fbFormat(), sy2 + 1);
@@ -1003,8 +1057,12 @@ void ng_gl_prim(int prim, const NgVert *v, int count, const NgLayout &L) {
 		s_ubo_valid = false;
 	}
 	if (!s_ubo_valid || memcmp(&s_ubo_last, &u, sizeof u)) {
+		int sz = ((int)sizeof u + s_uboAlign - 1) / s_uboAlign * s_uboAlign;
 		glBindBuffer(GL_UNIFORM_BUFFER, s_ubo);
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof u, &u);
+		if (s_uboPos + sz > kUboRing) { glBufferData(GL_UNIFORM_BUFFER, kUboRing, nullptr, GL_STREAM_DRAW); s_uboPos = 0; }
+		glBufferSubData(GL_UNIFORM_BUFFER, s_uboPos, sizeof u, &u);
+		glBindBufferRange(GL_UNIFORM_BUFFER, 0, s_ubo, s_uboPos, sizeof u);
+		s_uboPos += sz;
 		s_ubo_last = u;
 		s_ubo_valid = true;
 	}
@@ -1012,18 +1070,15 @@ void ng_gl_prim(int prim, const NgVert *v, int count, const NgLayout &L) {
 	int S = s_scale;
 	st_scissor(sx1 * S, sy1 * S, (sx2 - sx1 + 1) * S, (sy2 - sy1 + 1) * S);
 
-	// upload and draw
-	int nv = (int)s_verts.size();
-	if (nv > kVboVerts || n > kIboIdx) return;
-	glBindVertexArray(s_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-	if (s_vboPos + nv > kVboVerts) { glBufferData(GL_ARRAY_BUFFER, kVboVerts * sizeof(NgVert), nullptr, GL_STREAM_DRAW); s_vboPos = 0; }
-	glBufferSubData(GL_ARRAY_BUFFER, s_vboPos * sizeof(NgVert), nv * sizeof(NgVert), s_verts.data());
-	if (s_iboPos + n > kIboIdx) { glBufferData(GL_ELEMENT_ARRAY_BUFFER, kIboIdx * 2, nullptr, GL_STREAM_DRAW); s_iboPos = 0; }
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, s_iboPos * 2, n * 2, s_idx.data());
-	glDrawElementsBaseVertex(mode, n, GL_UNSIGNED_SHORT, (void *)(uintptr_t)(s_iboPos * 2), s_vboPos);
-	s_vboPos += nv;
-	s_iboPos += n;
+	// start a batch with it (drawn when a later draw can't join it, or anything else needs GL)
+	if ((int)s_verts.size() > kVboVerts || n > kIboIdx) return;
+	s_batch.open = true;
+	s_batch.prim = prim;
+	s_batch.mode = mode;
+	s_batch.pixelMapped = tex && s_pixelMapped;
+	s_batch.verts.swap(s_verts);
+	s_batch.idx.swap(s_idx);
+	g_ng_dirty = false;
 }
 
 // ================================================================= memory <-> framebuffers
@@ -1086,11 +1141,60 @@ static bool wants_writeback(const Fb *f) { return f->stride <= 64; }
 
 static GLuint s_wbFbo, s_wbTex;
 static int s_wbW, s_wbH;
+// The read back runs asynchronously: the pixels go into a pixel buffer behind a fence, and are copied into
+// guest memory once the GPU is done (normally by the next list), so the CPU never waits for the frame to
+// finish drawing. The game sees its exposure buffer a frame or so late, which only delays the eye adaptation.
+struct WbJob { GLuint pbo; GLsync fence; u32 addr; int stride, fmt, w, h; };
+static WbJob s_wb[4];
+static void wb_finish(WbJob &j) {
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, j.pbo);
+	const u32 *px = (const u32 *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, (size_t)j.w * j.h * 4, GL_MAP_READ_BIT);
+	if (px) {
+		int bpp = fmt_bpp(j.fmt);
+		for (int y = 0; y < j.h; y++) {
+			u8 *row = ng_ptr(j.addr + y * j.stride * bpp);
+			const u32 *s = &px[(size_t)y * j.w];
+			for (int x = 0; x < j.w; x++) {
+				u32 c = s[x];
+				if (j.fmt == FMT_8888) {
+					u32 old; memcpy(&old, row + x * 4, 4);
+					c = (c & 0x00FFFFFF) | (old & 0xFF000000);   // (alpha is the stencil, which the GL side doesn't keep)
+					memcpy(row + x * 4, &c, 4);
+				} else {
+					u32 r = c & 0xFF, gg = (c >> 8) & 0xFF, b = (c >> 16) & 0xFF;
+					u16 v = j.fmt == FMT_565 ? (u16)(r >> 3 | (gg >> 2) << 5 | (b >> 3) << 11)
+					      : j.fmt == FMT_5551 ? (u16)(r >> 3 | (gg >> 3) << 5 | (b >> 3) << 10 | 0x8000)
+					      : (u16)(r >> 4 | (gg >> 4) << 4 | (b >> 4) << 8 | 0xF000);
+					memcpy(row + x * 2, &v, 2);
+				}
+			}
+		}
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	}
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	glDeleteSync(j.fence);
+	j.fence = nullptr;
+}
+// Copies the finished read backs into memory; wait: also the ones still drawing
+static void wb_collect(bool wait) {
+	for (WbJob &j : s_wb) {
+		if (!j.fence) continue;
+		GLenum r = glClientWaitSync(j.fence, wait ? GL_SYNC_FLUSH_COMMANDS_BIT : 0, wait ? 100000000 : 0);
+		if (r == GL_ALREADY_SIGNALED || r == GL_CONDITION_SATISFIED || wait) wb_finish(j);
+	}
+}
 static void writeback(Fb *f) {
 	if (g_ge.shadow || !f->drawn) return;
 	f->drawn = false;
 	int w = std::min(f->stride, f->w), h = f->usedH;
 	if (w <= 0 || h <= 0) return;
+	wb_collect(false);
+	WbJob *j = nullptr;
+	for (WbJob &c : s_wb) if (!c.fence) { j = &c; break; }
+	if (!j) {   // all four still in flight: the oldest has to finish
+		wb_collect(true);
+		j = &s_wb[0];
+	}
 	if (!s_wbFbo || s_wbW < w || s_wbH < h) {
 		if (s_wbFbo) { glDeleteFramebuffers(1, &s_wbFbo); glDeleteTextures(1, &s_wbTex); }
 		s_wbW = std::max(w, s_wbW); s_wbH = std::max(h, s_wbH);
@@ -1105,33 +1209,22 @@ static void writeback(Fb *f) {
 	blit(f->fbo, s_wbFbo, 0, 0, w * s_scale, h * s_scale, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, s_wbFbo);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4); glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	std::vector<u32> px((size_t)w * h);
-	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+	if (!j->pbo) glGenBuffers(1, &j->pbo);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, j->pbo);
+	glBufferData(GL_PIXEL_PACK_BUFFER, (size_t)w * h * 4, nullptr, GL_STREAM_READ);
+	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	j->fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	j->addr = f->addr; j->stride = f->stride; j->fmt = f->fmt; j->w = w; j->h = h;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0); st.fbo = ~0u;
 	glEnable(GL_SCISSOR_TEST);
-	int bpp = fmt_bpp(f->fmt);
-	for (int y = 0; y < h; y++) {
-		u8 *row = ng_ptr(f->addr + y * f->stride * bpp);
-		const u32 *s = &px[(size_t)y * w];
-		for (int x = 0; x < w; x++) {
-			u32 c = s[x];
-			if (f->fmt == FMT_8888) {
-				u32 old; memcpy(&old, row + x * 4, 4);
-				c = (c & 0x00FFFFFF) | (old & 0xFF000000);   // (alpha is the stencil, which the GL side doesn't keep)
-				memcpy(row + x * 4, &c, 4);
-			} else {
-				u32 r = c & 0xFF, gg = (c >> 8) & 0xFF, b = (c >> 16) & 0xFF;
-				u16 v = f->fmt == FMT_565 ? (u16)(r >> 3 | (gg >> 2) << 5 | (b >> 3) << 11)
-				      : f->fmt == FMT_5551 ? (u16)(r >> 3 | (gg >> 3) << 5 | (b >> 3) << 10 | 0x8000)
-				      : (u16)(r >> 4 | (gg >> 4) << 4 | (b >> 4) << 8 | 0xF000);
-				memcpy(row + x * 2, &v, 2);
-			}
-		}
-	}
+	gl_reset_state();
+	s_frame++;
 }
 
 void ng_gl_list_done(void) {
 	if (!s_ready) return;
+	ng_gl_sync();
 	s_texEpoch++;
 	for (Fb *f : s_fbs)
 		if (f->drawn && wants_writeback(f)) writeback(f);
@@ -1173,6 +1266,7 @@ static void draw_display(int x, int y, int w, int h) {
 }
 
 extern "C" void ngpu_present(int x, int y, int w, int h) {
+	ng_gl_sync();
 	if (!s_ready) return;
 	views_new_frame();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0); st.fbo = 0;
@@ -1182,6 +1276,7 @@ extern "C" void ngpu_present(int x, int y, int w, int h) {
 }
 
 extern "C" int ngpu_read_display(uint8_t *rgba, int w, int h) {
+	ng_gl_sync();
 	if (!s_ready || !s_dispAddr || w <= 0 || h <= 0) return -1;
 	GLuint fbo, tex;
 	glGenFramebuffers(1, &fbo);
@@ -1230,8 +1325,10 @@ extern "C" int ngpu_gl_init(void *(*get_proc)(const char *), int scale) {
 	glBindVertexArray(0);
 	glGenBuffers(1, &s_ubo);
 	glBindBuffer(GL_UNIFORM_BUFFER, s_ubo);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(Ubo), nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, kUboRing, nullptr, GL_STREAM_DRAW);
 	glBindBufferBase(GL_UNIFORM_BUFFER, 0, s_ubo);
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &s_uboAlign);
+	if (s_uboAlign <= 0) s_uboAlign = 256;
 	glGenTextures(1, &s_palTex);
 	glBindTexture(GL_TEXTURE_2D, s_palTex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -1251,6 +1348,7 @@ extern "C" int ngpu_gl_init(void *(*get_proc)(const char *), int scale) {
 }
 
 extern "C" void ngpu_set_internal_scale(int scale) {
+	ng_gl_sync();
 	scale = std::max(1, std::min(scale, 8));
 	if (scale == s_scale || !s_ready) { s_scale = scale; return; }
 	// framebuffers keep their contents (rescaled) at the new size
@@ -1270,23 +1368,27 @@ extern "C" void ngpu_set_internal_scale(int scale) {
 	gl_reset_state();
 }
 
-extern "C" void ngpu_set_options(int filter, int aniso) { s_filter = filter; s_aniso = aniso; }
-extern "C" void ngpu_set_view_offset(float x, float y) { s_viewOff[0] = x; s_viewOff[1] = y; }
+extern "C" void ngpu_set_options(int filter, int aniso) { ng_gl_sync(); s_filter = filter; s_aniso = aniso; }
+extern "C" void ngpu_set_view_offset(float x, float y) { ng_gl_sync(); s_viewOff[0] = x; s_viewOff[1] = y; }
 extern "C" void ngpu_set_display(uint32_t addr, int stride, int fmt) {
+	ng_gl_sync();
 	s_dispAddr = 0x04000000 | (addr & 0x1FFFFF);
 	s_dispStride = stride > 0 ? stride : 512;
 	s_dispFmt = fmt & 3;
 }
 extern "C" int ngpu_views_available(void) { return 1; }
 extern "C" void ngpu_views_layout(int n, const int *dst, const int *src) {
+	ng_gl_sync();
 	s_viewN = std::max(0, std::min(n, MAX_VIEWS));
 	memcpy(s_viewDst, dst, sizeof(int) * 4 * s_viewN);
 	memcpy(s_viewSrc, src, sizeof(int) * 4 * s_viewN);
 }
 extern "C" void ngpu_memory_written(uint32_t addr, uint32_t size) {
+	ng_gl_sync();
 	if ((addr & 0x0F000000) == 0x04000000) memory_written(addr, size);
 }
 extern "C" void ngpu_tex_cache_clear(void) {
+	ng_gl_sync();
 	if (s_ready)
 		for (auto &e : s_texCache) glDeleteTextures(1, &e.second.tex);
 	s_texCache.clear();
@@ -1300,6 +1402,7 @@ extern "C" void ngpu_tex_cache_clear(void) {
 extern "C" int ge_read_display(uint8_t *rgba, int w, int h);
 
 extern "C" void ngpu_shadow_present(void) {
+	ng_gl_sync();
 	static int every = -1;
 	static const char *dir;
 	static u32 n;

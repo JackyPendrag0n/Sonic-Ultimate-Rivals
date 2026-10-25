@@ -672,7 +672,25 @@ void fe_vblank(void) {
 
 void fe_audio_push(const s16 *samples, int frames) {
 	if (!audio_dev) return;
-	if (SDL_GetQueuedAudioSize(audio_dev) > 44100 * 4 / 4) return;  // >250 ms queued: drop rather than lag
+	// The runtime hands over sound as soon as its time has come (runtime/audio_ch.c), so the queue only stays ahead
+	// of the device by this cushion: a little silence first, and again whenever a slow frame let it run nearly
+	// dry, instead of a crackle at every hitch.
+	enum { CUSHION = 3072, LOW = 384 };   // frames (70 ms, 9 ms)
+	static const s16 silence[CUSHION * 2];
+	Uint32 queued = SDL_GetQueuedAudioSize(audio_dev) / 4;
+	if (queued > 44100 / 4) return;  // >250 ms queued: drop rather than lag
+	static u64 t0; static int pushes, low;
+	if (queued < LOW) {
+		if (pushes || t0) low++;
+		SDL_QueueAudio(audio_dev, silence, (CUSHION - queued) * 4);
+	}
+	pushes++;
+	u64 t = now_us();
+	if (!t0) t0 = t;
+	if (t - t0 >= 10000000) {
+		if (low) LOGI("audio: the queue ran low %d times in %d blocks (%.0f s)", low, pushes, (t - t0) / 1e6);
+		t0 = t; pushes = low = 0;
+	}
 	if (g_cfg.volume >= 100) { SDL_QueueAudio(audio_dev, samples, frames * 4); return; }
 	static s16 buf[8192];
 	int n = frames * 2 > 8192 ? 8192 : frames * 2;

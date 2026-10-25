@@ -24,7 +24,8 @@
 	X(glTexImage2D) X(glTexParameterf) X(glTexParameteri) X(glTexSubImage2D) X(glUniform1f) X(glUniform1i) \
 	X(glUniform2f) X(glUniform3f) X(glUniform3fv) X(glUniform4f) X(glUniform4fv) X(glUniformMatrix4fv) \
 	X(glUseProgram) X(glVertexAttribPointer) X(glViewport) X(glDrawBuffer) X(glBindBufferBase) \
-	X(glGetUniformBlockIndex) X(glUniformBlockBinding) X(glProvokingVertex)
+	X(glGetUniformBlockIndex) X(glUniformBlockBinding) X(glProvokingVertex) \
+	X(glFenceSync) X(glClientWaitSync) X(glDeleteSync) X(glMapBufferRange) X(glUnmapBuffer) X(glBindBufferRange)
 
 #define NG_GL_DECL(f) extern decltype(&::f) ng_##f;
 NG_GL_FUNCS(NG_GL_DECL)
@@ -118,6 +119,12 @@ NG_GL_FUNCS(NG_GL_DECL)
 #define glGetUniformBlockIndex ng_glGetUniformBlockIndex
 #define glUniformBlockBinding ng_glUniformBlockBinding
 #define glProvokingVertex ng_glProvokingVertex
+#define glFenceSync ng_glFenceSync
+#define glClientWaitSync ng_glClientWaitSync
+#define glDeleteSync ng_glDeleteSync
+#define glMapBufferRange ng_glMapBufferRange
+#define glUnmapBuffer ng_glUnmapBuffer
+#define glBindBufferRange ng_glBindBufferRange
 #endif
 
 // Returns the number of functions the context doesn't have.

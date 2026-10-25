@@ -87,6 +87,25 @@ static void run(GeList *l) {
 	l->state = LS_COMPLETED;
 }
 
+// SR2_NGPU_STATS=1: every 5 s, how long the lists took to run (decoding and GL calls) and how many draws they made
+u32 g_ng_draws, g_ng_gl_draws;
+static void run_timed(GeList *l) {
+	static int on = -1;
+	if (on < 0) on = getenv("SR2_NGPU_STATS") && atoi(getenv("SR2_NGPU_STATS"));
+	if (!on) { run(l); return; }
+	static u64 t0, busy, lists;
+	u64 a = now_us();
+	if (!t0) t0 = a;
+	run(l);
+	u64 b = now_us();
+	busy += b - a; lists++;
+	if (b - t0 >= 5000000) {
+		NG_LOGE("ngpu stats: lists took %.1f%% of the time, %llu lists, %u draws (%.0f a second) in %u GL draws", busy * 100.0 / (b - t0),
+		        (unsigned long long)lists, g_ng_draws, g_ng_draws * 1e6 / (b - t0), g_ng_gl_draws);
+		t0 = b; busy = lists = 0; g_ng_draws = g_ng_gl_draws = 0;
+	}
+}
+
 static u32 enqueue(u32 list, u32 stall, int cbid, u32 opt, bool head) {
 	(void)opt; (void)head;
 	int i;
@@ -98,7 +117,7 @@ static u32 enqueue(u32 list, u32 stall, int cbid, u32 opt, bool head) {
 	l->pc = list & 0x0FFFFFFF;
 	l->stall = stall & 0x0FFFFFFF;
 	l->cbid = cbid >= 0 && cbid < 16 ? cbid : -1;
-	run(l);
+	run_timed(l);
 	return (u32)i;
 }
 
@@ -119,7 +138,7 @@ static void h_ListUpdateStallAddr(Ctx *c) {
 	GeList *l = list_by_id(A(0));
 	if (!l) { RET(0x80000100); return; }
 	l->stall = A(1) & 0x0FFFFFFF;
-	if (l->state == LS_STALLED) run(l);
+	if (l->state == LS_STALLED) run_timed(l);
 	RET(0);
 }
 static void h_ListSync(Ctx *c) {
