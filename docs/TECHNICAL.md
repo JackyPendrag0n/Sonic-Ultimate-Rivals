@@ -2,8 +2,10 @@
 
 Built on the rcsm (Ratchet & Clank: Size Matters) recompiler and runtime: the game's Allegrex code is
 translated ahead of time into C (`tools/recomp.py`) and runs on a small runtime that re-implements the
-PSP OS calls. GPU (or the native renderer, below), SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP components
-(`runtime/gpu`, `runtime/audio`, `runtime/mpeg`, `runtime/utility`). No game data is included.
+PSP OS calls. The graphics, the sound mixer and music decoder (SAS/ATRAC3+) and the system dialogs are the
+runtime's own by default (`runtime/ngpu`, `runtime/sas.c`, `runtime/atrac.c`, `runtime/sysdlg.c`); PPSSPP's
+versions of each (`runtime/gpu`, `runtime/audio`, `runtime/utility`) are still built in, for comparisons and as
+fallbacks. No game data is included.
 `docs/README.rcsm.md` is the original Size Matters README, kept for the runtime's history.
 
 ## Status
@@ -269,8 +271,9 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
   Device names are matched case-insensitively (the game uses `DISC0:`).
 - `runtime/hle_misc.c`: sceRtcGetCurrentTick, sceUmdCheckMedium, sceUmdWaitDriveStatWithTimer,
   UMD callbacks, scePowerSetClockFrequency.
-- Memory stick size capped at 1 GB (`runtime/utility/shim/Core/Config.h`): the game multiplies free
-  clusters by the cluster size in 32 bits, so 16 GB wrapped to 0 and it asked to delete saves.
+- Memory stick size reported as 1 GB (`runtime/savedata.c`, and `runtime/utility/shim/Core/Config.h` for
+  PPSSPP's dialogs): the game multiplies free clusters by the cluster size in 32 bits, so 16 GB wrapped to 0
+  and it asked to delete saves.
 - `runtime/audio_ch.c`: sceAudio hardware channels (ChReserve, Output[Panned][Blocking], volumes), mixed on one timeline. `SR2_AUDIO_DUMP=file` writes the mixed output as raw 44.1 kHz stereo.
 - `runtime/game.c` replaces the Size Matters mods with this game's layer: the settings file, the race
   frame rate (an entry hook on the display manager's swap-interval setter, see `data/hooks.json`, plus a
@@ -309,6 +312,27 @@ To check it against PPSSPP, `SR2_NGPU_SHADOW=1` (with `SR2_GPU=gl`) runs both re
 and `SR2_NGPU_COMPARE=N` writes `cmp_NNNNNN.png` (native, PPSSPP, difference x4) every N frames into
 `SR2_NGPU_COMPARE_DIR` (default `build/ngcmp`) and logs the mean difference. `SR2_NGPU_CENSUS=file` lists
 the draw states, formats and commands the game used, and `SR2_NGPU_TRACE=N` logs every draw of frame N. A 2P Blue Coast race matches to 0.02% of pixels.
+
+## Native sound
+`runtime/sas.c` (the sceSas voice mixer) and `runtime/atrac.c` (sceAtrac, ATRAC3+ music through FFmpeg)
+replace PPSSPP's, with `runtime/media.c` for the Media Engine timing they share. `SR2_PPSSPP_AUDIO=1` goes
+back to PPSSPP's (`runtime/audio`).
+
+## System dialogs and saves
+`runtime/sysdlg.c` runs sceUtility's save data, message, network and game sharing dialogs, and
+`runtime/savedata.c` does the save data work. The dialogs' timing (statuses, the Update calls and how long
+they take) follows PPSSPP's, and the overlay (`runtime/menu.cpp`) draws them in the look of the game's own
+menus: saves as banners with their icons, the picked save's details beside them, Yes / No banners, and the
+pad buttons in a footer.
+
+Saves are PSP save directories under `<data folder>/PSP/SAVEDATA` (`ULUS10323RVSAVEDATA0` to `2`), with
+PARAM.SFO, ICON0.PNG and PIC1.PNG, and GAMEDATA.BIN encrypted the way a PSP does it (sceChnnlsv with the
+game's key, the PARAM.SFO hashes included), so they can be copied to and from a PSP or PPSSPP. Unencrypted
+saves written by earlier builds still load and are encrypted the next time they're saved.
+`runtime/utility/build.sh` also builds `build/test_native`, which sends the same requests and button
+presses to these dialogs and to PPSSPP's and compares results, statuses, request memory and files, then
+has each side load the other's saves. `SR2_PPSSPP_DIALOGS=1` runs PPSSPP's dialogs instead (drawn with
+PPGe).
 
 ## Headless testing
 `./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables:

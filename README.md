@@ -120,6 +120,9 @@ program. You can also pass the folder, or a `.iso`, which is unpacked once into 
 | Settings | `~/.config/sr2recomp/settings.ini` | `%APPDATA%\sr2recomp\settings.ini` |
 | Saves, mods, texture dumps | `~/.local/share/sr2recomp/` | `%APPDATA%\sr2recomp\` |
 
+Saves are in `PSP/SAVEDATA` there, in the same format as on a PSP: copy the `ULUS10323RVSAVEDATA*` folders
+to or from a PSP's memory stick or PPSSPP's `memstick/PSP/SAVEDATA` to carry your progress over.
+
 ### Controls
 
 Controller: left stick / d-pad move, A jump, B / X / Y are the PSP's circle / square / triangle, LB/LT = L,
@@ -176,9 +179,10 @@ the other mod types are explained in [docs/TECHNICAL.md](docs/TECHNICAL.md#mods)
 ## How it works
 
 `tools/recomp.py` translates the game's MIPS (Allegrex) code into C ahead of time, and a small runtime in
-`runtime/` re-implements the PSP system calls the game makes. Graphics, audio (SAS/ATRAC), video and the
-system dialogs come from [PPSSPP](https://www.ppsspp.org). [docs/TECHNICAL.md](docs/TECHNICAL.md) covers
-the details, the game fixes and the debugging tools.
+`runtime/` re-implements the PSP system calls the game makes, along with the graphics chip, the sound
+mixer and music decoder, and the save and message dialogs. [PPSSPP](https://www.ppsspp.org)'s versions of
+those are still built in, for comparison and as fallbacks. [docs/TECHNICAL.md](docs/TECHNICAL.md) covers the
+details, the game fixes and the debugging tools.
 
 ## Repository layout
 
