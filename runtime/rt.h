@@ -152,6 +152,7 @@ typedef struct RecompModule {
 	const FuncEnt *funcs;
 	u32 nfuncs;
 	u32 text_start, text_end;
+	u32 load_crc;   // crc32 of the PT_LOAD segments' file data, in order (0: match the whole file only)
 } RecompModule;
 
 #ifdef __cplusplus

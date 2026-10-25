@@ -347,6 +347,24 @@ static LoadedModule *module_load_from(const char *psp_path, const char *hp, s32 
 	for (int i = 0; i < g_recomp_module_count; i++)
 		if (g_recomp_modules[i]->crc == crc && g_recomp_modules[i]->file_size == (u32)sz) rm = g_recomp_modules[i];
 	if (!rm) {
+		// another dump of the same program (decrypters differ in the section headers and padding they keep):
+		// what gets loaded is all the recompiled code depends on
+		u32 lcrc = 0;
+		u32 phoff = rd32(file + 28);
+		u16 phentsize = rd16(file + 42), phnum = rd16(file + 44);
+		bool ok = phoff + (u32)phnum * phentsize <= (u32)sz;
+		for (int i = 0; ok && i < phnum; i++) {
+			const u8 *ph = file + phoff + i * phentsize;
+			u32 off = rd32(ph + 4), fsz = rd32(ph + 16);
+			if (rd32(ph) != 1) continue;
+			if (off > (u32)sz || fsz > (u32)sz - off) ok = false;
+			else lcrc = crc32(lcrc, file + off, fsz);
+		}
+		for (int i = 0; ok && i < g_recomp_module_count; i++)
+			if (g_recomp_modules[i]->load_crc && g_recomp_modules[i]->load_crc == lcrc) rm = g_recomp_modules[i];
+		if (rm) LOGI("module_load: %s is another dump of %s (same loaded segments)", psp_path, rm->name);
+	}
+	if (!rm) {
 		LOGE("module_load: %s (%s, crc %08x size %ld) has no recompiled code linked in. Recompile it and rebuild.", psp_path, hp, crc, sz);
 		free(file); *err = 0x80020148; return NULL;
 	}

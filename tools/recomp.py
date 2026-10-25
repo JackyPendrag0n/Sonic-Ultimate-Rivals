@@ -286,13 +286,22 @@ class Recomp:
         write_if_changed(os.path.join(outdir, '%s_funcs.h' % cn), '\n'.join(hdr) + '\n')
         # module table
         crc = zlib.crc32(self.e.d) & 0xFFFFFFFF
+        # the loaded segments' crc: dumps of the same program can differ outside them (section headers, padding)
+        d = self.e.d
+        phoff, = struct.unpack_from('<I', d, 28)
+        phentsize, phnum = struct.unpack_from('<HH', d, 42)
+        load_crc = 0
+        for i in range(phnum):
+            t, off, _, _, filesz = struct.unpack_from('<5I', d, phoff + i * phentsize)
+            if t == 1:
+                load_crc = zlib.crc32(d[off:off + filesz], load_crc)
         tab = ['#include "%s_funcs.h"' % cn, 'u32 MB_%s;' % cn,
                'static const FuncEnt funcs_%s[] = {' % cn]
         for f in self.funcs:
             tab.append('  {0x%05x, %s},' % (f, self.fname(f)))
         tab.append('};')
-        tab.append('const RecompModule mod_%s = {"%s", 0x%08x, %d, &MB_%s, funcs_%s, %d, 0x%x, 0x%x};' % (
-            cn, cn, crc, len(self.e.d), cn, cn, len(self.funcs), self.ts, self.te))
+        tab.append('const RecompModule mod_%s = {"%s", 0x%08x, %d, &MB_%s, funcs_%s, %d, 0x%x, 0x%x, 0x%08x};' % (
+            cn, cn, crc, len(self.e.d), cn, cn, len(self.funcs), self.ts, self.te, load_crc))
         write_if_changed(os.path.join(outdir, '%s_table.c' % cn), '\n'.join(tab) + '\n')
         files.append('%s_table.c' % cn)
         return files
