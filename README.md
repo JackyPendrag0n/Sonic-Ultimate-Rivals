@@ -56,8 +56,8 @@ unpacked (a folder with `PSP_GAME` in it), pass that folder instead of the ISO.
 
 ```sh
 # Debian / Ubuntu
-sudo apt install git build-essential pkg-config python3 libsdl2-dev libavcodec-dev libavformat-dev \
-  libavutil-dev libswscale-dev libswresample-dev libpng-dev zlib1g-dev
+sudo apt install git build-essential pkg-config python3 libsdl2-dev libavcodec-dev \
+  libavutil-dev libpng-dev zlib1g-dev
 # Fedora:  sudo dnf install git gcc-c++ pkgconf python3 SDL2-devel ffmpeg-free-devel libpng-devel zlib-devel
 # Arch:    sudo pacman -S git base-devel python sdl2 ffmpeg libpng zlib
 

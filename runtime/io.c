@@ -9,7 +9,6 @@
 #include <ctype.h>
 #include <time.h>
 #include <strings.h>
-#include "mpeg/mpeg_hle.h"
 
 #define MAX_FD 64
 typedef struct { int used; int hostfd; DIR *dir; char path[512]; s64 async_res; int async_pending; s64 win_off, win_len; char host[1024]; } PspFile;
@@ -330,44 +329,11 @@ static s32 do_open(const char *psp, u32 flags) {
 		for (char *p = d + strlen(g_save_root) + 1; (p = strchr(p, '/')); p++) { *p = 0; mkdir(d, 0755); *p = '/'; }
 	}
 	int h = open(hp, of | O_BINARY, 0644);
-	bool faked = false;
 	{	// Rivals 1's movie reader spins on a full ring buffer here; it skips movies that don't open
 		size_t pl = strlen(psp);
 		if (disc_map == disc_map_sr1 && pl > 4 && !strcasecmp(psp + pl - 4, ".PMF")) {
 			if (h >= 0) close(h);
 			return SCE_ERROR_FILE_NOT_FOUND;
-		}
-	}
-	if (h < 0) {
-		// Missing FMV clips: serve a 1-second black PSMF so the game's player runs and finishes.
-		size_t pl = strlen(psp);
-		const char *fake = getenv("SR2_FAKE_MISSING_VIDEOS");
-		if (pl > 4 && !strcasecmp(psp + pl - 4, ".PMF") && (flags & 3) == 1 && (!fake || atoi(fake))) {
-			int err = errno;
-			if (err == EACCES || err == EPERM)
-				LOGE("video %s: %s exists but can't be read (permission denied). Make the CLIPS files readable by "
-				     "your user, e.g. chmod -R a+rX on the CLIPS folder (files extracted with sudo or from a mounted "
-				     "ISO are often root-only).", psp, hp);
-			else {
-				static int said;
-				if (!said++) {
-					char dir[1024]; snprintf(dir, sizeof dir, "%s", hp);
-					char *slash = strrchr(dir, '/'); if (slash) *slash = 0;
-					struct stat ds;
-					if (stat(dir, &ds) != 0)
-						LOGE("videos: no CLIPS folder (looked for %s). Copy PSP_GAME/USRDIR/CLIPS from a full dump of the "
-						     "disc to play the FMVs.", dir);
-					else
-						LOGE("videos: %s exists, but %s isn't in it (%s).", dir, strrchr(hp, '/') ? strrchr(hp, '/') + 1 : hp, strerror(err));
-				}
-			}
-			unsigned sz = 0;
-			const unsigned char *data = mpeg_fake_pmf(&sz);
-			h = host_memfile(data, sz);
-			if (h >= 0) {
-				LOGI("video %s is missing: substituting a 1 s black clip", psp);
-				faked = true;
-			}
 		}
 	}
 	if (h < 0) { LOGD("open %s (%s) -> errno %d", psp, hp, errno); return SCE_ERROR_FILE_NOT_FOUND; }
@@ -378,7 +344,6 @@ static s32 do_open(const char *psp, u32 flags) {
 	fds[fd].hostfd = h;
 	snprintf(fds[fd].path, sizeof fds[fd].path, "%s", psp);
 	snprintf(fds[fd].host, sizeof fds[fd].host, "%s", hp);
-	{ size_t pl = strlen(psp); if (pl > 4 && !strcasecmp(psp + pl - 4, ".PMF") && !faked) LOGI("video %s: opened %s", psp, hp); }
 	LOGD("open %s -> fd %d", psp, fd);
 	return fd;
 }

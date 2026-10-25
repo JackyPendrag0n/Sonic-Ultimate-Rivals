@@ -606,8 +606,6 @@ int main(int argc, char **argv) {
 		sas_init();
 		atrac_init();
 	}
-	extern void mpeg_hle_init(void);
-	mpeg_hle_init();
 	extern void utility_hle_init(void);
 	utility_hle_init();
 	extern void audio_ch_init(void);

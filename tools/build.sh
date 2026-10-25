@@ -88,13 +88,12 @@ if [ -n "$fail" ]; then echo "build FAILED (compile errors above)"; exit 1; fi
 [ "$1" = --check ] && { echo "compile check passed ($TARGET)"; exit 0; }
 [ -f build/libpspgpu.a ] || runtime/gpu/build.sh lib
 [ -f build/libpspaudio.a ] || runtime/audio/build.sh lib
-[ -f build/libpspmpeg.a ] || runtime/mpeg/build.sh lib
 [ -f build/libpsputility.a ] || runtime/utility/build.sh lib
 SDL_LIBS=$(pkg-config --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
 # Windows: SDL2 linked in statically, so the .exe needs no DLLs
 [ "$WIN_STATIC" = 1 ] && SDL_LIBS=$(pkg-config --static --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
-$CXX -o build/sr2recomp$EXE "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a \
-  $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) $SDL_LIBS $(pkg-config --libs libpng zlib) $PLAT_LIBS -lm
+$CXX -o build/sr2recomp$EXE "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspaudio.a \
+  $(pkg-config --libs libavcodec libavutil) $SDL_LIBS $(pkg-config --libs libpng zlib) $PLAT_LIBS -lm
 if [ $TARGET = windows ] && [ "$WIN_STATIC" != 1 ] && command -v ldd >/dev/null; then
   # MSYS2: copy the MinGW DLLs (SDL2, FFmpeg, ...) next to the .exe, so it also starts outside the MSYS2 shell
   ldd build/sr2recomp$EXE | awk '$3 ~ /\/(ucrt64|mingw64|clang64)\/bin\// {print $3}' | sort -u | while read -r d; do cp -u "$d" build/; done

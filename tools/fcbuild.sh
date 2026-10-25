@@ -28,5 +28,5 @@ for o in build/obj/*.o; do
   objs+=($use)
 done
 wait
-g++ -rdynamic -o build/sr2recomp_fc "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) -lSDL2 -lpng -lpthread -lz -lm
+g++ -rdynamic -o build/sr2recomp_fc "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspaudio.a $(pkg-config --libs libavcodec libavutil) -lSDL2 -lpng -lpthread -lz -lm
 echo built build/sr2recomp_fc

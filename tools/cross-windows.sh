@@ -42,13 +42,12 @@ fi
 if [ ! -f "$DEPS/lib/libavcodec.a" ]; then
   get https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VER.tar.xz ffmpeg.tar.xz
   tar -C "$SRC" -xf "$SRC/ffmpeg.tar.xz"
-  # only what the game uses: H.264 video (PMF/MPEG-PS), ATRAC3/ATRAC3+ and MP3/AAC audio
+  # only what the game uses: the ATRAC3/ATRAC3+ music decoders
   (cd "$SRC/ffmpeg-$FFMPEG_VER" && ./configure --prefix="$DEPS" --enable-cross-compile --target-os=mingw32 --arch=x86_64 \
      --cross-prefix=$HOST- --disable-everything --disable-programs --disable-doc --disable-network --disable-autodetect \
      --enable-static --disable-shared --enable-w32threads \
-     --enable-decoder=h264,atrac3,atrac3p,atrac3al,atrac3pal,mp3,mp3float,aac,pcm_s16le \
-     --enable-parser=h264,mpegaudio,aac --enable-demuxer=mpegps,mpegvideo,h264,mp3,aac,oma,wav,mov \
-     --enable-protocol=file --enable-swscale --enable-swresample && make -j"$JOBS" && make install)
+     --enable-decoder=atrac3,atrac3p --disable-avformat --disable-swscale --disable-swresample --disable-avdevice \
+     --disable-avfilter && make -j"$JOBS" && make install)
 fi
 
 export CC=$HOST-gcc-posix CXX=$HOST-g++-posix AR=$HOST-ar PKG_CONFIG_LIBDIR=$DEPS/lib/pkgconfig PKG_CONFIG_PATH= WIN_STATIC=1

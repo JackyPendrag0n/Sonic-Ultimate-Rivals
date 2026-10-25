@@ -56,11 +56,11 @@ PY=$(command -v python3 || command -v python) || { echo "missing: python3"; exit
 need "$CC" "C compiler"
 need "$CXX" "C++ compiler"
 need pkg-config "pkg-config"
-for p in sdl2 libavcodec libavformat libavutil libswscale libswresample libpng zlib; do
+for p in sdl2 libavcodec libavutil libpng zlib; do
   pkg-config --exists $p || { echo "missing development package for '$p'."
     case $OS in
       linux)
-        echo "Debian/Ubuntu: sudo apt install build-essential pkg-config libsdl2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libpng-dev zlib1g-dev"
+        echo "Debian/Ubuntu: sudo apt install build-essential pkg-config libsdl2-dev libavcodec-dev libavutil-dev libpng-dev zlib1g-dev"
         echo "Fedora:        sudo dnf install gcc-c++ pkgconf SDL2-devel ffmpeg-free-devel libpng-devel zlib-devel"
         echo "Arch:          sudo pacman -S base-devel sdl2 ffmpeg libpng zlib";;
       macos)
@@ -107,14 +107,14 @@ echo "$TARGET $MARCH" > build/march
 if [ -n "$CHECK" ]; then mkdir -p build; [ -f runtime/interp_list.h ] || : > runtime/interp_list.h
 else tools/build.sh --gen; fi
 
-# runtime libraries (PPSSPP-derived GPU, audio, video, system dialogs)
+# runtime libraries (PPSSPP-derived GPU, audio and system dialogs)
 LIBFLAGS="-O3 $ARCHFLAG"
 case $TARGET in
   windows) LIBFLAGS="$LIBFLAGS -D_FILE_OFFSET_BITS=64 -DUNICODE -D_UNICODE -I$PWD/runtime/win32 -include $PWD/runtime/win32/compat.h";;
   macos) LIBFLAGS="$LIBFLAGS -I$PWD/runtime/macos -DGL_SILENCE_DEPRECATION -Wno-deprecated-declarations";;
 esac
 # (each one only recompiles what changed, so this is quick after the first build)
-for lib in gpu audio mpeg utility; do
+for lib in gpu audio utility; do
   [ -f build/libpsp$lib.a ] || echo "building libpsp$lib.a ..."
   CXXFLAGS="$LIBFLAGS" runtime/$lib/build.sh lib > build/lib$lib.log 2>&1 || { tail -20 build/lib$lib.log; exit 1; }
 done

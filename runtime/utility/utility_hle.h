@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 // Registers every sceUtility NID PPSSPP defines (overriding earlier registrations) and sets up PPGe.
-// Call after kernel_init/io_init, ge_soft_init and audio/mpeg init.
+// Call after kernel_init/io_init, ge_soft_init and audio init.
 void utility_hle_init(void);
 #ifdef __cplusplus
 }
