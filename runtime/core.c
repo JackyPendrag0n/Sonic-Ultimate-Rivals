@@ -606,8 +606,13 @@ int main(int argc, char **argv) {
 		sas_init();
 		atrac_init();
 	}
-	extern void utility_hle_init(void);
-	utility_hle_init();
+	extern void utility_hle_init(void), utility_nickname_from_env(void), sysdlg_init(void);
+	if (getenv("SR2_PPSSPP_DIALOGS") && atoi(getenv("SR2_PPSSPP_DIALOGS"))) {
+		utility_hle_init();
+		utility_nickname_from_env();
+	} else {
+		sysdlg_init();
+	}
 	extern void audio_ch_init(void);
 	audio_ch_init();
 	extern void net_init(void);

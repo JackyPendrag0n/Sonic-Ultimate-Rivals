@@ -96,3 +96,15 @@ $CXX -o "$OUT/test_utility" "$(objname test_utility.cpp)" "$OUT/libpsputility.a"
 	"$OUT/libpspaudio.a" "$OUT/libpspgpu.a" \
 	$(pkg-config --libs libavcodec libavutil) -lpng -lz -lpthread
 echo "built $OUT/test_utility"
+
+# The native dialogs (runtime/savedata.c, sysdlg.c) side by side with PPSSPP's
+compile test_native.cpp
+NOBJS=""
+for c in savedata sysdlg media; do
+	$CC $CFLAGS -I"$ROOT/runtime" $(pkg-config --cflags libavutil libavcodec) -c "$ROOT/runtime/$c.c" -o "$OBJ/native_$c.o"
+	NOBJS="$NOBJS $OBJ/native_$c.o"
+done
+$CXX -o "$OUT/test_native" "$(objname test_native.cpp)" $NOBJS "$OUT/libpsputility.a" \
+	"$OUT/libpspaudio.a" "$OUT/libpspgpu.a" \
+	$(pkg-config --libs libavcodec libavutil) -lpng -lz -lpthread
+echo "built $OUT/test_native"

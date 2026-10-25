@@ -6,6 +6,7 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include "config.h"
 #include "menu_font.h"
+#include "sysdlg.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -311,8 +312,7 @@ extern "C" int mp_score_text(int k, char *out, int n);
 static void placings_draw(const int *game) {   // game: the game image in the window (x, y, w, h)
 	int place[4], over = 0; float view[4][4], time[4];
 	int n = mp_placings(place, time, view, &over);
-	extern bool currentDialogActive;   // a PSP dialog (saving) is up
-	if (!n || currentDialogActive) return;
+	if (!n || sysdlg_active()) return;   // a PSP dialog (saving) is up
 	static const char *const ord[] = {"", "1st", "2nd", "3rd", "4th"};
 	static const ImU32 col[] = {0, IM_COL32(255, 215, 40, 255), IM_COL32(220, 225, 235, 255), IM_COL32(225, 140, 70, 255), IM_COL32(150, 190, 255, 255)};
 	ImDrawList *dl = ImGui::GetForegroundDrawList();
