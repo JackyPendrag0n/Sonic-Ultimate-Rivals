@@ -14,7 +14,7 @@ static inline u32 ng_r32(u32 a) { u32 v; memcpy(&v, ng_ptr(a), 4); return v; }
 static inline bool ng_valid(u32 a, u32 size) {
 	a &= 0x3FFFFFFF;
 	u32 e = a + size;
-	if (a >= 0x08000000 && e <= 0x0A000000) return true;   // user/kernel RAM (32 MB)
+	if (a >= 0x08000000 && e <= 0x0C000000) return true;   // RAM, with the 32 MB above it the extra racers use
 	if (a >= 0x04000000 && e <= 0x04800000) return true;   // VRAM and its mirrors
 	if (a >= 0x00010000 && e <= 0x00014000) return true;   // scratchpad
 	return false;

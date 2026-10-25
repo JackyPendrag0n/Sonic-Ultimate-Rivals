@@ -2,7 +2,7 @@
 
 Built on the rcsm (Ratchet & Clank: Size Matters) recompiler and runtime: the game's Allegrex code is
 translated ahead of time into C (`tools/recomp.py`) and runs on a small runtime that re-implements the
-PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP components
+PSP OS calls. GPU (or the native renderer, below), SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP components
 (`runtime/gpu`, `runtime/audio`, `runtime/mpeg`, `runtime/utility`). No game data is included.
 `docs/README.rcsm.md` is the original Size Matters README, kept for the runtime's history.
 
@@ -287,6 +287,27 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
     racer stops dead (seen on a Blue Coast ramp at 240 fps). When a racer has moved less than a quarter
     of its expected distance for 3 frames in a row, one step is taken with a 1/60 s dt.
 - The Size Matters debug menu, mods, control schemes and test scripts are gone.
+
+## Native renderer
+`runtime/ngpu` is a GE implementation of its own, chosen with `renderer = 2` in settings.ini, the Options
+screen's "Native OpenGL" or `SR2_GPU=native`. PPSSPP's OpenGL renderer (`renderer = 1`) stays the default
+and the fallback. It covers what the game sends: triangles, strips and through-mode rectangles; skinned,
+morphed and plain vertices; CLUT4/CLUT8/8888 swizzled textures from RAM and framebuffers sampled as
+textures (8888 for the glow, CLUT32 for the colour grading); lighting, fog, alpha test, blending and depth.
+Files: `ng_list.cpp` (display lists and the sceGe calls), `ng_core.cpp` (GE registers), `ng_vertex.cpp`,
+`ng_tex.cpp`, and `ng_gl.cpp` (shaders, framebuffers, split views, presenting). Guest threads run on the GL
+thread, so lists execute, and draw, when they're enqueued.
+
+Its framebuffers keep PSP rows top-down (the picture is flipped when it's shown), and the PSP's framebuffer
+alpha is its stencil, so colour writes leave alpha alone except in clears. The exposure buffer (VRAM
+0x04180000, read by F_4b750) is copied back to memory after every list. Texture replacement uses PPSSPP's
+file names, so packs work under both renderers; like PPSSPP's "smart 2D filtering", rectangles drawn texel
+for pixel sample nearest. The split-screen view commands (0xFA, above) work the same way.
+
+To check it against PPSSPP, `SR2_NGPU_SHADOW=1` (with `SR2_GPU=gl`) runs both renderers on the same lists,
+and `SR2_NGPU_COMPARE=N` writes `cmp_NNNNNN.png` (native, PPSSPP, difference x4) every N frames into
+`SR2_NGPU_COMPARE_DIR` (default `build/ngcmp`) and logs the mean difference. `SR2_NGPU_CENSUS=file` lists
+the draw states, formats and commands the game used. A 2P Blue Coast race matches to 0.02% of pixels.
 
 ## Headless testing
 `./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables:
