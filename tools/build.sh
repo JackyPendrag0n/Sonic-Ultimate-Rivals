@@ -68,7 +68,7 @@ done
 support=(gen/modules.c gen/nidnames.c); [ "$1" = --check ] && support=()
 for f in "${support[@]}" runtime/*.c; do
   o=build/obj/$(basename ${f%.c}).o; objs+=($o)
-  build $f $o $CC $CFLAGS $SDL_CFLAGS $(pkg-config --cflags libpng zlib) -Wall -Wno-unused-function -Wno-unused-variable &
+  build $f $o $CC $CFLAGS $SDL_CFLAGS $(pkg-config --cflags libpng zlib libavcodec libavutil) -Wall -Wno-unused-function -Wno-unused-variable &
   pids+=($!)
 done
 for f in runtime/*.cpp runtime/imgui/*.cpp; do

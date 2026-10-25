@@ -599,8 +599,13 @@ int main(int argc, char **argv) {
 	extern void ge_soft_init(void);
 	fe_preinit();   // loads settings, picks the GPU backend
 	ge_soft_init();
-	extern void audio_hle_init(void);
-	audio_hle_init();
+	extern void audio_hle_init(void), sas_init(void), atrac_init(void);
+	if (getenv("SR2_PPSSPP_AUDIO") && atoi(getenv("SR2_PPSSPP_AUDIO"))) {
+		audio_hle_init();
+	} else {
+		sas_init();
+		atrac_init();
+	}
 	extern void mpeg_hle_init(void);
 	mpeg_hle_init();
 	extern void utility_hle_init(void);
