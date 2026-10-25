@@ -2620,6 +2620,7 @@ static bool sctx_settle(int k, u32 s) {   // whether player k waits; s: the sect
 		     (s32)LW(sl + 0x2c), LW(sl + 0x38), sctx_state(k, (s32)LW(sl + 0x2c))); } }
 	return sctx_settling[k];
 }
+#define RACER_RIVAL  0x230   // racer: 1 for the second seat's (the CPU rival in a single player race)
 #define RACER_MAX_DT (1.0f / 20)   // the longest step of a racer's physics and move (slower than the race on a slow host)
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	if (!game_is_sr2()) { orig(c); return; }
@@ -2642,6 +2643,11 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 				g_fcount = saved; in_fc = 0;
 				return;
 			}
+		}
+		if (id == HOOK_RACER_PHYS && k >= 1 && LW(A(0) + RACER_RIVAL) == 1 && !ENV_ON("SR2_RIVAL_PHYS")) {
+			// the second seat's racer is the CPU rival's, whose landing (F_9f0ac: F_9d118 with t1 = 1, F_9d63c) only
+			// works near the local player: it went through floors in sections only that player had. Not for a player
+			SW(A(0) + RACER_RIVAL, 0); rt_hookcall(c, id, orig); SW(A(0) + RACER_RIVAL, 1); return;
 		}
 		if ((id == HOOK_RACER_PHYS || id == HOOK_RACER_MOVE) && c->f[12] > RACER_MAX_DT && !ENV_ON("SR2_NO_DT_CAP"))
 			c->f[12] = RACER_MAX_DT;   // a long frame (the game's time step goes up to 1/8 s): a racer falling fast went through a floor between two checks
