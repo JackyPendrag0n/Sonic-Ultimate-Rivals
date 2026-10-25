@@ -818,32 +818,9 @@ static int view_cur = -1;      // the extra racer whose context is in (-1: playe
 static u32 view_p1_local;      // player 1's local player meanwhile
 static int sctx_use(int k);    // (and their course sections, see the section contexts)
 static int view_sctx;
-static unsigned *view_fc_saved;
 static void view_enter(int k) {
 	if (k < 0) return;
 	view_sctx = sctx_use(k + 1);
-	if (k == 0 && getenv("SR2_VIEW_FC")) {   // TEMP: calls made while drawing player 2's view
-		extern unsigned *g_fcount; static unsigned *mine, *saved_fc; static u32 since;
-		if (!mine) mine = calloc(0x400000 / 4, sizeof *mine);
-		if (g_vblank_count - since > 300) {
-			since = g_vblank_count; FILE *f = fopen(getenv("SR2_VIEW_FC"), "w");
-			for (u32 i = 0; f && i < 0x400000 / 4; i++) if (mine[i]) fprintf(f, "%06x %u\n", i * 4, mine[i]);
-			if (f) fclose(f);
-			memset(mine, 0, 0x400000 / 4 * sizeof *mine);
-		}
-		saved_fc = g_fcount; g_fcount = mine; view_fc_saved = saved_fc;
-	}
-	if (k == 0 && ENV_ON("SR2_VIEW_DEBUG")) {   // TEMP
-		static u32 last; u32 t = g_vblank_count;
-		if (t - last > 120) {
-			last = t; char line[600]; int o = 0;
-			for (int s = 1; s <= 8; s++) {
-				int b = (s - 1) & 3; u32 sl = WORLD_SLOT(s);
-				o += snprintf(line + o, sizeof line - o, " %d:[%08x %x m%08x n%u]", s, LW(WORLD + 0x5d1c + 16 * b), LW(WORLD + 0x5d20 + 16 * b), LW(WORLD + 0x5d7c + 4 * b), LW(sl + 0x20));
-			}
-			LOGI("view debug: p2 cur %08x%s", LW(WORLD + 0x5d9c), line);
-		}
-	}
 	cam_swap(k);
 	view_p1_local = LW(WORLD + 0x5024);
 	SW(WORLD + 0x5024, extra_racer[k]);
@@ -851,7 +828,6 @@ static void view_enter(int k) {
 }
 static void view_leave(int k) {
 	if (k < 0) return;
-	if (k == 0 && getenv("SR2_VIEW_FC")) { extern unsigned *g_fcount; g_fcount = view_fc_saved; }
 	SW(WORLD + 0x5024, view_p1_local);
 	cam_swap(k);
 	sctx_use(view_sctx);
@@ -2354,9 +2330,6 @@ static void sctx_section_passes(Ctx *c, int sec) {
 			f = LW(o + 4); SW(f + 8, LW(f + 8) & ~3u);
 		} else if (!BIT(LW(f + 4), 3)) obj_call(c, 0x08800000 + 0x16c0b0, o, 1, 2);
 	}
-	if (ENV_ON("SR2_WAKE_ALL"))   // TEMP
-		for (u32 j = 0; j < n8; j++)
-			if ((o = sec_obj(sec, j, &info)) && BIT(LW(info + 4), 3) && BIT(LW(info + 8), 10)) obj_call(c, 0x08800000 + 0x16c0b0, o, 0, 2);
 	u32 sp = c->r[29] + 0x40;   // as in F_15aafc's frame: a flag byte, the time step (the caller keeps room above sp)
 	SW(sp, 0); memcpy(PTR(sp + 4), PTR(WORLD + 0x5d14), 4);
 	for (u32 j = 0; j < n8; j++)
@@ -2628,22 +2601,6 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	                || id == HOOK_RACER_CORE || id == HOOK_RACER_PHYS)) {   // a player's racer:
 		int k = player_index(A(0));                                                                   // in their context
 		if (ENV_ON("SR2_CTX_DEBUG")) { static u8 seen[128][5]; int kk = k < 0 ? 4 : k; if (id < 128 && !seen[id][kk]) { seen[id][kk] = 1; LOGI("ctx debug: hook %u racer %08x player %d, context in %d", id, A(0), k + 1, sctx_in + 1); } }
-		if (id == (u32)(getenv("SR2_PHYS_FC_ID") ? atoi(getenv("SR2_PHYS_FC_ID")) : HOOK_RACER_PHYS) && getenv("SR2_PHYS_FC") && k == atoi(getenv("SR2_PHYS_FC_K") ? getenv("SR2_PHYS_FC_K") : "1")) {   // TEMP
-			static int in_fc; extern unsigned *g_fcount; static unsigned *mine; static u32 since;
-			if (!in_fc && g_fcount) {
-				if (!mine) mine = calloc(0x400000 / 4, sizeof *mine);
-				if (g_vblank_count - since > (u32)(getenv("SR2_PHYS_FC_N") ? atoi(getenv("SR2_PHYS_FC_N")) : 120)) {
-					since = g_vblank_count; char fn[300]; snprintf(fn, sizeof fn, "%s.%u", getenv("SR2_PHYS_FC"), g_vblank_count); FILE *f = fopen(fn, "w");
-					for (u32 i = 0; f && i < 0x400000 / 4; i++) if (mine[i]) fprintf(f, "%06x %u\n", i * 4, mine[i]);
-					if (f) fclose(f);
-					memset(mine, 0, 0x400000 / 4 * sizeof *mine);
-				}
-				unsigned *saved = g_fcount; g_fcount = mine; in_fc = 1;
-				rt_hookcall(c, id, orig);
-				g_fcount = saved; in_fc = 0;
-				return;
-			}
-		}
 		if (id == HOOK_RACER_PHYS && k >= 1 && LW(A(0) + RACER_RIVAL) == 1 && !ENV_ON("SR2_RIVAL_PHYS")) {
 			// the second seat's racer is the CPU rival's, whose landing (F_9f0ac: F_9d118 with t1 = 1, F_9d63c) only
 			// works near the local player: it went through floors in sections only that player had. Not for a player
@@ -2652,19 +2609,6 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if ((id == HOOK_RACER_PHYS || id == HOOK_RACER_MOVE) && c->f[12] > RACER_MAX_DT && !ENV_ON("SR2_NO_DT_CAP"))
 			c->f[12] = RACER_MAX_DT;   // a long frame (the game's time step goes up to 1/8 s): a racer falling fast went through a floor between two checks
 		if (id == HOOK_RACER_PHYS && k >= 1 && sctx_settle(k, LW(LW(A(0) + 4) + 12))) return;   // held still meanwhile
-		if (id == HOOK_RACER_PHYS && k >= 1 && k == sctx_in && ENV_ON("SR2_COLL_DEBUG")) {   // TEMP
-			static u32 lastk[8]; if (g_vblank_count - lastk[k] > (u32)(getenv("SR2_COLL_EVERY") ? atoi(getenv("SR2_COLL_EVERY")) : 2)) { lastk[k] = g_vblank_count;
-			char l[600]; int o = 0; float z; memcpy(&z, PTR(LW(A(0) + 4) + 0x28), 4);
-			u32 cur = LW(WORLD + 0x5d9c);
-			for (int b = 0; b < 4; b++) {
-				u32 sl = LW(WORLD + 0x5d1c + 16 * b), st = LW(WORLD + 0x5d20 + 16 * b), vis = 0, m = LW(WORLD + 0x5d8c + 4 * b);
-				if (sl) { Ctx t = *c; t.r[29] = (c->r[29] - 0x400) & ~15u; t.r[4] = WORLD; t.r[5] = sl; rt_call(&t, 0x08800000 + 0x15a2cc); vis = t.r[2]; }
-				u32 rt = m ? LW(m + 84) : 0, tr = rt ? LW(rt + 28) : 0;
-				o += snprintf(l + o, sizeof l - o, " [%d st%x vis%u tree %08x n%u]", sl ? (int)LW(sl + 0x20) : 0, st, vis, tr, tr ? LW(tr + 12) : 0);
-			}
-			o += snprintf(l + o, sizeof l - o, " cur %d nb %d %d %d fl %x %x %x", cur ? (int)LW(cur + 0x20) : -1, LW(cur + 0x24), LW(cur + 0x28), LW(cur + 0x2c), LW(cur + 0x30), LW(cur + 0x34), LW(cur + 0x38));
-			LOGI("coll debug: dt %.4f vz %.2f vb %u p%d z %.1f body sec %d slot %d path %d/%d next %d/%d%s", c->f[12], ({ float v_; memcpy(&v_, PTR(A(0) + 0x2f8), 4); v_; }), (u32)g_vblank_count, k + 1, z, LW(LW(A(0) + 4) + 0xc), LW(LW(A(0) + 4) + 0x10), (s8)*PTR(A(0) + 0x114 + 0xd), (s16)LH(A(0) + 0x114 + 0xa), (s8)*PTR(A(0) + 0x114 + 0xc), (s16)LH(A(0) + 0x114 + 0x8), l); sctx_dump(c, A(0), k, "ray"); }
-		}
 		if ((id == HOOK_RACER_PHYS || (id == HOOK_RACER_MOVE && ENV_ON("SR2_MOVE_FOCUS"))) && k >= 1 && LW(WORLD + 0x5024) != A(0) && !ENV_ON("SR2_NO_PHYS_FOCUS")) {   // and as the one the world follows: the
 			u32 f = LW(WORLD + 0x5024), f28 = LW(WORLD + 0x5028);   // ground checks take only that racer anywhere, the others only inside a live
 			SW(WORLD + 0x5024, A(0));     // section's bounds (F_1605f4), which leave out some of the course
@@ -2856,18 +2800,6 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
-	case HOOK_DEBUG_DL: {   // TEMP: F_abecc's F_1636d0(world, from, along, out)
-		u32 r = c->r[16];   // F_abecc's racer (s0)
-		float f[4], d[4]; memcpy(f, PTR(A(1)), 16); memcpy(d, PTR(A(2)), 16);
-		u32 out = A(3);
-		orig(c);
-		int k = player_index(r);
-		if (k >= 0 && ENV_ON("SR2_COLL_DEBUG")) {
-			float h[4]; memcpy(h, PTR(out), 16);
-			static int n; if (n++ < 400) LOGI("ray debug: vb %u p%d in %d from %.1f %.1f %.1f along %.2f %.2f %.2f: %u at %.1f %.1f %.1f", (u32)g_vblank_count, k + 1, sctx_in + 1, f[0], f[1], f[2], d[0], d[1], d[2], c->r[2], h[0], h[1], h[2]);
-		}
-		return;
-	}
 	case HOOK_RACER_STATE_STEP: {   // F_b9b2c(racer, state): 0 hands over to the next state, then F_b8720 steps again
 		static u32 who, n;
 		u32 r = A(0);
