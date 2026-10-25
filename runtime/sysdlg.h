@@ -29,9 +29,10 @@ typedef struct SysDlgView {
 	const char *heading;         // "Save", "Load", "Delete" (save data only)
 	const SdSlot *slots;         // the saves; list: pick one of nslots, else slots[sel] alone (none if !nslots)
 	int nslots, sel;
+	int nall;                    // all of slots (for their icons), whatever this frame shows
 	bool list;
-	bool show_new;               // describe the save about to be made: new_title, now, new_size
-	const char *new_title;
+	bool show_new;               // describe the save about to be made: new_title, new_detail, new_size
+	const char *new_title, *new_detail;
 	uint32_t new_size;
 	const char *message;         // the message (with \n), or NULL
 	int buttons;                 // under the message: 0 none, 1 OK, 2 Yes / No
@@ -46,6 +47,7 @@ void sysdlg_init(void);                 // registers the sceUtility functions
 const SysDlgView *sysdlg_view(void);    // for drawing, from the frontend thread between game frames
 bool sysdlg_active(void);               // a dialog is up (native or PPSSPP's)
 const char *sysdlg_nickname(void);      // the system nickname: SR2_NICKNAME or PLAYER
+uint8_t *sysdlg_icon_rgba(const SdSlot *s, int *w, int *h);   // a save's icon as RGBA (free it), or NULL
 
 #ifdef __cplusplus
 }

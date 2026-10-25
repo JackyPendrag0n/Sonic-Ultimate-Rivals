@@ -12,6 +12,7 @@
 // hardware. SR2_PPSSPP_DIALOGS=1 runs PPSSPP's own dialogs instead.
 #include <string.h>
 #include <time.h>
+#include <png.h>
 #include "kernel.h"
 #include "media.h"
 #include "savedata.h"
@@ -595,14 +596,16 @@ const SysDlgView *sysdlg_view(void) {
 	view.heading = d <= DS_SAVE_DONE ? "Save" : d <= DS_LOAD_NODATA ? "Load" : "Delete";
 	view.slots = sd.slots;
 	view.nslots = sd.nslots;
+	view.nall = sd.nslots ? sd.nslots : sd.slots ? 1 : 0;
 	view.sel = sd.sel;
 	view.choice = sd.choice;
 	view.list = d == DS_SAVE_LIST || d == DS_LOAD_LIST || d == DS_DELETE_LIST;
 	if (!view.list && !sd_multi_name(sd.mode) && sd.slots && !sd.nslots) view.nslots = 1;   // the save about to be made
 	view.new_title = (const char *)PTR(sd.p + SD_SAVE_TITLE);
 	view.new_size = LW(sd.p + SD_DATA_SIZE);
-	view.show_new = d == DS_SAVE_CONFIRM || d == DS_SAVE_SAVING || d == DS_SAVE_FAILED ||
-	                (d == DS_SAVE_LIST && sd.sel < sd.nslots && !sd.slots[sd.sel].size);
+	view.new_detail = (const char *)PTR(sd.p + SD_DETAIL);
+	bool empty = !(sd.slots && sd.sel < sd.nslots && sd.slots[sd.sel].size);   // (saving over a save shows that save)
+	view.show_new = empty && (d == DS_SAVE_CONFIRM || d == DS_SAVE_SAVING || d == DS_SAVE_FAILED || d == DS_SAVE_LIST);
 	static const char *const text[] = {
 		[DS_SAVE_CONFIRM] = "Do you want to save this data?", [DS_SAVE_OVERWRITE] = "Do you want to overwrite the data?",
 		[DS_SAVE_SAVING] = "Saving...\nPlease wait.", [DS_SAVE_FAILED] = "Unable to save data.", [DS_SAVE_DONE] = "Save completed.",
@@ -623,6 +626,21 @@ const SysDlgView *sysdlg_view(void) {
 		view.back_label = "Back";
 	}
 	return &view;
+}
+
+// A save's icon (a PNG) as RGBA pixels, malloc'd; NULL if it has none or it doesn't decode
+uint8_t *sysdlg_icon_rgba(const SdSlot *s, int *w, int *h) {
+	if (!s->icon || s->icon_size < 8) return NULL;
+	png_image img;
+	memset(&img, 0, sizeof img);
+	img.version = PNG_IMAGE_VERSION;
+	if (!png_image_begin_read_from_memory(&img, s->icon, s->icon_size)) return NULL;
+	img.format = PNG_FORMAT_RGBA;
+	if (img.width > 1024 || img.height > 1024) { png_image_free(&img); return NULL; }
+	uint8_t *px = malloc(PNG_IMAGE_SIZE(img));
+	if (!px || !png_image_finish_read(&img, NULL, px, 0, NULL)) { free(px); png_image_free(&img); return NULL; }
+	*w = (int)img.width; *h = (int)img.height;
+	return px;
 }
 
 // ================================================================= registration

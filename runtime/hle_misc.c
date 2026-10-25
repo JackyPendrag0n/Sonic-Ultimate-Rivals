@@ -205,43 +205,7 @@ static void h_Zero(Ctx *c) { RET(0); }
 static void h_VolatileMemLock(Ctx *c) { if (A(1)) SW(A(1), 0x08400000); if (A(2)) SW(A(2), 0x400000); RET(0); }
 
 // ================================================================= utility
-static int sd_status;
-static u32 sd_params;
-static void h_GetSystemParamInt(Ctx *c) {
-	u32 v = 0;
-	switch (A(0)) {
-	case 8: v = 1; break;  // language: English
-	case 9: v = 1; break;  // confirm button: cross
-	case 4: v = 2; break;  // date format DD/MM/YYYY
-	case 5: v = 0; break;  // 24h
-	default: v = 0;
-	}
-	SW(A(1), v);
-	RET(0);
-}
-static void h_SavedataInitStart(Ctx *c) {
-	sd_params = A(0);
-	u32 mode = LW(sd_params + 48);
-	char game[16] = {0}, save[24] = {0};
-	memcpy(game, PTR(sd_params + 60), 13); memcpy(save, PTR(sd_params + 76), 20);
-	LOGI("sceUtilitySavedataInitStart mode %u game '%s' save '%s'", mode, game, save);
-	// Without saves on disk every load reports "no data"; saving is acknowledged but not written yet.
-	u32 result = 0;
-	if (mode == 0 || mode == 2 || mode == 4 || mode == 6) result = 0x80110307;  // LOAD_NO_DATA
-	else if (mode == 11 || mode == 12) result = 0x80110307;
-	SW(sd_params + 28, result);
-	sd_status = 1;
-	RET(0);
-}
-static void h_SavedataGetStatus(Ctx *c) {
-	int s = sd_status;
-	if (sd_status == 1) sd_status = 2;
-	else if (sd_status == 2) sd_status = 3;
-	else if (sd_status == 4) sd_status = 0;
-	RET(s);
-}
-static void h_SavedataShutdownStart(Ctx *c) { sd_status = 4; RET(0); }
-static void h_SavedataUpdate(Ctx *c) { RET(0); }
+// (the save data and message dialogs, and the system settings: sysdlg.c)
 static int osk_status;
 static void h_OskInitStart(Ctx *c) { osk_status = 1; RET(0); }
 static void h_OskGetStatus(Ctx *c) { int s = osk_status; if (osk_status == 1) osk_status = 2; else if (osk_status == 2) osk_status = 3; else if (osk_status == 4) osk_status = 0; RET(s); }
@@ -281,11 +245,6 @@ static const HleEnt misc_ents[] = {
 	{0x090CCB3F, "sceKernelPowerTick", h_Zero},
 	{0xEADB1BD7, "sceKernelPowerLock", h_Zero},
 	{0x3AEE7261, "sceKernelPowerUnlock", h_Zero},
-	{0xA5DA2406, "sceUtilityGetSystemParamInt", h_GetSystemParamInt},
-	{0x50C4CD57, "sceUtilitySavedataInitStart", h_SavedataInitStart},
-	{0x8874DBE0, "sceUtilitySavedataGetStatus", h_SavedataGetStatus},
-	{0x9790B33C, "sceUtilitySavedataShutdownStart", h_SavedataShutdownStart},
-	{0xD4B95FFB, "sceUtilitySavedataUpdate", h_SavedataUpdate},
 	{0xC629AF26, "sceUtilityLoadAvModule", h_Zero},
 	{0xF7D8D092, "sceUtilityUnloadAvModule", h_Zero},
 	{0xF6269B82, "sceUtilityOskInitStart", h_OskInitStart},
