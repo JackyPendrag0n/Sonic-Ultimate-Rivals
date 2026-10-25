@@ -77,7 +77,7 @@ for f in runtime/*.cpp runtime/imgui/*.cpp; do
 done
 for f in runtime/ngpu/*.cpp; do
   o=build/obj/ngpu_$(basename ${f%.cpp}).o; objs+=($o)
-  build $f $o $CXX -std=c++17 -O2 -g -Iruntime $PLAT_CFLAGS -Wall -Wno-unused-function & pids+=($!)
+  build $f $o $CXX -std=c++17 -O2 -g -Iruntime $PLAT_CFLAGS $(pkg-config --cflags libpng) -Wall -Wno-unused-function & pids+=($!)
 done
 for f in runtime/vfpu/*.cpp; do
   o=build/obj/vfpu_$(basename ${f%.cpp}).o; objs+=($o)
