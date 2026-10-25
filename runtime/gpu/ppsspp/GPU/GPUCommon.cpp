@@ -1622,8 +1622,13 @@ void GPUCommon::FlushImm() {
 	}
 }
 
+// rcsm: the runtime's own commands in a display list (opcode 0xFA, ge_gl.cpp's split views); the rest do nothing
+void (*g_rcsm_unknown_op)(u32 op) = nullptr;
+
 void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 	// Do nothing. We used to report here, but we're confident we have them all so no need to report unknown.
+	if (g_rcsm_unknown_op)
+		g_rcsm_unknown_op(op);
 }
 
 void GPUCommon::FastLoadBoneMatrix(u32 target) {

@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
+#include "gpu/ge_soft.h"
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <math.h>
@@ -922,9 +923,9 @@ static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p
 
 // view k, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24), scale and scissor. Two views split the
 // screen in halves, three or four in quarters. The first view is not clipped: it fills the screen (centred
-// on its own part), and the other views are drawn over the rest. Drawing the first view into only part of
-// the screen leaves the colours washed out, as if something later in the frame weighs in the parts nothing
-// was drawn to.
+// on its own part), and the other views are drawn over the rest: the race's first frame sets the exposure
+// from the screen's brightness, and a part left dark washes the colours out for the whole race (see
+// docs/TECHNICAL.md).
 static void ge_region_scaled(int k, bool whole) {
 	int x0 = 0, y0 = 0, w = 480, h = 272;
 	int nv = n_views();
@@ -990,9 +991,40 @@ static void live_places(Ctx *c, u32 p1) {
 		live_place[k] = n;
 	}
 }
-static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
+// With a framebuffer per view (OpenGL, ge_views_available): each view is drawn over the whole screen into its
+// own framebuffer at the internal resolution (each draw pass: GE_VIEW_DRAW before the view's draws, GE_VIEW_END
+// after the last), and after the frame's last pass all of them are scaled into their parts of the screen
+// (GE_VIEW_COMPOSE); quarters show the whole view, halves its middle (as ge_region). The runtime's commands go
+// in the display list (ge_gl.cpp's ViewOp), as the GE draws the list after the game has built it. Every part
+// gets drawn, so the first view needn't fill the screen any more, and a quarter is the whole view at full
+// resolution scaled down rather than drawn small.
+#define GE_VIEW_DRAW(v)    (0xFA000001 | (v) << 8)
+#define GE_VIEW_COMPOSE(n) (0xFA000002 | (n) << 8)
+#define GE_VIEW_END        0xFA000003   // back to the game's framebuffer
+static void views_layout(int nv) {
+	int dst[16], src[16];
+	for (int v = 0; v < nv; v++) {
+		int *d = dst + 4 * v, *r = src + 4 * v;
+		r[0] = 0; r[1] = 0; r[2] = 480; r[3] = 272;
+		if (nv >= 3) { d[0] = (v & 1) * 240; d[1] = (v >> 1) * 136; d[2] = 240; d[3] = 136; }
+		else if (split_view == 2) { d[0] = v * 240; d[1] = 0; d[2] = 240; d[3] = 272; r[0] = 120; r[2] = 240; }
+		else { d[0] = 0; d[1] = v * 136; d[2] = 480; d[3] = 136; r[1] = 68; r[3] = 136; }
+	}
+	ge_views_layout(nv, dst, src);
+}
+static int views_pending;   // views drawn since the last compose (their number of parts)
+static void views_compose(void) {
+	if (!views_pending) return;
+	views_layout(views_pending);
+	ge_put(GE_VIEW_COMPOSE(views_pending));
+	views_pending = 0;
+}
+// last: the frame's last draw pass (the see-through objects), after which the views go on the screen
+static void split_draw_views(Ctx *c, void (*orig)(Ctx *c), bool last) {
 	Ctx save = *c;
-	ge_region(0); if (!ENV_ON("SR2_P1_NODRAW")) orig(c);   // TEMP
+	bool own = ge_views_available();   // a framebuffer per view
+	if (own) { ge_region(-1); ge_put(GE_VIEW_DRAW(0)); } else ge_region(0);
+	orig(c);
 	Ctx out = *c;
 	*c = save;
 	u32 p1 = LW(WORLD + 0x5024);
@@ -1001,15 +1033,8 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 	for (int v = 1; v < nv; v++) {
 		int k = view_player[v] - 1;
 		view_enter(k); view_refresh(c);
-		if (v == 1 && ENV_ON("SR2_PLANES")) {   // TEMP
-			static u32 last; if (g_vblank_count - last > 30) { last = g_vblank_count;
-			u32 cm = LW(0x08A7C09C); char l[700]; int o = 0;
-			for (int i = 0; i < 28; i++) { u32 w = LW(cm + 192 + 4 * i); float f; memcpy(&f, &w, 4); o += snprintf(l + o, sizeof l - o, " %.2f", f); }
-			u32 r = extra_racer[k]; float p[3]; memcpy(p, PTR(LW(r + 4) + 0x20), 12);
-			LOGI("planes after refresh: cam %08x%s (racer %.1f %.1f %.1f)", cm, l, p[0], p[1], p[2]);
-			for (int row = 0; row < 0x1c0 / 32; row++) { o = 0; for (int i = 0; i < 8; i++) { u32 w = LW(cm + row * 32 + 4 * i); float f; memcpy(&f, &w, 4); o += snprintf(l + o, sizeof l - o, " %.3g", f); } LOGI("cam +%03x:%s", row * 32, l); } }
-		}
-		ge_region(v);
+		ge_region(own ? -1 : v);
+		if (own) ge_put(GE_VIEW_DRAW(v));
 		static int ddiff = -1, dsteps;
 		if (ddiff < 0) ddiff = ENV_ON("SR2_VIEW_DIFF");
 		if (ddiff && ++dsteps > 2400 && dsteps < 2410) draw_diff(c, orig);
@@ -1017,12 +1042,20 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 		*c = save;
 		view_leave(k);
 	}
+	int parts = nv;
 	if (nv == 3) {   // three views: the fourth quarter follows whoever leads the race
 		int lead = split_leader(c, p1);
 		view_enter(lead - 1); view_refresh(c);
-		ge_region(3); orig(c);
+		ge_region(own ? -1 : 3);
+		if (own) ge_put(GE_VIEW_DRAW(3));
+		orig(c);
 		*c = save;
 		view_leave(lead - 1);
+		parts = 4;
+	}
+	if (own) {
+		views_pending = parts;
+		if (last) views_compose(); else ge_put(GE_VIEW_END);
 	}
 	view_refresh(c);
 	ge_region(-1);
@@ -2699,7 +2732,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_SHADOW_DRAW:    // F_31300
 	case HOOK_EFFECT_DRAW:    // F_30414
 	case HOOK_ALPHA_DRAW:     // F_24064
-		if (split_view_on()) { split_draw_views(c, orig); return; }
+		if (split_view_on()) { split_draw_views(c, orig, id == HOOK_ALPHA_DRAW); return; }
 		break;
 	case HOOK_RACE_STATE: {   // F_592cc(race, state)
 		if (ENV_ON("SR2_EV_TRACE")) LOGI("race %08x state %u (was %u) from %08x vb %llu", A(0), A(1), LW(A(0) + 0x24), c->r[31], (unsigned long long)g_vblank_count);
@@ -3008,6 +3041,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_HUD_DRAW:   // F_12ad44(hud)
 		if (split_view_on()) {   // one HUD per view, scaled into it like the view
+			views_compose();   // (in case the frame had no see-through pass)
 			Ctx save = *c;
 			bool own = bt_mp() && hudv_ok;   // the battles: each view's own HUD
 			static u8 canon[HUD_SIZE];

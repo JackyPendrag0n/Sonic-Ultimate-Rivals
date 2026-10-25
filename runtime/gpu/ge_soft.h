@@ -32,6 +32,15 @@ void ge_gl_set_options(int texture_filtering, int anisotropy, int msaa);
 // rcsm enhanced lighting (OpenGL): mode 0 original / 1 enhanced, specular, shadows, quality 0-2, intensity 0-2
 void ge_gl_set_lighting(int mode, int specular, int shadows, int quality, float intensity);
 
+// Split views (OpenGL): each view draws over the whole of a framebuffer of its own at the internal resolution
+// (display list command 0xFA000001 | v << 8 before its draws, 0xFA000003 back to the game's framebuffer), and
+// 0xFA000002 | n << 8 scales the n views into their parts of the game's framebuffer: for view v, the PSP-pixel
+// rectangle src[4 v..] of its image goes to dst[4 v..] (x, y, w, h, top-left origin). ge_views_available():
+// whether the backend does this (the software one doesn't). ge_views_layout() may be called whenever; it's
+// used at the next compose.
+int ge_views_available(void);
+void ge_views_layout(int n, const int *dst, const int *src);
+
 // Once per displayed frame, on the GL thread: draws the current PSP display into the default
 // framebuffer (framebuffer 0) stretched over the rectangle (x, y, w, h) in glViewport convention
 // (origin bottom-left), bilinear. OpenGL backend: also ends the host frame and executes its GL work.

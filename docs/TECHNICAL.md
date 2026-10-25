@@ -144,8 +144,24 @@ F_15a460 world, F_31300, F_30414, and hook 55: F_24064, the sorted see-through o
 dash streaks, item boxes and portals), with the view rebuilt as F_581b0 does (camera vt+0x40, F_2ac50) and the
 extra racer standing in as the local player (world +0x5024). Each view goes into its half of the screen by
 moving the GE viewport centre (XPOS/YPOS) and, for the second, the scissor; the first view is drawn over
-the whole screen, since leaving part of the screen empty during it washes out the colours. The HUD is
-still player 1's.
+the whole screen. The HUD is still player 1's.
+
+With the OpenGL backend each view instead draws over the whole of a framebuffer of its own at the internal
+resolution (`SR2_VIEW_TARGETS=0` goes back to the shared screen). The runtime puts its own GE commands in
+the display list (opcode 0xFA, which the PSP doesn't use; PPSSPP's `Execute_Unknown` hands them to
+`ge_gl.cpp`'s `ViewOp`), since the GE runs a list after the game has built it: `0xFA000001 | v << 8` before
+view v's draws in each pass swaps the game framebuffer's host framebuffer for the view's (PPSSPP's
+bookkeeping stays on the game's framebuffer), `0xFA000003` swaps it back, and `0xFA000002 | n << 8` after
+the frame's last pass (F_24064) scales the n views' colour and depth into their parts of the screen; the
+game's post-processing and HUD then draw as before. A view starts each frame from the game's cleared depth
+and the first view's colour.
+
+The game's exposure: F_4b750 averages the 60x34 brightness image at VRAM 0x04180000 (the last of its glow
+downsamples) straight from memory every frame, but under PPSSPP that memory is only read back from the GPU
+once, when the race starts, so the exposure is set by the race's first frame. Parts of that frame left
+dark (views whose camera isn't set up yet) leave the exposure low and every colour washed out for the
+whole race, which is why the first view has to cover the screen, and why a view that draws nothing
+shows the first view's colour.
 
 Four players: `SR2_EXTRA_RACER` takes up to three files separated by `:`, each built for its own free load
 slot and address (Blue Coast leaves slots 9-13 empty; levels with more sections use more of them), e.g.
