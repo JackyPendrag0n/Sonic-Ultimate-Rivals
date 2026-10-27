@@ -25,6 +25,7 @@
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "ext/xxhash.h"
+#include "ge_soft.h"
 
 static std::unordered_map<std::string, std::string> g_replacements;   // file name -> path
 static std::unordered_map<std::string, std::string> g_overlay;        // same, from the folders of the skins in use
@@ -83,6 +84,7 @@ extern "C" void ge_tex_set_overlay(const char *const *dirs, int ndirs) {
 
 // Replace whatever texture is at `addr` (a copy the runtime made, such as a skin's select-screen icon).
 extern "C" void ge_tex_set_addr(u32 addr, const char *png) {
+	if (g_ge_native.tex_cache_clear) g_ge_native.tex_cache_clear();   // (it looks replacements up when it decodes)
 	{
 		std::lock_guard<std::mutex> guard(g_lock);
 		if (png) g_by_addr[addr & 0x3FFFFFFF] = png;
@@ -252,4 +254,48 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 		memcpy(out + (size_t)y * rowPitch, src + (size_t)y * row, row);
 	}
 	return true;
+}
+
+// ---- for the native renderer (runtime/ngpu), which names textures the same way
+extern "C" int ge_tex_replace_active(void) {
+	std::lock_guard<std::mutex> guard(g_lock);
+	return !g_replacements.empty() || !g_overlay.empty() || !g_by_addr.empty() || !g_dump_dir.empty();
+}
+
+// The replacement PNG for the texture at addr named name ("<clut hash><contents hash>.png"), or "".
+extern "C" int ge_tex_find(u32 addr, const char *name, char *path, int size) {
+	std::lock_guard<std::mutex> guard(g_lock);
+	auto a = g_by_addr.find(addr & 0x3FFFFFFF);
+	auto o = g_overlay.find(name);
+	auto f = g_replacements.find(name);
+	const std::string *p = a != g_by_addr.end() ? &a->second : o != g_overlay.end() ? &o->second : f != g_replacements.end() ? &f->second : nullptr;
+	snprintf(path, size, "%s", p ? p->c_str() : "");
+	return p != nullptr;
+}
+
+// Dumps a decoded texture (RGBA8, w x h) as name, if dumping is on and it wasn't dumped yet.
+extern "C" void ge_tex_dump(const char *name, const void *rgba, int w, int h) {
+	std::string path;
+	{
+		std::lock_guard<std::mutex> guard(g_lock);
+		if (g_dump_dir.empty() || g_dumped.count(name)) return;
+		g_dumped.insert(name);
+		path = g_dump_dir + "/" + name;
+	}
+	png_image img;
+	memset(&img, 0, sizeof img);
+	img.version = PNG_IMAGE_VERSION;
+	img.width = w;
+	img.height = h;
+	img.format = PNG_FORMAT_RGBA;
+	if (!png_image_write_to_file(&img, path.c_str(), 0, rgba, w * 4, nullptr))
+		fprintf(stderr, "couldn't write %s\n", path.c_str());
+}
+
+extern "C" int ge_tex_load_png(const char *path, unsigned char **rgba, int *w, int *h) {
+	std::vector<uint8_t> px;
+	if (!load_png(path, px, w, h)) return 0;
+	*rgba = (unsigned char *)malloc(px.size());
+	memcpy(*rgba, px.data(), px.size());
+	return 1;
 }

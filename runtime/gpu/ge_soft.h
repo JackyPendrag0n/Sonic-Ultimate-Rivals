@@ -7,8 +7,31 @@
 extern "C" {
 #endif
 
-// Backend, chosen once at startup before ge_soft_init(): 0 = software (default), 1 = OpenGL.
+// Backend, chosen once at startup before ge_soft_init(): 0 = software (default), 1 = OpenGL, 2 = the runtime's
+// own renderer (runtime/ngpu), which needs g_ge_native filled in first.
 void ge_select_backend(int backend);
+
+// The native renderer (runtime/ngpu): with backend 2 the functions in this header forward to it. In shadow mode
+// (backend 1 with shadow set) PPSSPP drives the game and the native renderer draws the same frames beside it.
+typedef struct GeNativeHooks {
+	void (*init)(void);                                      // register its sceGe HLE
+	int (*gl_init)(void *(*get_proc)(const char *), int internal_scale);
+	void (*set_internal_scale)(int scale);
+	void (*set_options)(int texture_filtering, int anisotropy);
+	void (*present)(int fb_x, int fb_y, int fb_w, int fb_h);
+	int (*read_display)(uint8_t *rgba, int w, int h);
+	void (*set_display)(uint32_t topaddr, int stride, int format);
+	void (*set_view_offset)(float x, float y);
+	int (*views_available)(void);
+	void (*views_layout)(int n, const int *dst, const int *src);
+	void (*memory_written)(uint32_t addr, uint32_t size);   // the CPU wrote guest memory the GPU may hold
+	uint32_t (*enqueue)(uint32_t list, uint32_t stall, int cbid, uint32_t opt, int head);   // for PPGe
+	void (*enable_interrupts)(int enable);
+	void (*tex_cache_clear)(void);
+	void (*shadow_present)(void);                            // shadow mode: after PPSSPP presented a frame
+	int shadow;
+} GeNativeHooks;
+extern GeNativeHooks g_ge_native;
 
 // Register the sceGe HLE functions with hle_register() and create the GPU of the selected backend.
 // Call once, after g_mem is mapped and after any other code that registers placeholder sceGe NIDs
@@ -31,6 +54,15 @@ void ge_gl_set_internal_scale(int scale);
 void ge_gl_set_options(int texture_filtering, int anisotropy, int msaa);
 // rcsm enhanced lighting (OpenGL): mode 0 original / 1 enhanced, specular, shadows, quality 0-2, intensity 0-2
 void ge_gl_set_lighting(int mode, int specular, int shadows, int quality, float intensity);
+
+// Split views (OpenGL): each view draws over the whole of a framebuffer of its own at the internal resolution
+// (display list command 0xFA000001 | v << 8 before its draws, 0xFA000003 back to the game's framebuffer), and
+// 0xFA000002 | n << 8 scales the n views into their parts of the game's framebuffer: for view v, the PSP-pixel
+// rectangle src[4 v..] of its image goes to dst[4 v..] (x, y, w, h, top-left origin). ge_views_available():
+// whether the backend does this (the software one doesn't). ge_views_layout() may be called whenever; it's
+// used at the next compose.
+int ge_views_available(void);
+void ge_views_layout(int n, const int *dst, const int *src);
 
 // Once per displayed frame, on the GL thread: draws the current PSP display into the default
 // framebuffer (framebuffer 0) stretched over the rectangle (x, y, w, h) in glViewport convention

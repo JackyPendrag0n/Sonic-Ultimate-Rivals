@@ -14,6 +14,7 @@
 #include "kernel.h"
 #include "config.h"
 #include "gpu/ge_soft.h"
+#include "ngpu/ngpu.h"
 #include <SDL2/SDL.h>
 #include <GL/gl.h>
 // GL entry points are fetched through SDL so the binary doesn't link libGL directly.
@@ -21,6 +22,8 @@ static void (*p_glViewport)(GLint, GLint, GLsizei, GLsizei);
 static void (*p_glClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
 static void (*p_glClear)(GLbitfield);
 static void (*p_glReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
+static void (*p_glBindFramebuffer)(GLenum, GLuint);
+static void (*p_glDisable)(GLenum);
 #define glViewport p_glViewport
 #define glClearColor p_glClearColor
 #define glClear p_glClear
@@ -183,6 +186,7 @@ static void rip_frame(void) {
 	snprintf(d, sizeof d, "%s/rips", g_save_root);
 	mkdir(d, 0755);
 	snprintf(d, sizeof d, "%s/rips/rip_%llu", g_save_root, (unsigned long long)g_vblank_count);
+	if (g_cfg.renderer != 1) { LOGE("F10 scene rips need PPSSPP's renderer (F1 > Graphics > Renderer)"); return; }
 	ge_rip_request(d);
 	LOGE("ripping the next frame to %s", d);
 }
@@ -384,6 +388,10 @@ static void present(void) {
 	u64 p0 = now_us();
 	int w, h;
 	SDL_GL_GetDrawableSize(win, &w, &h);
+	// The renderer may still have one of the game's framebuffers bound, and a scissor rect set, from its last
+	// draw: clearing that instead of the window would wipe the frame about to be shown.
+	p_glBindFramebuffer(0x8D40 /*GL_FRAMEBUFFER*/, 0);
+	p_glDisable(GL_SCISSOR_TEST);
 	glViewport(0, 0, w, h);
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -664,7 +672,25 @@ void fe_vblank(void) {
 
 void fe_audio_push(const s16 *samples, int frames) {
 	if (!audio_dev) return;
-	if (SDL_GetQueuedAudioSize(audio_dev) > 44100 * 4 / 4) return;  // >250 ms queued: drop rather than lag
+	// The runtime hands over sound as soon as its time has come (runtime/audio_ch.c), so the queue only stays ahead
+	// of the device by this cushion: a little silence first, and again whenever a slow frame let it run nearly
+	// dry, instead of a crackle at every hitch.
+	enum { CUSHION = 3072, LOW = 384 };   // frames (70 ms, 9 ms)
+	static const s16 silence[CUSHION * 2];
+	Uint32 queued = SDL_GetQueuedAudioSize(audio_dev) / 4;
+	if (queued > 44100 / 4) return;  // >250 ms queued: drop rather than lag
+	static u64 t0; static int pushes, low;
+	if (queued < LOW) {
+		if (pushes || t0) low++;
+		SDL_QueueAudio(audio_dev, silence, (CUSHION - queued) * 4);
+	}
+	pushes++;
+	u64 t = now_us();
+	if (!t0) t0 = t;
+	if (t - t0 >= 10000000) {
+		if (low) LOGI("audio: the queue ran low %d times in %d blocks (%.0f s)", low, pushes, (t - t0) / 1e6);
+		t0 = t; pushes = low = 0;
+	}
 	if (g_cfg.volume >= 100) { SDL_QueueAudio(audio_dev, samples, frames * 4); return; }
 	static s16 buf[8192];
 	int n = frames * 2 > 8192 ? 8192 : frames * 2;
@@ -678,14 +704,17 @@ void fe_preinit(void) {
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");  // let Ctrl+C / SIGTERM end the process normally
 	config_load();
 	headless = getenv("SR2_HEADLESS") && atoi(getenv("SR2_HEADLESS"));
-	if (g_cfg.renderer == 1) {
+	ngpu_use_vulkan(g_cfg.renderer == 3);
+	ngpu_register();   // renderers 2 and 3: the runtime's own (runtime/ngpu), drawing with OpenGL or Vulkan
+	if (g_cfg.renderer >= 1) {
 		// probe for a display: OpenGL needs a (possibly hidden) window
 		if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 			LOGE("no display available (%s): using the software renderer", SDL_GetError());
 			g_cfg.renderer = 0;
 		}
 	}
-	ge_select_backend(g_cfg.renderer);
+	ge_select_backend(g_cfg.renderer == 3 ? 2 : g_cfg.renderer);
+	if (g_cfg.renderer == 1 && getenv("SR2_NGPU_SHADOW") && atoi(getenv("SR2_NGPU_SHADOW"))) ngpu_shadow_enable();
 }
 
 void fe_init(void) {
@@ -711,7 +740,7 @@ void fe_init(void) {
 		free(tmp);
 	}
 	if (SDL_Init(SDL_INIT_VIDEO | (headless ? 0 : SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER)) != 0) {
-		if (g_cfg.renderer == 1) fatal("SDL init failed (%s)", SDL_GetError());
+		if (g_cfg.renderer >= 1) fatal("SDL init failed (%s)", SDL_GetError());
 		LOGE("SDL init failed (%s); running without a window", SDL_GetError());
 		headless = true;
 		return;
@@ -725,7 +754,7 @@ void fe_init(void) {
 	                       480 * scale, 272 * scale, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
 	                       (headless ? SDL_WINDOW_HIDDEN : 0));
 	if (!win) {
-		if (g_cfg.renderer == 1) fatal("could not create an OpenGL window (%s)", SDL_GetError());
+		if (g_cfg.renderer >= 1) fatal("could not create an OpenGL window (%s)", SDL_GetError());
 		LOGE("no window (%s)", SDL_GetError());
 		headless = true;
 		return;
@@ -737,6 +766,8 @@ void fe_init(void) {
 	p_glClearColor = SDL_GL_GetProcAddress("glClearColor");
 	p_glClear = SDL_GL_GetProcAddress("glClear");
 	p_glReadPixels = SDL_GL_GetProcAddress("glReadPixels");
+	p_glBindFramebuffer = SDL_GL_GetProcAddress("glBindFramebuffer");
+	p_glDisable = SDL_GL_GetProcAddress("glDisable");
 	SDL_GL_SetSwapInterval(headless ? 0 : (g_cfg.vsync ? 1 : 0));
 	ge_gl_init(SDL_GL_GetProcAddress, g_cfg.internal_scale);
 	ge_gl_set_options(g_cfg.tex_filter, g_cfg.anisotropy, 0);
@@ -753,7 +784,7 @@ void fe_init(void) {
 		for (int i = 0; i < SDL_NumJoysticks(); i++)
 			if (SDL_IsGameController(i)) pad_add(SDL_GameControllerOpen(i));
 		LOGI("%s renderer, %d fps races. F1/Esc = PC settings. Keys: WASD/arrows move, Space/K jump, J/L/I actions, "
-		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer ? "OpenGL" : "software", g_cfg.fps);
+		     "Q/E L/R, Enter Start, F11 fullscreen, F12 screenshot", g_cfg.renderer == 3 ? "Vulkan" : g_cfg.renderer == 2 ? "OpenGL" : g_cfg.renderer ? "PPSSPP OpenGL" : "software", g_cfg.fps);
 	}
 	if (!split_is_child() && (g_start_2p || (getenv("SR2_2P") && atoi(getenv("SR2_2P"))))) split_start();
 }

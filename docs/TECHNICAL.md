@@ -2,8 +2,10 @@
 
 Built on the rcsm (Ratchet & Clank: Size Matters) recompiler and runtime: the game's Allegrex code is
 translated ahead of time into C (`tools/recomp.py`) and runs on a small runtime that re-implements the
-PSP OS calls. GPU, SAS/ATRAC audio, MPEG and the system dialogs come from PPSSPP components
-(`runtime/gpu`, `runtime/audio`, `runtime/mpeg`, `runtime/utility`). No game data is included.
+PSP OS calls. The graphics, the sound mixer and music decoder (SAS/ATRAC3+) and the system dialogs are the
+runtime's own by default (`runtime/ngpu`, `runtime/sas.c`, `runtime/atrac.c`, `runtime/sysdlg.c`); PPSSPP's
+versions of each (`runtime/gpu`, `runtime/audio`, `runtime/utility`) are still built in, for comparisons and as
+fallbacks. No game data is included.
 `docs/README.rcsm.md` is the original Size Matters README, kept for the runtime's history.
 
 ## Status
@@ -144,8 +146,24 @@ F_15a460 world, F_31300, F_30414, and hook 55: F_24064, the sorted see-through o
 dash streaks, item boxes and portals), with the view rebuilt as F_581b0 does (camera vt+0x40, F_2ac50) and the
 extra racer standing in as the local player (world +0x5024). Each view goes into its half of the screen by
 moving the GE viewport centre (XPOS/YPOS) and, for the second, the scissor; the first view is drawn over
-the whole screen, since leaving part of the screen empty during it washes out the colours. The HUD is
-still player 1's.
+the whole screen. The HUD is still player 1's.
+
+With the OpenGL backend each view instead draws over the whole of a framebuffer of its own at the internal
+resolution (`SR2_VIEW_TARGETS=0` goes back to the shared screen). The runtime puts its own GE commands in
+the display list (opcode 0xFA, which the PSP doesn't use; PPSSPP's `Execute_Unknown` hands them to
+`ge_gl.cpp`'s `ViewOp`), since the GE runs a list after the game has built it: `0xFA000001 | v << 8` before
+view v's draws in each pass swaps the game framebuffer's host framebuffer for the view's (PPSSPP's
+bookkeeping stays on the game's framebuffer), `0xFA000003` swaps it back, and `0xFA000002 | n << 8` after
+the frame's last pass (F_24064) scales the n views' colour and depth into their parts of the screen; the
+game's post-processing and HUD then draw as before. A view starts each frame from the game's cleared depth
+and the first view's colour.
+
+The game's exposure: F_4b750 averages the 60x34 brightness image at VRAM 0x04180000 (the last of its glow
+downsamples) straight from memory every frame, but under PPSSPP that memory is only read back from the GPU
+once, when the race starts, so the exposure is set by the race's first frame. Parts of that frame left
+dark (views whose camera isn't set up yet) leave the exposure low and every colour washed out for the
+whole race, which is why the first view has to cover the screen, and why a view that draws nothing
+shows the first view's colour.
 
 Four players: `SR2_EXTRA_RACER` takes up to three files separated by `:`, each built for its own free load
 slot and address (Blue Coast leaves slots 9-13 empty; levels with more sections use more of them), e.g.
@@ -253,8 +271,9 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
   Device names are matched case-insensitively (the game uses `DISC0:`).
 - `runtime/hle_misc.c`: sceRtcGetCurrentTick, sceUmdCheckMedium, sceUmdWaitDriveStatWithTimer,
   UMD callbacks, scePowerSetClockFrequency.
-- Memory stick size capped at 1 GB (`runtime/utility/shim/Core/Config.h`): the game multiplies free
-  clusters by the cluster size in 32 bits, so 16 GB wrapped to 0 and it asked to delete saves.
+- Memory stick size reported as 1 GB (`runtime/savedata.c`, and `runtime/utility/shim/Core/Config.h` for
+  PPSSPP's dialogs): the game multiplies free clusters by the cluster size in 32 bits, so 16 GB wrapped to 0
+  and it asked to delete saves.
 - `runtime/audio_ch.c`: sceAudio hardware channels (ChReserve, Output[Panned][Blocking], volumes), mixed on one timeline. `SR2_AUDIO_DUMP=file` writes the mixed output as raw 44.1 kHz stereo.
 - `runtime/game.c` replaces the Size Matters mods with this game's layer: the settings file, the race
   frame rate (an entry hook on the display manager's swap-interval setter, see `data/hooks.json`, plus a
@@ -272,6 +291,65 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
     of its expected distance for 3 frames in a row, one step is taken with a 1/60 s dt.
 - The Size Matters debug menu, mods, control schemes and test scripts are gone.
 
+## Native renderer
+`runtime/ngpu` is a GE implementation of its own and the default renderer (`renderer = 2` in settings.ini,
+"OpenGL" in the F1 menu, `SR2_GPU=native`). PPSSPP's OpenGL renderer (`renderer = 1`, "OpenGL, PPSSPP's",
+`SR2_GPU=gl`) is still there, for the F10 scene rips and the shadow comparisons below; settings saved with
+renderer 1 before the switch move to 2 once (`settings_version`). It covers what the game sends: triangles, strips and through-mode rectangles; skinned,
+morphed and plain vertices; CLUT4/CLUT8/8888 swizzled textures from RAM and framebuffers sampled as
+textures (8888 for the glow, CLUT32 for the colour grading); lighting, fog, alpha test, blending and depth.
+Files: `ng_list.cpp` (display lists and the sceGe calls), `ng_core.cpp` (GE registers), `ng_vertex.cpp`,
+`ng_tex.cpp`, `ng_common.cpp` (draw keys, uniforms, primitive assembly, texture decoding and replacement),
+and `ng_gl.cpp` (shaders, framebuffers, split views, presenting). Guest threads run on the GL thread, so
+lists execute, and draw, when they're enqueued.
+
+`ng_vk.cpp` draws the same way with Vulkan (`renderer = 3`, "Vulkan" in the F1 menu, `SR2_GPU=vulkan`).
+The window, the F1 overlay and the system dialogs stay OpenGL: each presented frame is copied into an image
+that Vulkan shares with OpenGL (`GL_EXT_memory_object`, with `GL_EXT_semaphore` to order the two without a
+CPU wait where the driver has it), and `ng_gl.cpp` draws that into the window. The Vulkan library is loaded
+at run time, so the build needs no Vulkan SDK (the headers are PPSSPP's, in `runtime/gpu/ppsspp/ext`); where
+there's no Vulkan driver, or it can't share images with the OpenGL one (macOS), the OpenGL renderer runs
+instead. The shaders are one vertex and one fragment shader in `runtime/ngpu/vk`, specialized per draw key
+(specialization constants), precompiled to SPIR-V in `ng_vk_spv.h`: run `tools/gen_vk_shaders.sh`
+(glslangValidator) after changing them. Work goes into a ring of six contexts (command buffers, a 16 MB
+buffer that vertices, uniforms and texture uploads stream through, descriptor sets), submitted at the end of
+every display list and every present. Framebuffers stay in the GENERAL layout, with a barrier after every
+render pass and copy. Pipelines are compiled on a thread with a 64 MB stack (guest threads have 1 MB, too
+little for LLVM in Mesa's drivers). `SR2_VK_VALIDATE=1` turns on the Khronos validation layer. With the
+same input, Vulkan's frames match OpenGL's to within a few levels per channel (lavapipe and llvmpipe).
+
+Its framebuffers keep PSP rows top-down (the picture is flipped when it's shown), and the PSP's framebuffer
+alpha is its stencil, so colour writes leave alpha alone except in clears. The exposure buffer (VRAM
+0x04180000, read by F_4b750) is copied back to memory after every list. Texture replacement uses PPSSPP's
+file names, so packs work under both renderers; like PPSSPP's "smart 2D filtering", rectangles drawn texel
+for pixel sample nearest. The split-screen view commands (0xFA, above) work the same way.
+
+To check it against PPSSPP, `SR2_NGPU_SHADOW=1` (with `SR2_GPU=gl`) runs both renderers on the same lists,
+and `SR2_NGPU_COMPARE=N` writes `cmp_NNNNNN.png` (native, PPSSPP, difference x4) every N frames into
+`SR2_NGPU_COMPARE_DIR` (default `build/ngcmp`) and logs the mean difference. `SR2_NGPU_CENSUS=file` lists
+the draw states, formats and commands the game used, and `SR2_NGPU_TRACE=N` logs every draw of frame N. A 2P Blue Coast race matches to 0.02% of pixels.
+
+## Native sound
+`runtime/sas.c` (the sceSas voice mixer) and `runtime/atrac.c` (sceAtrac, ATRAC3+ music through FFmpeg)
+replace PPSSPP's, with `runtime/media.c` for the Media Engine timing they share. `SR2_PPSSPP_AUDIO=1` goes
+back to PPSSPP's (`runtime/audio`).
+
+## System dialogs and saves
+`runtime/sysdlg.c` runs sceUtility's save data, message, network and game sharing dialogs, and
+`runtime/savedata.c` does the save data work. The dialogs' timing (statuses, the Update calls and how long
+they take) follows PPSSPP's, and the overlay (`runtime/menu.cpp`) draws them in the look of the game's own
+menus: saves as banners with their icons, the picked save's details beside them, Yes / No banners, and the
+pad buttons in a footer.
+
+Saves are PSP save directories under `<data folder>/PSP/SAVEDATA` (`ULUS10323RVSAVEDATA0` to `2`), with
+PARAM.SFO, ICON0.PNG and PIC1.PNG, and GAMEDATA.BIN encrypted the way a PSP does it (sceChnnlsv with the
+game's key, the PARAM.SFO hashes included), so they can be copied to and from a PSP or PPSSPP. Unencrypted
+saves written by earlier builds still load and are encrypted the next time they're saved.
+`runtime/utility/build.sh` also builds `build/test_native`, which sends the same requests and button
+presses to these dialogs and to PPSSPP's and compares results, statuses, request memory and files, then
+has each side load the other's saves. `SR2_PPSSPP_DIALOGS=1` runs PPSSPP's dialogs instead (drawn with
+PPGe).
+
 ## Headless testing
 `./run.sh <seconds> <log>` runs under Xvfb. Useful environment variables:
 `SR2_LOG=2|3`, `SR2_INPUT="300:CROSS,308:-,..."` (scripted input by vblank),
@@ -281,7 +359,14 @@ everyone. Races also show each player's place now (1st-4th, `mp_live_place`) in 
 vblank), `bosshit K` (player K+1 lands a boss hit), `btcall K FN A2 A3 [N]` (call battle rules function
 0x08800000+FN for player K+1) commands, see `runtime/frontend.c`), `SR2_UNLOCK_ALL=1` (every stage open), `SR2_MP_CPU=1` (players 2-4 are left to the computer), `SR2_DETERMINISTIC=1` (virtual clock: the game runs as if the host were infinitely fast, which is how
 the high frame rates were checked under the software GL here), `SR2_LBN_FATAL=1` (stop with a guest
-backtrace when a sector read misses). `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
+backtrace when a sector read misses). `SR2_READ_TRACE=1` logs every file read and where it lands.
+`SR2_VIEW_DIFF=1` (races with players 2-4) lists, once, every word an extra player's camera step and one of their
+view's draws write outside their view context: the camera step writes nothing else; a world draw writes about 85
+runs (per-object state of the scenery and the sections), the list to check when a view picks up another's state.
+In multiplayer races, course sections 5 and up load at their own addresses (0x0B000000 up, 2 MB each) instead of
+sharing the four stream buffers, with every pointer into them moved at level load (see "Course sections" in
+`runtime/game.c`, and `tools/secrefs.py` for the offline scan); `SR2_SECTIONS=1` does this in every race,
+`SR2_SECTIONS=0` in none. `tools/watchbuild.sh sr2` builds `build/sr2recomp_watch` for
 `SR2_WATCH=lo-hi` memory watches (VFPU stores included). `SR2_GPU=soft SR2_DRAW_EVERY=N` draws only every
 Nth frame in the software renderer, which makes long headless runs several times faster (screenshots then
 often catch a skipped frame).

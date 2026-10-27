@@ -3,7 +3,8 @@
 #pragma once
 #include <cstdint>
 class GPUCommon;
-enum { GE_BACKEND_SOFTWARE = 0, GE_BACKEND_OPENGL = 1 };
+enum { GE_BACKEND_SOFTWARE = 0, GE_BACKEND_OPENGL = 1, GE_BACKEND_NATIVE = 2 };
+#include "ge_soft.h"
 int ge_backend(void);
 // Shared setup (logging levels, Memory::base, worker threads); idempotent.
 void ge_common_init(void);

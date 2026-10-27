@@ -6,6 +6,7 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include "config.h"
 #include "menu_font.h"
+#include "sysdlg.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -61,10 +62,10 @@ static void help(const char *t) {
 }
 
 static void graphics_tab() {
-	const char *renderers[] = {"Software (CPU)", "OpenGL (GPU)"};
-	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 2)) changed();
+	const char *renderers[] = {"Software (CPU)", "OpenGL, PPSSPP's (GPU, old)", "OpenGL (GPU)", "Vulkan (GPU)"};
+	if (ImGui::Combo("Renderer", &g_cfg.renderer, renderers, 4)) changed();
 	if (g_cfg.renderer != g_renderer_at_start) ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Restart the game to switch renderer.");
-	ImGui::BeginDisabled(g_renderer_at_start != 1);
+	ImGui::BeginDisabled(g_renderer_at_start < 1);
 	if (ImGui::SliderInt("Internal resolution", &g_cfg.internal_scale, 1, 8, "%dx")) { changed(); fe_apply_display_settings(); }
 	ImGui::SameLine(); ImGui::TextDisabled("%dx%d", 480 * g_cfg.internal_scale, 272 * g_cfg.internal_scale);
 	const char *filters[] = {"Auto (game's choice)", "Nearest", "Linear"};
@@ -176,14 +177,14 @@ static void star(ImDrawList *dl, ImVec2 c, float r, ImU32 fill, ImU32 edge) {
 	dl->AddConcavePolyFilled(p, 10, fill);
 	dl->AddPolyline(p, 10, edge, ImDrawFlags_Closed, fmaxf(1, r * 0.1f));
 }
-static void backdrop(ImDrawList *dl, float w, float h, float u, float t) {
-	dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(w, h), IM_COL32(120, 205, 250, 255), IM_COL32(120, 205, 250, 255),
+static void backdrop(ImDrawList *dl, float x0, float y0, float w, float h, float u, float t) {
+	dl->AddRectFilledMultiColor(ImVec2(x0, y0), ImVec2(x0 + w, y0 + h), IM_COL32(120, 205, 250, 255), IM_COL32(120, 205, 250, 255),
 	                            IM_COL32(60, 150, 228, 255), IM_COL32(60, 150, 228, 255));
 	float sp = u * 2.9f, sz = u * 2.5f;
 	for (int row = 0; row * sp < h + sp; row++) {
 		float dir = row & 1 ? -1 : 1, off = fmodf(t * u * 0.8f, sp) * dir;
 		for (float x = -sp * 2 + off; x < w + sp; x += sp) {
-			ImVec2 a(x, row * sp - u * 0.6f), b(x + sz, row * sp - u * 0.6f + sz);
+			ImVec2 a(x0 + x, y0 + row * sp - u * 0.6f), b(a.x + sz, a.y + sz);
 			dl->AddRectFilled(a, b, IM_COL32(255, 255, 255, 26), u * 0.35f);
 			dl->AddRect(a, b, IM_COL32(255, 255, 255, 46), u * 0.35f, 0, fmaxf(1, u * 0.08f));
 			if (((int)floorf((x - off) / sp) + row) % 3 == 0) {   // the arrows in some of the tiles
@@ -194,12 +195,12 @@ static void backdrop(ImDrawList *dl, float w, float h, float u, float t) {
 		}
 	}
 }
-static void saw_band(ImDrawList *dl, float w, float y0, float y1, bool top, float u) {   // a white band with a saw edge
+static void saw_band(ImDrawList *dl, float x0, float w, float y0, float y1, bool top, float u) {   // a white band with a saw edge
 	float tooth = u * 0.7f, th = u * 0.35f;
-	dl->AddRectFilledMultiColor(ImVec2(0, y0), ImVec2(w, y1), IM_COL32(255, 255, 255, 255), IM_COL32(255, 255, 255, 255),
+	dl->AddRectFilledMultiColor(ImVec2(x0, y0), ImVec2(x0 + w, y1), IM_COL32(255, 255, 255, 255), IM_COL32(255, 255, 255, 255),
 	                            IM_COL32(214, 224, 238, 255), IM_COL32(214, 224, 238, 255));
 	float ey = top ? y1 : y0;
-	for (float x = 0; x < w; x += tooth) {
+	for (float x = x0; x < x0 + w; x += tooth) {
 		ImVec2 a(x, ey), b(x + tooth, ey), c(x + tooth / 2, ey + (top ? th : -th));
 		dl->AddTriangleFilled(a, b, c, top ? IM_COL32(214, 224, 238, 255) : IM_COL32(255, 255, 255, 255));
 	}
@@ -236,13 +237,13 @@ static void lobby_draw(int w, int h) {
 	ImDrawList *dl = ImGui::GetForegroundDrawList();
 	ImFont *f = g_menu_font ? g_menu_font : ImGui::GetFont();
 	float W = (float)w, H = (float)h, u = H / 24.0f, t = (float)ImGui::GetTime();
-	backdrop(dl, W, H, u, t);
+	backdrop(dl, 0, 0, W, H, u, t);
 	// the dark strip down the left, behind the items
 	for (float y = u * 3.4f; y < H - u * 2.6f; y += u * 0.5f)
 		for (float x = 0; x < u * 2.4f; x += u * 0.5f)
 			dl->AddRectFilled(ImVec2(x, y), ImVec2(x + u * 0.5f, y + u * 0.5f), ((int)(x / (u * 0.5f) + y / (u * 0.5f)) & 1) ? IM_COL32(44, 46, 58, 255) : IM_COL32(30, 32, 42, 255));
 	// the title band
-	saw_band(dl, W, 0, u * 3.0f, true, u);
+	saw_band(dl, 0, W, 0, u * 3.0f, true, u);
 	chevron(dl, u * 0.5f, u * 1.45f, u * 0.75f, u * 1.0f, true, IM_COL32(190, 196, 210, 255), IM_COL32(110, 116, 136, 255));
 	chevron(dl, u * 1.4f, u * 1.45f, u * 0.75f, u * 1.0f, true, IM_COL32(230, 30, 30, 255), IM_COL32(120, 0, 0, 255));
 	const char *title = "Multiplayer";
@@ -288,7 +289,7 @@ static void lobby_draw(int w, int h) {
 	text(dl, f, W / 2, sy, u * 0.95f, players > 1 || st == 2 ? WHITE : IM_COL32(225, 235, 255, 255), NAVY, msg, 0.5f);
 	// the footer band with the buttons
 	float fy = H - u * 2.4f;
-	saw_band(dl, W, fy, H, false, u);
+	saw_band(dl, 0, W, fy, H, false, u);
 	ImVec2 rp[4] = {{W * 0.36f, fy + u * 0.45f}, {W, fy + u * 0.45f}, {W, H - u * 0.25f}, {W * 0.36f + u * 1.2f, H - u * 0.25f}};
 	dl->AddConvexPolyFilled(rp, 4, IM_COL32(204, 22, 26, 255));
 	dl->AddPolyline(rp, 4, IM_COL32(110, 0, 0, 255), ImDrawFlags_Closed, fmaxf(1, u * 0.08f));
@@ -311,8 +312,7 @@ extern "C" int mp_score_text(int k, char *out, int n);
 static void placings_draw(const int *game) {   // game: the game image in the window (x, y, w, h)
 	int place[4], over = 0; float view[4][4], time[4];
 	int n = mp_placings(place, time, view, &over);
-	extern bool currentDialogActive;   // a PSP dialog (saving) is up
-	if (!n || currentDialogActive) return;
+	if (!n || sysdlg_active()) return;   // a PSP dialog (saving) is up
 	static const char *const ord[] = {"", "1st", "2nd", "3rd", "4th"};
 	static const ImU32 col[] = {0, IM_COL32(255, 215, 40, 255), IM_COL32(220, 225, 235, 255), IM_COL32(225, 140, 70, 255), IM_COL32(150, 190, 255, 255)};
 	ImDrawList *dl = ImGui::GetForegroundDrawList();
@@ -381,6 +381,311 @@ static void placings_draw(const int *game) {   // game: the game image in the wi
 
 extern "C" int fe_game_rect[4];
 
+// The PSP's system dialogs (sysdlg.c): save, load and delete, and the game's messages, drawn over the game in the
+// look of its menus rather than the PSP's
+namespace dlg {
+// the saves' icons as textures, made again whenever the dialog's saves change
+typedef unsigned GLuint_;
+static void (*glGenTextures_)(int, GLuint_ *), (*glDeleteTextures_)(int, const GLuint_ *), (*glBindTexture_)(unsigned, GLuint_);
+static void (*glTexParameteri_)(unsigned, unsigned, int), (*glPixelStorei_)(unsigned, int), (*glGetIntegerv_)(unsigned, int *);
+static void (*glTexImage2D_)(unsigned, int, int, int, int, int, unsigned, unsigned, const void *);
+struct Icon { GLuint_ tex; int w, h; };
+static Icon icons[64];
+static int nicons;
+static unsigned icons_serial = ~0u;
+static const SdSlot *icons_for;
+
+static void load_icons(const SysDlgView *v) {
+	if (v->serial == icons_serial && v->slots == icons_for) return;
+	if (!glGenTextures_) {
+		glGenTextures_ = (decltype(glGenTextures_))SDL_GL_GetProcAddress("glGenTextures");
+		glDeleteTextures_ = (decltype(glDeleteTextures_))SDL_GL_GetProcAddress("glDeleteTextures");
+		glBindTexture_ = (decltype(glBindTexture_))SDL_GL_GetProcAddress("glBindTexture");
+		glTexParameteri_ = (decltype(glTexParameteri_))SDL_GL_GetProcAddress("glTexParameteri");
+		glPixelStorei_ = (decltype(glPixelStorei_))SDL_GL_GetProcAddress("glPixelStorei");
+		glGetIntegerv_ = (decltype(glGetIntegerv_))SDL_GL_GetProcAddress("glGetIntegerv");
+		glTexImage2D_ = (decltype(glTexImage2D_))SDL_GL_GetProcAddress("glTexImage2D");
+		if (!glGenTextures_ || !glDeleteTextures_ || !glBindTexture_ || !glTexParameteri_ || !glPixelStorei_ || !glGetIntegerv_ || !glTexImage2D_) {
+			glGenTextures_ = nullptr;
+			return;
+		}
+	}
+	for (int i = 0; i < nicons; i++) if (icons[i].tex) glDeleteTextures_(1, &icons[i].tex);
+	memset(icons, 0, sizeof icons);
+	nicons = 0;
+	icons_serial = v->serial;
+	icons_for = v->slots;
+	if (!v->slots) return;
+	int bound = 0;
+	glGetIntegerv_(0x8069 /*GL_TEXTURE_BINDING_2D*/, &bound);
+	for (int i = 0; i < v->nall && i < 64; i++) {
+		int w, h;
+		uint8_t *px = sysdlg_icon_rgba(&v->slots[i], &w, &h);
+		if (!px) continue;
+		glGenTextures_(1, &icons[i].tex);
+		glBindTexture_(0x0DE1, icons[i].tex);
+		glTexParameteri_(0x0DE1, 0x2801 /*MIN_FILTER*/, 0x2601 /*LINEAR*/);
+		glTexParameteri_(0x0DE1, 0x2800 /*MAG_FILTER*/, 0x2601);
+		glTexParameteri_(0x0DE1, 0x2802 /*WRAP_S*/, 0x812F /*CLAMP_TO_EDGE*/);
+		glTexParameteri_(0x0DE1, 0x2803 /*WRAP_T*/, 0x812F);
+		glPixelStorei_(0x0CF5 /*UNPACK_ALIGNMENT*/, 4);
+		glPixelStorei_(0x0CF2 /*UNPACK_ROW_LENGTH*/, 0);
+		glTexImage2D_(0x0DE1, 0, 0x1908 /*RGBA*/, w, h, 0, 0x1908, 0x1401 /*UNSIGNED_BYTE*/, px);
+		free(px);
+		icons[i].w = w; icons[i].h = h;
+	}
+	nicons = v->nall < 64 ? v->nall : 64;
+	glBindTexture_(0x0DE1, (GLuint_)bound);
+}
+
+using namespace native;
+static ImDrawList *dl;
+static ImFont *f;
+
+// text in lines (\n) and wrapped to width; returns the height used
+static float para(float x, float y, float size, float width, ImU32 fill, ImU32 edge, const char *t, float align = 0) {
+	float scale = size / f->FontSize, y0 = y;
+	char line[512];
+	const char *p = t;
+	while (*p) {
+		const char *nl = strchr(p, '\n'), *end = nl ? nl : p + strlen(p);
+		const char *q = p;
+		do {
+			const char *w = f->CalcWordWrapPositionA(scale, q, end, width);
+			if (w == q) w = q + 1;
+			int n = (int)(w - q) < 511 ? (int)(w - q) : 511;
+			memcpy(line, q, n); line[n] = 0;
+			text(dl, f, x, y, size, fill, edge, line, align);
+			y += size * 1.12f;
+			q = w;
+			while (q < end && *q == ' ') q++;
+		} while (q < end);
+		if (q == end && end == p) y += size * 1.12f;   // an empty line
+		p = nl ? nl + 1 : end;
+	}
+	return y - y0;
+}
+
+static void icon(int i, float x, float y, float w, float h) {   // a save's icon fitted in (x, y, w, h), or a placeholder
+	if (i >= 0 && i < nicons && icons[i].tex) {
+		float a = (float)icons[i].w / icons[i].h, iw = w, ih = w / a;
+		if (ih > h) { ih = h; iw = h * a; }
+		float ix = x + (w - iw) / 2, iy = y + (h - ih) / 2;
+		dl->AddImage((ImTextureID)icons[i].tex, ImVec2(ix, iy), ImVec2(ix + iw, iy + ih));
+		dl->AddRect(ImVec2(ix, iy), ImVec2(ix + iw, iy + ih), NAVY, 0, 0, fmaxf(1, h * 0.03f));
+		return;
+	}
+	dl->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(30, 50, 110, 160), h * 0.08f);
+	dl->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(255, 255, 255, 120), h * 0.08f, 0, fmaxf(1, h * 0.03f));
+	star(dl, ImVec2(x + w / 2, y + h / 2), h * 0.3f, IM_COL32(250, 252, 255, 200), IM_COL32(150, 160, 184, 200));
+}
+
+static void when(time_t t, char *out, size_t n) {
+	struct tm tm;
+#ifdef _WIN32
+	localtime_s(&tm, &t);
+#else
+	localtime_r(&t, &tm);
+#endif
+	strftime(out, n, "%Y/%m/%d  %H:%M", &tm);
+}
+
+// a save's details in a panel: its icon, titles, the game's description of it, and when it was made and its size
+static void details(const SysDlgView *v, int i, float x, float y, float w, float h, float u) {
+	dl->AddRectFilled(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(16, 28, 84, 170), u * 0.5f);
+	dl->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(255, 255, 255, 150), u * 0.5f, 0, fmaxf(1, u * 0.1f));
+	float pad = u * 0.7f, cx = x + pad, cw = w - pad * 2, cy = y + pad;
+	const SdSlot *s = i >= 0 && i < v->nslots ? &v->slots[i] : nullptr;
+	bool fresh = v->show_new || !s || !s->size;
+	float ih = fminf(cw / 1.8f, h * 0.36f);
+	icon(i, cx + (cw - ih * 1.8f) / 2, cy, ih * 1.8f, ih);
+	cy += ih + u * 0.5f;
+	char buf[96];
+	if (s && s->broken && !v->show_new) {
+		cy += para(cx, cy, u * 0.95f, cw, IM_COL32(255, 150, 140, 255), NAVY, "This save data is corrupted.");
+		return;
+	}
+	const char *title = s && s->title[0] ? s->title : "", *sub = fresh ? (v->new_title && v->new_title[0] ? v->new_title : "New Save Data") : s->save_title;
+	if (title[0]) cy += para(cx, cy, u * 0.8f, cw, IM_COL32(200, 220, 255, 255), NAVY, title);
+	cy += para(cx, cy, u * 1.05f, cw, WHITE, NAVY, sub);
+	const char *detail = fresh ? (v->show_new && v->new_detail ? v->new_detail : "") : s->detail;
+	if (detail[0]) cy += u * 0.15f + para(cx, cy + u * 0.15f, u * 0.75f, cw, IM_COL32(230, 240, 255, 255), NAVY, detail);
+	// the bottom line: when and how big
+	float by = y + h - pad - u * 0.8f;
+	if (fresh) snprintf(buf, sizeof buf, "New  |  %u KB", (unsigned)((v->new_size + 1023) / 1024));
+	else {
+		char d[40];
+		when(s->mtime, d, sizeof d);
+		snprintf(buf, sizeof buf, "%s  |  %u KB", d, (unsigned)((s->size + 1023) / 1024));
+	}
+	if (cy < by) text(dl, f, cx, by, u * 0.75f, IM_COL32(200, 220, 255, 255), NAVY, buf);
+}
+
+static void yes_no(const SysDlgView *v, float cx, float y, float u) {   // Yes and No banners side by side
+	float bw = u * 5.0f, bh = u * 1.9f, gap = u * 2.0f;
+	for (int k = 0; k < 2; k++) {
+		float x = cx - bw - gap / 2 + k * (bw + gap);
+		bool lit = (k == 0) == (v->choice == 1);
+		banner(dl, x, x + bw - bh * 0.5f, y, bh, lit);
+		text(dl, f, x + (bw - bh * 0.5f) / 2, y + bh * 0.14f, bh * 0.66f, WHITE, NAVY, k == 0 ? "Yes" : "No", 0.5f);
+	}
+}
+
+static void footer(const SysDlgView *v, float X, float W, float H, float u, bool band) {   // the buttons, bottom right
+	float fy = H - u * 2.4f;
+	if (band) saw_band(dl, X, W, fy, H, false, u);
+	if (!v->ok_label && !v->back_label) return;
+	float br = u * 0.55f, len = u * 1.5f;
+	const char *l[2] = {v->ok_label, v->back_label};
+	for (int i = 0; i < 2; i++) if (l[i]) len += br * 2.6f + f->CalcTextSizeA(br * 1.9f, FLT_MAX, 0, l[i]).x + u * 0.6f;
+	float x0 = X + W - len - u * 0.6f;
+	ImVec2 rp[4] = {{x0, fy + u * 0.45f}, {X + W, fy + u * 0.45f}, {X + W, H - u * 0.25f}, {x0 + u * 1.2f, H - u * 0.25f}};
+	dl->AddConvexPolyFilled(rp, 4, IM_COL32(204, 22, 26, 255));
+	dl->AddPolyline(rp, 4, IM_COL32(110, 0, 0, 255), ImDrawFlags_Closed, fmaxf(1, u * 0.08f));
+	float by = (fy + u * 0.45f + H - u * 0.25f) / 2, bx = x0 + u * 2.0f;
+	int shape[2] = {v->ok_cross ? 0 : 1, v->ok_cross ? 1 : 0};
+	for (int i = 0; i < 2; i++) {
+		if (!l[i]) continue;
+		button(dl, f, bx, by, br, shape[i], l[i]);
+		bx += br * 2.6f + f->CalcTextSizeA(br * 1.9f, FLT_MAX, 0, l[i]).x + u * 0.6f;
+	}
+}
+
+static void savedata(const SysDlgView *v, float X, float Y, float W, float H, float u, float t) {
+	backdrop(dl, X, Y, W, H, u, t);
+	// the title band
+	saw_band(dl, X, W, Y, Y + u * 3.0f, true, u);
+	chevron(dl, X + u * 0.5f, Y + u * 1.45f, u * 0.75f, u * 1.0f, true, IM_COL32(190, 196, 210, 255), IM_COL32(110, 116, 136, 255));
+	chevron(dl, X + u * 1.4f, Y + u * 1.45f, u * 0.75f, u * 1.0f, true, IM_COL32(230, 30, 30, 255), IM_COL32(120, 0, 0, 255));
+	float ts = u * 2.0f;
+	text(dl, f, X + u * 2.8f, Y + u * 0.35f, ts, NAVY, WHITE, v->heading);
+	float tx = X + u * 2.8f + f->CalcTextSizeA(ts, FLT_MAX, 0, v->heading).x + u * 1.6f;
+	chevron(dl, tx, Y + u * 1.45f, u * 0.75f, u * 1.0f, false, IM_COL32(230, 30, 30, 255), IM_COL32(120, 0, 0, 255));
+	for (int i = 1; i <= 4; i++)
+		chevron(dl, tx + i * u * 0.9f, Y + u * 1.45f, u * 0.75f, u * 1.0f, false, IM_COL32(220, 226, 236, 255 - i * 40), IM_COL32(150, 156, 176, 255 - i * 40));
+	footer(v, X, W, Y + H, u, true);
+	float top = Y + u * 3.9f, bottom = Y + H - u * 3.0f;
+	if (v->list) {
+		// the saves down the left, the one picked described on the right
+		const int rows = 5;
+		float bh = u * 2.55f, gap = u * 0.55f, x0 = X + u * 1.0f, x1 = X + W * 0.5f;
+		int first = v->sel - rows / 2;
+		if (first > v->nslots - rows) first = v->nslots - rows;
+		if (first < 0) first = 0;
+		for (int r = 0; r < rows && first + r < v->nslots; r++) {
+			int i = first + r;
+			const SdSlot *s = &v->slots[i];
+			float y = top + r * (bh + gap);
+			banner(dl, x0, x1, y, bh, i == v->sel);
+			float ih = bh * 0.78f;
+			icon(i, x0 + bh * 0.15f, y + (bh - ih) / 2, ih * 1.8f, ih);
+			float lx = x0 + bh * 0.3f + ih * 1.8f;
+			char d[40] = "";
+			const char *name = !s->size ? "New Save Data" : s->broken ? "Corrupted data" : s->save_title[0] ? s->save_title : s->name;
+			if (s->size) when(s->mtime, d, sizeof d);
+			dl->PushClipRect(ImVec2(lx, y), ImVec2(x1 + bh * 0.4f, y + bh), true);
+			text(dl, f, lx, y + bh * (d[0] ? 0.1f : 0.25f), bh * 0.42f, WHITE, NAVY, name);
+			if (d[0]) text(dl, f, lx, y + bh * 0.55f, bh * 0.3f, IM_COL32(230, 240, 255, 255), NAVY, d);
+			dl->PopClipRect();
+		}
+		// more above or below
+		float ax = (x0 + x1) / 2;
+		if (first > 0) dl->AddTriangleFilled(ImVec2(ax - u * 0.5f, top - u * 0.15f), ImVec2(ax + u * 0.5f, top - u * 0.15f), ImVec2(ax, top - u * 0.75f), WHITE);
+		if (first + rows < v->nslots) {
+			float by = top + rows * (bh + gap) - gap + u * 0.15f;
+			dl->AddTriangleFilled(ImVec2(ax - u * 0.5f, by), ImVec2(ax + u * 0.5f, by), ImVec2(ax, by + u * 0.6f), WHITE);
+		}
+		if (v->nslots) details(v, v->sel, X + W * 0.56f, top, W * 0.44f - u * 1.0f, bottom - top, u);
+		return;
+	}
+	// one save and a message: the save on the left, the message (and Yes / No) on the right
+	float mx = X + W * 0.5f, mw = W * 0.46f;
+	if (v->nslots) details(v, v->sel < v->nslots ? v->sel : 0, X + u * 1.0f, top, W * 0.44f - u * 1.0f, bottom - top, u);
+	else { mx = X + u * 2.0f; mw = W - u * 4.0f; }
+	if (!v->message) return;
+	float size = u * 1.15f;
+	// the message's height first, to centre it (and Yes / No) in the space
+	ImVec2 ms(0, 0);
+	{
+		float scale = size / f->FontSize;
+		int lines = 0;
+		for (const char *p = v->message; *p;) {
+			const char *nl = strchr(p, '\n'), *end = nl ? nl : p + strlen(p);
+			for (const char *q = p; q < end; lines++) {
+				const char *w = f->CalcWordWrapPositionA(scale, q, end, mw);
+				q = w == q ? q + 1 : w;
+				while (q < end && *q == ' ') q++;
+			}
+			if (end == p) lines++;
+			p = nl ? nl + 1 : end;
+		}
+		ms.y = lines * size * 1.12f;
+	}
+	float block = ms.y + (v->buttons == 2 ? u * 3.2f : 0);
+	float my = top + (bottom - top - block) / 2;
+	bool working = !v->ok_label && !v->back_label;
+	para(mx + mw / 2, my, size, mw, WHITE, NAVY, v->message, 0.5f);
+	if (v->buttons == 2) yes_no(v, mx + mw / 2, my + ms.y + u * 1.2f, u);
+	if (working) {   // a turning ring while it works
+		float r = u * 0.8f, cx = mx + mw / 2, cy = my + ms.y + u * 1.6f;
+		for (int i = 0; i < 8; i++) {
+			float a = i * 0.785f + t * 6.0f;
+			dl->AddCircleFilled(ImVec2(cx + cosf(a) * r, cy + sinf(a) * r), u * 0.18f, IM_COL32(255, 255, 255, 60 + i * 24));
+		}
+	}
+}
+
+static void message(const SysDlgView *v, float X, float Y, float W, float H, float u) {
+	dl->AddRectFilled(ImVec2(X, Y), ImVec2(X + W, Y + H), IM_COL32(0, 0, 20, 130));
+	float size = u * 1.15f, mw = W * 0.8f;
+	int lines = 0;
+	{
+		float scale = size / f->FontSize;
+		for (const char *p = v->message ? v->message : ""; *p;) {
+			const char *nl = strchr(p, '\n'), *end = nl ? nl : p + strlen(p);
+			for (const char *q = p; q < end; lines++) {
+				const char *w = f->CalcWordWrapPositionA(scale, q, end, mw);
+				q = w == q ? q + 1 : w;
+				while (q < end && *q == ' ') q++;
+			}
+			if (end == p) lines++;
+			p = nl ? nl + 1 : end;
+		}
+	}
+	float th = lines * size * 1.12f, bh = th + (v->buttons == 2 ? u * 3.4f : 0) + u * 2.0f;
+	float by0 = Y + (H - bh) / 2 - u * 0.6f, by1 = by0 + bh;
+	// a band across the screen with saw edges, blue like the menus' backdrop
+	backdrop(dl, X, by0, W, bh, u, (float)ImGui::GetTime());
+	saw_band(dl, X, W, by0 - u * 0.5f, by0, true, u);
+	saw_band(dl, X, W, by1, by1 + u * 0.5f, false, u);
+	if (v->message) para(X + W / 2, by0 + u * 1.0f, size, mw, WHITE, NAVY, v->message, 0.5f);
+	if (v->buttons == 2) yes_no(v, X + W / 2, by0 + u * 1.0f + th + u * 0.9f, u);
+	footer(v, X, W, Y + H, u, true);
+}
+}
+
+static void sysdlg_draw(const int *game) {
+	const SysDlgView *v = sysdlg_view();
+	if (v->kind == SYSDLG_NONE) return;
+	dlg::dl = ImGui::GetForegroundDrawList();
+	dlg::f = g_menu_font ? g_menu_font : ImGui::GetFont();
+	float X = (float)game[0], Y = (float)game[1], W = (float)game[2], H = (float)game[3], u = H / 24.0f;
+	int vtx0 = dlg::dl->VtxBuffer.Size;
+	dlg::dl->PushClipRect(ImVec2(X, Y), ImVec2(X + W, Y + H), true);
+	if (v->kind == SYSDLG_SAVEDATA) {
+		dlg::load_icons(v);
+		dlg::savedata(v, X, Y, W, H, u, (float)ImGui::GetTime());
+	} else dlg::message(v, X, Y, W, H, u);
+	dlg::dl->PopClipRect();
+	// the fade in and out
+	float a = v->alpha < 0 ? 0 : v->alpha > 1 ? 1 : v->alpha;
+	if (a < 1)
+		for (int i = vtx0; i < dlg::dl->VtxBuffer.Size; i++) {
+			ImU32 &c = dlg::dl->VtxBuffer[i].col;
+			c = (c & ~IM_COL32_A_MASK) | ((ImU32)(((c >> IM_COL32_A_SHIFT) & 0xFF) * a) << IM_COL32_A_SHIFT);
+		}
+}
+
 extern "C" char fe_perf_text[];   // frontend.c
 extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 	if (!g_ready) return;
@@ -389,6 +694,7 @@ extern "C" void menu_draw(int w, int h, float fps, float game_fps) {
 	ImGui::NewFrame();
 	placings_draw(fe_game_rect);
 	lobby_draw(w, h);
+	sysdlg_draw(fe_game_rect);
 	if (g_cfg.show_fps) {
 		ImGui::SetNextWindowPos(ImVec2(8, 8));
 		ImGui::SetNextWindowBgAlpha(0.45f);

@@ -14,6 +14,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+extern "C" void (*g_ngpu_shadow_op)(uint32_t pc, uint32_t op, uint32_t offset);  // rcsm (GPUCommon.cpp)
 
 struct CommonCommandTableEntry {
 	uint8_t cmd;
@@ -1493,7 +1494,7 @@ void GPUCommonHW::Execute_WorldMtxNum(u32 op, u32 diff) {
 	int i = 0;
 
 	// We must record the individual data commands while debugRecording_.
-	bool fastLoad = !debugRecording_ && end > 0;
+	bool fastLoad = !debugRecording_ && !g_ngpu_shadow_op && end > 0;
 	// Stalling in the middle of a matrix would be stupid, I doubt this check is necessary.
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
@@ -1558,7 +1559,7 @@ void GPUCommonHW::Execute_ViewMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	bool fastLoad = !debugRecording_ && end > 0;
+	bool fastLoad = !debugRecording_ && !g_ngpu_shadow_op && end > 0;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}
@@ -1611,7 +1612,7 @@ void GPUCommonHW::Execute_ProjMtxNum(u32 op, u32 diff) {
 	const int end = 16 - (op & 0xF);
 	int i = 0;
 
-	bool fastLoad = !debugRecording_;
+	bool fastLoad = !debugRecording_ && !g_ngpu_shadow_op;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}
@@ -1665,7 +1666,7 @@ void GPUCommonHW::Execute_TgenMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	bool fastLoad = !debugRecording_ && end > 0;
+	bool fastLoad = !debugRecording_ && !g_ngpu_shadow_op && end > 0;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}
@@ -1719,7 +1720,7 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
 
-	bool fastLoad = !debugRecording_ && end > 0;
+	bool fastLoad = !debugRecording_ && !g_ngpu_shadow_op && end > 0;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}

@@ -6,8 +6,8 @@ cd "$(dirname "$0")/../.."
 F=$FFMPEG_MIN/lib
 mkdir -p dist
 gcc -std=c99 -O2 -c tools/portable/glibc_compat.c -o build/glibc_compat.o
-g++ -o dist/sr2recomp build/obj/*.o build/glibc_compat.o build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a \
-  $F/libavformat.a $F/libavcodec.a $F/libswscale.a $F/libswresample.a $F/libavutil.a "$SDL2_MIN/lib/libSDL2.a" \
+g++ -o dist/sr2recomp build/obj/*.o build/glibc_compat.o build/libpsputility.a build/libpspgpu.a build/libpspaudio.a \
+  $F/libavcodec.a $F/libavutil.a "$SDL2_MIN/lib/libSDL2.a" \
   /usr/lib/x86_64-linux-gnu/libpng16.a /usr/lib/x86_64-linux-gnu/libz.a \
   -static-libstdc++ -static-libgcc -Wl,--wrap=fmod,--wrap=fmodf,--wrap=hypot,--wrap=arc4random -lm -ldl -lpthread -lrt
 strip dist/sr2recomp

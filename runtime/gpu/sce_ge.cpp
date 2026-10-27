@@ -429,9 +429,13 @@ static u32 GeEnqueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 }
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
+	if (ge_backend() == GE_BACKEND_NATIVE)
+		return g_ge_native.enqueue(listAddress, stallAddress, callbackId, optParamAddr, 0);
 	return GeEnqueue(listAddress, stallAddress, callbackId, optParamAddr, false);
 }
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
+	if (ge_backend() == GE_BACKEND_NATIVE)
+		return g_ge_native.enqueue(listAddress, stallAddress, callbackId, optParamAddr, 1);
 	return GeEnqueue(listAddress, stallAddress, callbackId, optParamAddr, true);
 }
 
@@ -691,6 +695,12 @@ void ge_common_init(void) {
 void ge_soft_init(void) {
 	if (g_hleReady)
 		return;
+	if (ge_backend() == GE_BACKEND_NATIVE) {
+		Memory::base = g_mem;
+		g_ge_native.init();
+		g_hleReady = true;
+		return;
+	}
 	ge_common_init();
 	if (ge_backend() == GE_BACKEND_SOFTWARE) {
 		PSP_CoreParameter().gpuCore = GPUCORE_SOFTWARE;
@@ -726,6 +736,8 @@ void ge_soft_set_display(u32 topaddr, int stride, int format) {
 	g_dispTop = topaddr & 0x3FFFFFFF;
 	g_dispStride = stride;
 	g_dispFormat = format;
+	if (ge_backend() == GE_BACKEND_NATIVE || g_ge_native.shadow)
+		g_ge_native.set_display(topaddr, stride, format);
 	if (!gpu)
 		return;
 	gpu->SetDisplayFramebuffer(topaddr, stride, (GEBufferFormat)format);
@@ -739,6 +751,8 @@ void ge_soft_flush(void) {
 
 // PPGe (libpsputility.a) turns GE interrupts off around its own display lists, like PPSSPP.
 void ge_soft_enable_interrupts(int enable) {
+	if (ge_backend() == GE_BACKEND_NATIVE)
+		g_ge_native.enable_interrupts(enable);
 	if (gpu)
 		gpu->EnableInterrupts(enable != 0);
 }
@@ -750,6 +764,9 @@ void ge_soft_set_sdk_version(u32 ver) {
 // ================================================================= CPU-side memory notifications
 // Like PPSSPP's sceDmacMemcpy / memcpy replacements (Core/HLE/sceDmac.cpp, ReplaceTables.cpp).
 int ge_notify_memcpy(uint32_t dst, uint32_t src, uint32_t size) {
+	if (ge_backend() == GE_BACKEND_NATIVE) {   // (the caller copies; the GPU then takes what landed in VRAM)
+		return 0;
+	}
 	if (!gpu || !size)
 		return 0;
 	bool skip = false;
@@ -760,6 +777,14 @@ int ge_notify_memcpy(uint32_t dst, uint32_t src, uint32_t size) {
 }
 
 int ge_notify_memset(uint32_t dst, uint8_t value, uint32_t size) {
+	if (ge_backend() == GE_BACKEND_NATIVE) {
+		if (size && dst && (dst & 0x0F000000) == 0x04000000) {
+			memset(Memory::GetPointerWriteUnchecked(dst), value, size);
+			g_ge_native.memory_written(dst, size);
+			return 1;
+		}
+		return 0;
+	}
 	if (!gpu || !size || !Memory::IsVRAMAddress(dst))
 		return 0;
 	return gpu->PerformMemorySet(dst, value, (int)size) ? 1 : 0;
@@ -767,18 +792,25 @@ int ge_notify_memset(uint32_t dst, uint8_t value, uint32_t size) {
 
 // Like PPSSPP's sceKernelDcacheWriteback*Range.
 void ge_notify_cpu_write(uint32_t addr, uint32_t size) {
+	if (ge_backend() == GE_BACKEND_NATIVE || g_ge_native.shadow)
+		if (addr && size) g_ge_native.memory_written(addr, size);
 	if (gpu && addr && size)
 		gpu->InvalidateCache(addr, (int)size, GPU_INVALIDATE_HINT);
 }
 
 void ge_write_formatted_from_memory(uint32_t addr, int size, int width, int format) {
+	if (ge_backend() == GE_BACKEND_NATIVE || g_ge_native.shadow)
+		g_ge_native.memory_written(addr, (u32)size);
 	if (gpu)
 		gpu->PerformWriteFormattedFromMemory(addr, size, width, (GEBufferFormat)format);
 }
 
 // ---- rcsm: camera offset applied to view matrices (see ge_set_view_offset)
 float g_rcsm_view_off[2];
-extern "C" void ge_set_view_offset(float x, float y) { g_rcsm_view_off[0] = x; g_rcsm_view_off[1] = y; }
+extern "C" void ge_set_view_offset(float x, float y) {
+	g_rcsm_view_off[0] = x; g_rcsm_view_off[1] = y;
+	if (g_ge_native.set_view_offset) g_ge_native.set_view_offset(x, y);
+}
 
 // ---- rcsm: GE command trace (test aid): every executed (pc, op) of the software renderer, binary
 FILE *g_rcsm_ge_trace;

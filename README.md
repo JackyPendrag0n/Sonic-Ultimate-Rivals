@@ -56,8 +56,8 @@ unpacked (a folder with `PSP_GAME` in it), pass that folder instead of the ISO.
 
 ```sh
 # Debian / Ubuntu
-sudo apt install git build-essential pkg-config python3 libsdl2-dev libavcodec-dev libavformat-dev \
-  libavutil-dev libswscale-dev libswresample-dev libpng-dev zlib1g-dev
+sudo apt install git build-essential pkg-config python3 libsdl2-dev libavcodec-dev \
+  libavutil-dev libpng-dev zlib1g-dev
 # Fedora:  sudo dnf install git gcc-c++ pkgconf python3 SDL2-devel ffmpeg-free-devel libpng-devel zlib-devel
 # Arch:    sudo pacman -S git base-devel python sdl2 ffmpeg libpng zlib
 
@@ -120,6 +120,9 @@ program. You can also pass the folder, or a `.iso`, which is unpacked once into 
 | Settings | `~/.config/sr2recomp/settings.ini` | `%APPDATA%\sr2recomp\settings.ini` |
 | Saves, mods, texture dumps | `~/.local/share/sr2recomp/` | `%APPDATA%\sr2recomp\` |
 
+Saves are in `PSP/SAVEDATA` there, in the same format as on a PSP: copy the `ULUS10323RVSAVEDATA*` folders
+to or from a PSP's memory stick or PPSSPP's `memstick/PSP/SAVEDATA` to carry your progress over.
+
 ### Controls
 
 Controller: left stick / d-pad move, A jump, B / X / Y are the PSP's circle / square / triangle, LB/LT = L,
@@ -135,7 +138,9 @@ F11 fullscreen, F12 screenshot.
 
 The game's Options screen has a fifth entry, **Graphics**: resolution, frame rate (30, 60, 120, 144, 165 or
 240 fps), fullscreen, V-Sync and filtering. F1 opens the same settings over the game, with window, audio
-and multiplayer options.
+and multiplayer options. F1 > Graphics > Renderer switches between OpenGL (the default) and Vulkan, which
+draws the same picture through the Vulkan driver (restart to switch; it falls back to OpenGL by itself where
+the drivers don't support it).
 
 ### Multiplayer on one PC
 
@@ -171,14 +176,16 @@ the other mod types are explained in [docs/TECHNICAL.md](docs/TECHNICAL.md#mods)
   - With VSync on, try F1 > Graphics > "Lock game timing to the display". The counter then says "locked to
     display".
   - Lower F1 > Graphics > Resolution for weaker GPUs. The default 2x is light for any recent GPU.
+  - Try F1 > Graphics > Renderer > Vulkan (GPU); some drivers run it faster than OpenGL.
 - The log goes to the terminal (the console window on Windows). `--log 2` shows more.
 
 ## How it works
 
 `tools/recomp.py` translates the game's MIPS (Allegrex) code into C ahead of time, and a small runtime in
-`runtime/` re-implements the PSP system calls the game makes. Graphics, audio (SAS/ATRAC), video and the
-system dialogs come from [PPSSPP](https://www.ppsspp.org). [docs/TECHNICAL.md](docs/TECHNICAL.md) covers
-the details, the game fixes and the debugging tools.
+`runtime/` re-implements the PSP system calls the game makes, along with the graphics chip, the sound
+mixer and music decoder, and the save and message dialogs. [PPSSPP](https://www.ppsspp.org)'s versions of
+those are still built in, for comparison and as fallbacks. [docs/TECHNICAL.md](docs/TECHNICAL.md) covers the
+details, the game fixes and the debugging tools.
 
 ## Repository layout
 

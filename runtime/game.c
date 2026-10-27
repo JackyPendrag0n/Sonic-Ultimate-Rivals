@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #include "kernel.h"
 #include "config.h"
+#include "gpu/ge_soft.h"
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <math.h>
@@ -10,7 +11,7 @@
 #define ENV_ON(name) ({ static int on_ = -1; if (on_ < 0) on_ = getenv(name) != NULL; on_; })   // a test switch, looked up once
 
 GameConfig g_cfg = {
-	.renderer = 1, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
+	.renderer = 2, .internal_scale = 2, .tex_filter = 0, .anisotropy = 4, .vsync = true, .fullscreen = false,
 	.window_scale = 2, .keep_aspect = true, .fps = 60, .show_fps = false, .stick_deadzone = 15, .volume = 100,
 	.mp_players = 1, .mp_char2 = 1, .mp_char3 = 3, .mp_char4 = 4,
 };
@@ -34,7 +35,7 @@ const char *config_path(void) {
 #define CFG_FIELDS(X) \
 	X(renderer, i) X(internal_scale, i) X(tex_filter, i) X(anisotropy, i) X(vsync, b) X(vsync_lock, b) X(fullscreen, b) \
 	X(window_scale, i) X(keep_aspect, b) X(fps, i) X(show_fps, b) X(stick_deadzone, i) X(volume, i) X(split_layout, i) \
-	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b) X(unlock_outfits, b)
+	X(mp_players, i) X(mp_char2, i) X(mp_char3, i) X(mp_char4, i) X(pad_all, b) X(mp_test_seats, b) X(mp_bots, i) X(mp_smart_ai, b) X(unlock_outfits, b) X(settings_version, i)
 
 static const int fps_steps[] = {30, 60, 120, 144, 165, 240};
 
@@ -59,10 +60,15 @@ void config_load(void) {
 		config_set(line, eq + 1);
 	}
 	if (f) fclose(f);
+	if (g_cfg.settings_version < 1) {   // PPSSPP's renderer was the default before the runtime's own
+		if (g_cfg.renderer == 1) g_cfg.renderer = 2;
+		g_cfg.settings_version = 1;
+		if (existed) config_save();
+	}
 	// environment overrides for testing
 	const char *e;
 	if ((e = getenv("SR2_FPS"))) g_cfg.fps = atoi(e);
-	if ((e = getenv("SR2_GPU"))) g_cfg.renderer = !strcmp(e, "soft") ? 0 : 1;
+	if ((e = getenv("SR2_GPU"))) g_cfg.renderer = !strcmp(e, "soft") ? 0 : !strcmp(e, "native") ? 2 : !strcmp(e, "vulkan") || !strcmp(e, "vk") ? 3 : !strcmp(e, "gl") || !strcmp(e, "ppsspp") ? 1 : 2;
 	if ((e = getenv("SR2_GL_SCALE"))) g_cfg.internal_scale = atoi(e);
 	if ((e = getenv("SR2_CFG"))) {   // "key=value,key=value"
 		char tmp[1024]; snprintf(tmp, sizeof tmp, "%s", e);
@@ -114,7 +120,9 @@ enum { HOOK_SET_SWAP_INTERVAL = 1, HOOK_COPTER_LIFT_DT, HOOK_SIG_START_DT, HOOK_
        HOOK_BANTER_CHECK, HOOK_WORLD_RACER, HOOK_STORY_PROGRESS,
        HOOK_BOSS_INIT, HOOK_BOSS_HIT, HOOK_BOSS_MOST_HITS,
        HOOK_BT_START, HOOK_BT_RESTART, HOOK_BT_UPDATE, HOOK_BT_SCORE, HOOK_BT_PARAM, HOOK_BT_EVENT13, HOOK_BT_EVENT14,
-       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK, HOOK_OUTFIT_OWNED, HOOK_ALPHA_DRAW, HOOK_ENTITY_DT, HOOK_SIG_START, HOOK_SIG_END, HOOK_BAT_TARGET };
+       HOOK_BT_EVENT12, HOOK_BT_EVENT, HOOK_HUD_UPDATE, HOOK_CTC_BASE, HOOK_STREAM_SECTION, HOOK_STREAM_BUSY, HOOK_SOUND_PLAY_AT, HOOK_RACER_OPPONENT, HOOK_RACER_PACE, HOOK_STREAM_WANT_CLEAR, HOOK_STREAM_WANT_PICK, HOOK_OUTFIT_OWNED, HOOK_ALPHA_DRAW, HOOK_ENTITY_DT, HOOK_SIG_START, HOOK_SIG_END, HOOK_BAT_TARGET,
+       HOOK_SEC_INIT, HOOK_SEC_RELEASE, HOOK_SEC_READ_DONE, HOOK_RACER_CORE, HOOK_RACER_PHYS,
+       HOOK_RACER_STATE_STEP, HOOK_DEBUG_DL };
 #define DISP_MGR 0x089A0BE4
 static bool in_race;
 
@@ -692,10 +700,10 @@ static void warp_pending(Ctx *c) {
 	if (warp_dist < 0 && k) { extra_racer_place(c, r, LW(WORLD + 0x5024), k - 1); LOGI("warp: player %d beside player 1", k + 1); return; }
 	for (int s = 0; s < 16; s++) {
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 n = LW(arr + i * 4);
-			if (n < 0x08800000 || n >= 0x0A000000) break;
+			if (n < 0x08800000 || n >= 0x0C000000) break;
 			float d; memcpy(&d, PTR(n + 0x34), 4);
 			if (d >= warp_dist) {
 				float t[4]; memcpy(t, PTR(n), 16); t[2] += 1; t[3] = 1;
@@ -741,7 +749,7 @@ static int view_player[1 + MAX_EXTRA];
 static int n_views(void) {
 	int n = 0;
 	view_player[n++] = 0;
-	for (int k = 0; k < n_extra; k++) if (!extra_cpu[k]) view_player[n++] = k + 1;
+	for (int k = 0; k < n_extra; k++) if (!extra_cpu[k] || ENV_ON("SR2_BOT_VIEWS")) view_player[n++] = k + 1;   // (test aid: theirs too)
 	return n;
 }
 static bool split_view_on(void) {
@@ -771,10 +779,10 @@ static void zones_swap(int k) {
 	for (int s = 0; s < count && s < 16; s++) {
 		if (!(s == 0 || s >= 14 || section_live(s) || (s == 1 && LW(0x08A80000 + 0x5860) == 1))) continue;
 		u32 list = LW(WORLD_SLOT(s) + 0x45c), nz = LB(WORLD_SLOT(s) + 0x460);
-		if (list < 0x08800000 || list >= 0x0A000000 || nz > 32) continue;
+		if (list < 0x08800000 || list >= 0x0C000000 || nz > 32) continue;
 		for (u32 i = 0; i < nz && n < MAX_ZONES; i++) {
 			u32 z = LW(list + i * 4);
-			if (z >= 0x08800000 && z < 0x0A000000) zl[n++] = z;
+			if (z >= 0x08800000 && z < 0x0C000000) zl[n++] = z;
 		}
 	}
 	if (!cam_in[k]) {   // in: the flags this camera left (out of a zone it has not seen yet)
@@ -806,6 +814,81 @@ static void cam_swap(int k) {   // swap extra racer k's camera state in or out
 	zones_swap(k);
 }
 
+// A view context: what the game keeps one of for "the" player's view, kept per player and swapped in as one unit
+// while the game steps or draws for that player: the race camera and its transform node, the camera-zone flags
+// (cam_swap) and the local player (world +0x5024), whose position, path and section the camera and the scenery
+// go by. Player 1's context lives in the game; extra racer k's is kept here and is in between view_enter(k) and
+// view_leave(k). SR2_VIEW_DIFF=1 (test aid) lists what else a camera step writes (see view_diff).
+static int view_cur = -1;      // the extra racer whose context is in (-1: player 1's)
+static u32 view_p1_local;      // player 1's local player meanwhile
+static int sctx_use(int k);    // (and their course sections, see the section contexts)
+static int view_sctx;
+static void view_enter(int k) {
+	if (k < 0) return;
+	view_sctx = sctx_use(k + 1);
+	cam_swap(k);
+	view_p1_local = LW(WORLD + 0x5024);
+	SW(WORLD + 0x5024, extra_racer[k]);
+	view_cur = k;
+}
+static void view_leave(int k) {
+	if (k < 0) return;
+	SW(WORLD + 0x5024, view_p1_local);
+	cam_swap(k);
+	sctx_use(view_sctx);
+	view_cur = -1;
+}
+
+// test aid: the words a camera step writes outside the view context (camera, node, zone flags, the stack), which
+// would carry over from one player's view to the next. Logged once, a few seconds into a race with players 2-4.
+#define DIFF_LO 0x08800000u
+#define DIFF_HI 0x0A800000u
+static void view_diff(Ctx *c, void (*orig)(Ctx *c), int k) {
+	static u8 *snap; static int done;
+	if (done >= 2) { if (k >= 0) view_enter(k); orig(c); if (k >= 0) view_leave(k); return; }
+	if (!snap) snap = malloc(DIFF_HI - DIFF_LO);
+	if (k >= 0) view_enter(k);
+	memcpy(snap, PTR(DIFF_LO), DIFF_HI - DIFF_LO);
+	u32 sp = c->r[29];
+	orig(c);
+	u32 cam = LW(CAM_MAIN), node = LW(cam + 4);
+	u32 run_lo = 0, run_hi = 0; int runs = 0;
+	for (u32 a = DIFF_LO; a < DIFF_HI; a += 4) {
+		if (!memcmp(snap + (a - DIFF_LO), PTR(a), 4)) continue;
+		if ((a >= cam && a < cam + CAM_SIZE) || (a >= node && a < node + CAM_NODE_SZ) || (a >= sp - 0x4000 && a < sp + 0x100)) continue;
+		bool zone = false;
+		for (int i = 0; i < cam_nzone[0] && !zone; i++) zone = (a & ~3u) == ((cam_zone[0][i].zone + ZONE_IN) & ~3u);
+		if (zone) continue;
+		if (run_hi && a <= run_hi + 16) { run_hi = a + 4; continue; }
+		if (run_hi && runs++ < 200) LOGI("viewdiff: %s camera step writes %08x..%08x", k < 0 ? "player 1's" : "an extra", run_lo, run_hi);
+		run_lo = a; run_hi = a + 4;
+	}
+	if (run_hi && runs++ < 200) LOGI("viewdiff: %s camera step writes %08x..%08x", k < 0 ? "player 1's" : "an extra", run_lo, run_hi);
+	LOGI("viewdiff: %d runs (cam %08x node %08x)", runs, cam, node);
+	if (k >= 0) view_leave(k);
+	done++;
+}
+
+// test aid: the same for one of the race render's draw calls in an extra racer's view (the display list it writes
+// shows up too, as one long run from the list pointer on)
+static void draw_diff(Ctx *c, void (*orig)(Ctx *c)) {
+	static u8 *snap;
+	if (!snap) snap = malloc(DIFF_HI - DIFF_LO);
+	memcpy(snap, PTR(DIFF_LO), DIFF_HI - DIFF_LO);
+	u32 sp = c->r[29], list = LW(GE_LIST_PTR);
+	orig(c);
+	u32 run_lo = 0, run_hi = 0; int runs = 0;
+	for (u32 a = DIFF_LO; a < DIFF_HI; a += 4) {
+		if (!memcmp(snap + (a - DIFF_LO), PTR(a), 4)) continue;
+		if (a >= sp - 0x8000 && a < sp + 0x100) continue;
+		if (run_hi && a <= run_hi + 16) { run_hi = a + 4; continue; }
+		if (run_hi && runs++ < 300) LOGI("drawdiff: %08x..%08x", run_lo, run_hi);
+		run_lo = a; run_hi = a + 4;
+	}
+	if (run_hi && runs++ < 300) LOGI("drawdiff: %08x..%08x", run_lo, run_hi);
+	LOGI("drawdiff: %d runs (list from %08x to %08x)", runs, list, LW(GE_LIST_PTR));
+}
+
 // rebuild the view from the current camera state, as F_581b0 does at the start of the race render
 static void view_refresh(Ctx *c) {
 	Ctx save = *c;
@@ -821,9 +904,9 @@ static void ge_put(u32 w) { u32 p = LW(GE_LIST_PTR); SW(p, w); SW(GE_LIST_PTR, p
 
 // view k, or the whole screen (k < 0): viewport centre (XPOS/YPOS, float24), scale and scissor. Two views split the
 // screen in halves, three or four in quarters. The first view is not clipped: it fills the screen (centred
-// on its own part), and the other views are drawn over the rest. Drawing the first view into only part of
-// the screen leaves the colours washed out, as if something later in the frame weighs in the parts nothing
-// was drawn to.
+// on its own part), and the other views are drawn over the rest: the race's first frame sets the exposure
+// from the screen's brightness, and a part left dark washes the colours out for the whole race (see
+// docs/TECHNICAL.md).
 static void ge_region_scaled(int k, bool whole) {
 	int x0 = 0, y0 = 0, w = 480, h = 272;
 	int nv = n_views();
@@ -889,9 +972,40 @@ static void live_places(Ctx *c, u32 p1) {
 		live_place[k] = n;
 	}
 }
-static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
+// With a framebuffer per view (OpenGL, ge_views_available): each view is drawn over the whole screen into its
+// own framebuffer at the internal resolution (each draw pass: GE_VIEW_DRAW before the view's draws, GE_VIEW_END
+// after the last), and after the frame's last pass all of them are scaled into their parts of the screen
+// (GE_VIEW_COMPOSE); quarters show the whole view, halves its middle (as ge_region). The runtime's commands go
+// in the display list (ge_gl.cpp's ViewOp), as the GE draws the list after the game has built it. Every part
+// gets drawn, so the first view needn't fill the screen any more, and a quarter is the whole view at full
+// resolution scaled down rather than drawn small.
+#define GE_VIEW_DRAW(v)    (0xFA000001 | (v) << 8)
+#define GE_VIEW_COMPOSE(n) (0xFA000002 | (n) << 8)
+#define GE_VIEW_END        0xFA000003   // back to the game's framebuffer
+static void views_layout(int nv) {
+	int dst[16], src[16];
+	for (int v = 0; v < nv; v++) {
+		int *d = dst + 4 * v, *r = src + 4 * v;
+		r[0] = 0; r[1] = 0; r[2] = 480; r[3] = 272;
+		if (nv >= 3) { d[0] = (v & 1) * 240; d[1] = (v >> 1) * 136; d[2] = 240; d[3] = 136; }
+		else if (split_view == 2) { d[0] = v * 240; d[1] = 0; d[2] = 240; d[3] = 272; r[0] = 120; r[2] = 240; }
+		else { d[0] = 0; d[1] = v * 136; d[2] = 480; d[3] = 136; r[1] = 68; r[3] = 136; }
+	}
+	ge_views_layout(nv, dst, src);
+}
+static int views_pending;   // views drawn since the last compose (their number of parts)
+static void views_compose(void) {
+	if (!views_pending) return;
+	views_layout(views_pending);
+	ge_put(GE_VIEW_COMPOSE(views_pending));
+	views_pending = 0;
+}
+// last: the frame's last draw pass (the see-through objects), after which the views go on the screen
+static void split_draw_views(Ctx *c, void (*orig)(Ctx *c), bool last) {
 	Ctx save = *c;
-	ge_region(0); orig(c);
+	bool own = ge_views_available();   // a framebuffer per view
+	if (own) { ge_region(-1); ge_put(GE_VIEW_DRAW(0)); } else ge_region(0);
+	orig(c);
 	Ctx out = *c;
 	*c = save;
 	u32 p1 = LW(WORLD + 0x5024);
@@ -899,18 +1013,30 @@ static void split_draw_views(Ctx *c, void (*orig)(Ctx *c)) {
 	if (!bt_mp() && !boss_mp()) live_places(c, p1);
 	for (int v = 1; v < nv; v++) {
 		int k = view_player[v] - 1;
-		cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); view_refresh(c);
-		ge_region(v); orig(c);
+		view_enter(k); view_refresh(c);
+		ge_region(own ? -1 : v);
+		if (own) ge_put(GE_VIEW_DRAW(v));
+		static int ddiff = -1, dsteps;
+		if (ddiff < 0) ddiff = ENV_ON("SR2_VIEW_DIFF");
+		if (ddiff && ++dsteps > 2400 && dsteps < 2410) draw_diff(c, orig);
+		else orig(c);
 		*c = save;
-		SW(WORLD + 0x5024, p1); cam_swap(k);
+		view_leave(k);
 	}
+	int parts = nv;
 	if (nv == 3) {   // three views: the fourth quarter follows whoever leads the race
 		int lead = split_leader(c, p1);
-		if (lead) { cam_swap(lead - 1); SW(WORLD + 0x5024, extra_racer[lead - 1]); }
-		view_refresh(c);
-		ge_region(3); orig(c);
+		view_enter(lead - 1); view_refresh(c);
+		ge_region(own ? -1 : 3);
+		if (own) ge_put(GE_VIEW_DRAW(3));
+		orig(c);
 		*c = save;
-		if (lead) { SW(WORLD + 0x5024, p1); cam_swap(lead - 1); }
+		view_leave(lead - 1);
+		parts = 4;
+	}
+	if (own) {
+		views_pending = parts;
+		if (last) views_compose(); else ge_put(GE_VIEW_END);
 	}
 	view_refresh(c);
 	ge_region(-1);
@@ -1745,15 +1871,17 @@ static void mp_menu_vblank(void) {
 static u32 stream_leader;   // the racer the streaming follows (0: player 1, the game's own)
 static int stream_sec[1 + MAX_EXTRA];
 static u64 stream_out_since[1 + MAX_EXTRA];
+static bool sctx_on;   // a section context per player (below): no window to share
+static int sctx_in;    // the player whose context is in the world (0: player 1)
 static bool stream_mp(void) {
-	return n_extra && p1_racer && in_race && !race_ending && !banter_on && !bt_mp() && !boss_mp() && !extra_pending[n_extra - 1]
+	return !sctx_on && n_extra && p1_racer && in_race && !race_ending && !banter_on && !bt_mp() && !boss_mp() && !extra_pending[n_extra - 1]
 	       && !ENV_ON("SR2_STREAM_P1");   // test aid: the game's own streaming
 }
 static bool section_live(int k) {
 	u32 nb = LW(STREAM_BUF_N);
 	if (k < 1 || !nb || nb > 16) return false;
 	u32 e = STREAM_BUFS + ((k - 1) & (nb - 1)) * 16, sp = LW(e + 4);
-	return LW(e + 8) == 0x20 && sp >= 0x08800000 && sp < 0x0A000000 && (s32)LW(sp + 0x20) == k;
+	return LW(e + 8) == 0x20 && sp >= 0x08800000 && sp < 0x0C000000 && (s32)LW(sp + 0x20) == k;
 }
 static u32 player_racer(int k) { return k ? (k <= n_extra ? extra_racer[k - 1] : 0) : p1_racer; }
 static int racer_section(Ctx *c, u32 r) {   // F_15e0e8(world, racer, 0): the section a racer stands in, or -1
@@ -1797,11 +1925,277 @@ static void stream_links(bool on) {   // (off: back as the course has them, for 
 	}
 	if (on) stream4 = true;   // (stays: with two neighbours the fourth place is never filled)
 }
+// Course sections at addresses of their own. A level file (STREAMS/R2_ZONE_*.STR) starts with a table of its chunks
+// (+4 + 8k: file offset, size; read into the world at WORLD): 0 the level, then the course sections. Each section k
+// is a memory image made for the address the race load gives its load slot (F_158184 fills SLOT_BASES: slot 0 the
+// level, then the four section buffers in turn), so sections k and k+4 are made for the same address and the game
+// keeps at most four. Here sections 5 and up get addresses of their own above the PSP's memory (SEC_HOME), and every
+// word that points into one is moved with it:
+//   - inside the section, its pointers to its own data (plain words in [base, base + SEC_BUF_SIZE): 1,324 in Blue
+//     Coast 1's first section), moved as it is read;
+//   - outside it, in the world header (its slot header, and arrays indexed by slot further on) and the level image
+//     (a block per slot at level +0x14 + 0x40 k, arrays indexed by slot, and the level's objects, each with 12
+//     entries indexed by slot - 1), moved once when the level is read. A word into a buffer there belongs to
+//     section k or k+4; which one is told by where it sits (sec_owner, the same rules as tools/secrefs.py).
+// Words that only look like pointers (mesh data, which has no rule) stay as they are.
+// This is done in multiplayer races; SR2_SECTIONS=1 does it in every race, SR2_SECTIONS=0 in none.
+#define SLOT_BASES   0x08AAC6C0   // per load slot: where its data goes
+#define SEC_BUF_SIZE 0x133340     // a section buffer (the distance between two)
+#define LEVEL_CHUNKS (WORLD + 4)  // the level file's chunk table, as read into the world
+#define LEVEL_BASE   0x0922E350   // where the level image goes (SLOT_BASES slot 0)
+#define SEC_HOME(k)  (0x0B000000u + ((k) - 5) * 0x200000u)   // section k >= 5 (+ its buffer's low 16 bits)
+#define MAX_SECTIONS 12
+static int sec_n;                     // the level's sections (0: not a level, or moving them is off)
+static u32 sec_buf[4];                // the four buffers, as the race load set them
+static u32 sec_size[MAX_SECTIONS + 1];
+static bool sections_own(void) {   // multiplayer races (SR2_SECTIONS=1 every race, 0 never)
+	const char *e = getenv("SR2_SECTIONS");
+	return e ? strcmp(e, "0") != 0 : mp_active();
+}
+static int sec_bufof(u32 v) {   // which buffer v points into (-1: none)
+	for (int b = 0; b < 4; b++) if (v >= sec_buf[b] && v < sec_buf[b] + SEC_BUF_SIZE) return b;
+	return -1;
+}
+u32 sec_addr(int k) { return k >= 5 && k <= sec_n ? SEC_HOME(k) + (sec_buf[(k - 1) & 3] & 0xFFFF) : 0; }
+static int sec_chunk(const char *host, s64 at) {   // which chunk of the level file a read at `at` is (-1: none)
+	if (!strstr(host, "R2_ZONE_") && !strstr(host, "r2_zone_")) return -1;
+	for (int k = 0; k <= MAX_SECTIONS; k++) if (LW(LEVEL_CHUNKS + 8 * k) == (u32)at && LW(LEVEL_CHUNKS + 8 * k + 4)) return k;
+	return -1;
+}
+static bool sec_in_window(u32 a) {   // a word of the world header or of the level image
+	return (a >= WORLD && a < WORLD + 0x5800) || (a >= LEVEL_BASE && a < LEVEL_BASE + sec_size[0]);
+}
+// which section the word at a (outside the sections, pointing into a buffer) belongs to: 0 none we can tell
+static int sec_owner(u32 a) {
+	u32 v = LW(a); int b = sec_bufof(v);
+	if (b < 0 || (v & 3)) return 0;
+	if (a >= WORLD_SLOT(0) && a < WORLD_SLOT(16)) return (a - WORLD_SLOT(0)) / 0x4c0;   // a slot header
+	if (a >= LEVEL_BASE + 0x54 && a < LEVEL_BASE + 0x14 + 0x40 * 16) return (a - LEVEL_BASE - 0x14) / 0x40;   // the level's per-slot blocks
+	for (int k = b + 1; k <= sec_n; k += 4) {   // an array indexed by slot: entry 0 not in a buffer, most entries in theirs
+		u32 s = a - 4 * k; int ok = 0;
+		if (!sec_in_window(s) || sec_bufof(LW(s)) >= 0) continue;
+		for (int j = 1; j <= sec_n; j++) if (sec_in_window(s + 4 * j) && sec_bufof(LW(s + 4 * j)) == ((j - 1) & 3)) ok++;
+		if (ok >= (sec_n < 6 ? sec_n : 6)) return k;
+	}
+	int cand[3], nc = 0;   // only one section of that buffer is big enough
+	for (int k = b + 1; k <= sec_n; k += 4) if (v - sec_buf[b] < sec_size[k] && nc < 3) cand[nc++] = k;
+	if (nc == 1) return cand[0];
+	int ok_k = 0, n_ok = 0;   // a level object's 12 entries, indexed by slot - 1: each zero or in its slot's buffer
+	for (int i = 0; i < nc; i++) {
+		u32 s = a - 4 * (cand[i] - 1); bool good = true;
+		for (int j = 0; j < 12 && good; j++) {
+			if (!sec_in_window(s + 4 * j)) { good = false; break; }
+			u32 w = LW(s + 4 * j);
+			if (w && sec_bufof(w) != (j & 3)) good = false;
+		}
+		if (good) { ok_k = cand[i]; n_ok++; }
+	}
+	return n_ok == 1 ? ok_k : 0;
+}
+static void sec_lights_reset(void);
+static void sec_level_read(void) {   // the level image is in: the world header and it, pointing at sections 5 and up
+	sec_n = 0;
+	sctx_on = false; sctx_in = 0;
+	sec_lights_reset();
+	if (!sections_own()) return;
+	for (int b = 0; b < 4; b++) sec_buf[b] = LW(SLOT_BASES + 4 * (b + 1));
+	for (int k = 0; k <= MAX_SECTIONS; k++) sec_size[k] = LW(LEVEL_CHUNKS + 8 * k + 4);
+	int n = 0;
+	while (n < MAX_SECTIONS && sec_size[n + 1]) n++;
+	if (n < 5 || LW(SLOT_BASES) != LEVEL_BASE) { LOGI("sections: %d, all in the game's buffers", n); return; }
+	for (int b = 0; b < 4; b++) if (sec_buf[b] != LW(SLOT_BASES + 4 * (b + 5)) && b + 5 <= n) { LOGI("sections: unexpected slot addresses, left alone"); return; }
+	sec_n = n;
+	static u32 moves[4096][2]; int nm = 0, kinds[MAX_SECTIONS + 1] = {0};
+	for (int part = 0; part < 2; part++) {   // decide every word first: moving one changes what its neighbours look like
+		u32 lo = part ? LEVEL_BASE : WORLD, hi = part ? LEVEL_BASE + sec_size[0] : WORLD + 0x5800;
+		for (u32 a = lo; a < hi; a += 4) {
+			int k = sec_owner(a);
+			if (k >= 5 && k <= sec_n && sec_bufof(LW(a)) == ((k - 1) & 3) && nm < 4096) { moves[nm][0] = a; moves[nm][1] = k; nm++; kinds[k]++; }
+		}
+	}
+	for (int i = 0; i < nm; i++) { u32 a = moves[i][0]; int k = moves[i][1]; SW(a, LW(a) - sec_buf[(k - 1) & 3] + sec_addr(k)); }
+	for (int k = 5; k <= sec_n; k++) SW(SLOT_BASES + 4 * k, sec_addr(k));
+	LOGI("sections: %d; 5..%d moved to their own addresses (%d words outside them point at them)", sec_n, sec_n, nm);
+}
+static bool sctx_held(int k, int except);
+#define SEC_SCRATCH 0x0C800000u   // where a section read goes that another player's context already has in
+u32 game_read_dest(const char *host, s64 at, u32 buf, u32 size) {
+	if (!sec_n) return buf;
+	int k = sec_chunk(host, at);
+	if (k < 1 || k > sec_n) return buf;
+	if (sctx_held(k, -1) && size <= SEC_BUF_SIZE) {   // live in some player's context: its data (and the state its
+		if (ENV_ON("SR2_STREAM_TRACE")) LOGI("sections: %d is live, its read is dropped", k);   // objects keep in it) stays
+		return SEC_SCRATCH;
+	}
+	return k >= 5 ? sec_addr(k) : buf;
+}
+void game_read_done(const char *host, s64 at, u32 buf, u32 n) {
+	int k = sec_chunk(host, at);
+	if (k == 0 && buf == LEVEL_BASE) { sec_level_read(); return; }
+	if (k < 5 || k > sec_n || buf != sec_addr(k)) return;
+	u32 from = sec_buf[(k - 1) & 3], cnt = 0;
+	for (u32 p = buf; p + 4 <= buf + n; p += 4) {   // (and the uncached ones, 0x40000000 up: its display lists')
+		u32 v = LW(p), u = (v >> 28) == 4 && !ENV_ON("SR2_NO_UNC") ? 0x40000000u : 0, a = v - u;
+		if (a >= from && a < from + SEC_BUF_SIZE) { SW(p, a - from + buf + u); cnt++; }
+	}
+	if (ENV_ON("SR2_STREAM_TRACE")) LOGI("sections: %d read to %08x, %u of its words point into it", k, buf, cnt);
+}
+
+// Section contexts. The game streams the course around one racer: four buffers (WORLD +0x5d1c, 16 bytes each:
+// the slot loaded, its state, flags), the three active sections (+0x5d58, 12 bytes each: slot, buffer, a flag;
+// with the level as a fourth, everything that looks for course objects, ground and walls walks these), per-buffer
+// pointers into the section's data (+0x5d7c, +0x8c), the current section (+0x5d9c slot, +0x5da0 number). With the
+// sections at addresses of their own (above), each player gets a copy of all of this, swapped in while the game
+// loads, steps, collides, films or draws for them, so every player has the course around them wherever they are.
+// A buffer goes 4 (claimed) -> 8 (read issued) -> 16 (read done, F_159128) -> 32 (live: F_15ea70 made its
+// objects) -> 2 (objects off) -> 1 (released, F_15f274). A section live in several contexts is made once and
+// released once: F_15ea70 and F_15f274 only do the bookkeeping while another context holds it (state 32 or 2),
+// its objects stay on while another has it live (F_160724, whether a slot is live, answers for all contexts),
+// and a read of it is dropped (its data, and its objects' state in it, stay as they are).
+#define SCTX_LO   (WORLD + 0x5d1c)
+#define SCTX_N    (0x5da4 - 0x5d1c)
+#define SCTX_BUF(b)  (16 * (b))   // in a context: buffer b's slot (+0), state (+4)
+#define SCTX_CUR  (0x5da0 - 0x5d1c)
+static u8 sctx_mem[1 + MAX_EXTRA][SCTX_N];
+static bool sctx_settling[1 + MAX_EXTRA];   // held until the course around them is in (sctx_settle)
+static int sctx_rd[MAX_SECTIONS + 1][8], sctx_nrd[MAX_SECTIONS + 1];   // per section: the contexts whose reads of it are queued
+static u8 *sctx_at(int k) { return k == sctx_in ? (u8 *)PTR(SCTX_LO) : sctx_mem[k]; }
+static u32 sctx_w(int k, int off) { u32 v; memcpy(&v, sctx_at(k) + off, 4); return v; }
+static void sctx_sw(int k, int off, u32 v) { memcpy(sctx_at(k) + off, &v, 4); }
+// Each buffer has a pair of lights (F_16aea4 hangs them off the models of the section made in it, F_15a340 puts the
+// view's matrix in them), and a light hangs off one model: sections 4 apart, live in two contexts, took them from
+// each other, and the one left without drew nothing (F_5547c finds a model's lights among its children). Sections 5
+// and up get a pair of their own, after their data; the game's arrays point at the pair of the section in each
+// buffer of the context in.
+#define SEC_LIGHTS   0x089A3AC8u   // two arrays of 6 node pointers (+0x20 the second); 0 is the level's, b + 1 buffer b's
+#define SEC_LIGHT_SZ 0x110
+static u32 sec_light0[2][4];   // the game's own, which sections 1-4 keep
+static void sec_lights_reset(void) { memset(sec_light0, 0, sizeof sec_light0); }
+static void sec_lights_for(int b, int k) {   // buffer b's pointers to section k's pair
+	if (!sec_n || b < 0 || b > 3) return;
+	for (int i = 0; i < 2; i++) {
+		u32 at = SEC_LIGHTS + 0x20 * i + 4 * (b + 1), l = sec_light0[i][b];
+		if (!l) { l = LW(at); if (l < 0x08800000 || l >= 0x0A000000) continue; sec_light0[i][b] = l; }
+		if (k >= 5 && k <= sec_n && ((k - 1) & 3) == b) {
+			u32 n = SEC_HOME(k) + 0x1F0000 + 0x200 * i;
+			if (LW(n + 36) != n + 0x70) {   // first use: a copy of the game's, hanging from nothing
+				memcpy(PTR(n), PTR(l), SEC_LIGHT_SZ);
+				SW(n + 36, n + 0x70);
+				memset(PTR(n + 16), 0, 12); memset(PTR(n + 76), 0, 12);
+			}
+			l = n;
+		}
+		SW(at, l);
+	}
+}
+static void sec_lights(void) {   // the pairs for the sections in the buffers now
+	for (int b = 0; b < 4; b++) {
+		u32 sp = LW(WORLD + 0x5d1c + 16 * b);
+		sec_lights_for(b, sp ? (s32)LW(sp + 0x20) : 0);
+	}
+}
+static int sctx_use(int k) {   // put player k's context in the world; returns whose was in
+	int was = sctx_in;
+	if (!sctx_on || k == sctx_in || k < 0 || k > n_extra) return was;
+	memcpy(sctx_mem[sctx_in], PTR(SCTX_LO), SCTX_N);
+	memcpy(PTR(SCTX_LO), sctx_mem[k], SCTX_N);
+	sctx_in = k;
+	sec_lights();
+	return was;
+}
+static int sctx_state(int j, int k) {   // the state of section k in context j (0: not in its buffer)
+	int b = (k - 1) & 3;
+	u32 sp = sctx_w(j, SCTX_BUF(b));
+	return sp == WORLD_SLOT(k) ? (int)sctx_w(j, SCTX_BUF(b) + 4) : 0;
+}
+static bool sctx_held(int k, int except) {   // section k made and not released in a context other than `except`
+	if (!sctx_on || k < 1 || k > sec_n) return false;
+	for (int j = 0; j <= n_extra; j++) { int st = sctx_state(j, k); if (j != except && (st == 0x20 || st == 2)) return true; }
+	return false;
+}
+static bool sctx_live(int k) {   // live in any context
+	for (int j = 0; j <= n_extra; j++) if (sctx_state(j, k) == 0x20) return true;
+	return false;
+}
+static bool sctx_wanted(void) {
+	return sec_n && n_extra && p1_racer && in_race && !race_ending && !banter_on && !bt_mp() && !boss_mp()
+	       && !extra_pending[n_extra - 1] && !ENV_ON("SR2_ONE_CONTEXT");
+}
+static void sctx_start(void) {   // everyone starts with player 1's
+	for (int k = 0; k <= MAX_EXTRA; k++) { memcpy(sctx_mem[k], PTR(SCTX_LO), SCTX_N); }
+	memset(sctx_nrd, 0, sizeof sctx_nrd);
+	memset(sctx_settling, 0, sizeof sctx_settling);
+	sctx_in = 0; sctx_on = true;
+	LOGI("sections: a context per player");
+}
+static void sctx_stop(Ctx *c) {   // back to player 1's; what only the others had is released
+	if (!sctx_on) return;
+	sctx_use(0);
+	for (int j = 1; j <= n_extra; j++)
+		for (int b = 0; b < 4; b++) {
+			u32 sp = sctx_w(j, SCTX_BUF(b)), st = sctx_w(j, SCTX_BUF(b) + 4);
+			if (!sp || (st != 0x20 && st != 2)) continue;
+			int k = (s32)LW(sp + 0x20);
+			sctx_sw(j, SCTX_BUF(b), 0); sctx_sw(j, SCTX_BUF(b) + 4, 1);
+			if (k < 1 || k > sec_n || sctx_held(k, j)) continue;
+			sctx_sw(j, SCTX_BUF(b), sp); sctx_sw(j, SCTX_BUF(b) + 4, st);   // the last one: really release it
+			sctx_use(j);
+			Ctx save = *c;
+			c->r[4] = WORLD; c->r[5] = b; c->r[6] = 0; rt_call(c, 0x08800000 + 0x15f274);
+			*c = save;
+			sctx_use(0);
+		}
+	sctx_on = false;
+	LOGI("sections: back to one context");
+}
+static int sctx_racer(u32 r) { return sctx_on ? player_index(r) : -1; }
+static void sctx_note_reads(int k, const u32 *st) {   // reads issued since the states st: note whose they are
+	for (int b = 0; b < 4; b++) {
+		u32 sp = LW(SCTX_LO + SCTX_BUF(b));
+		if (st[b] != 8 && LW(SCTX_LO + SCTX_BUF(b) + 4) == 8 && sp) {
+			int s = (s32)LW(sp + 0x20);
+			if (s >= 1 && s <= MAX_SECTIONS && sctx_nrd[s] < 8) sctx_rd[s][sctx_nrd[s]++] = k;
+		}
+	}
+}
+// the streaming step and the loads for players 2-4, each in their context, after the world update's for player 1
+static void sctx_stream(Ctx *c) {
+	u32 local = LW(WORLD + 0x5024), focus = LW(WORLD + 0x5028);
+	for (int k = 1; k <= n_extra; k++) {
+		u32 r = extra_racer[k - 1];
+		if (!r || extra_pending[k - 1]) continue;
+		int was = sctx_use(k);
+		SW(WORLD + 0x5024, r); SW(WORLD + 0x5028, r);
+		Ctx save = *c;
+		c->r[4] = WORLD; rt_call(c, 0x08800000 + 0x15f97c);
+		*c = save;
+		u32 st[4]; for (int b = 0; b < 4; b++) st[b] = LW(SCTX_LO + SCTX_BUF(b) + 4);
+		c->r[4] = WORLD; c->r[5] = r; rt_call(c, 0x08800000 + 0x15e4a8);
+		*c = save;
+		sctx_note_reads(k, st);
+		SW(WORLD + 0x5024, local); SW(WORLD + 0x5028, focus);
+		sctx_use(was);
+	}
+}
+static void sctx_trace(void) {
+	if (!ENV_ON("SR2_STREAM_TRACE")) return;
+	static char last[256];
+	char line[256]; int o = 0;
+	for (int j = 0; j <= n_extra; j++) {
+		o += snprintf(line + o, sizeof line - o, " p%d %d:", j + 1, (int)sctx_w(j, SCTX_CUR));
+		for (int b = 0; b < 4; b++) {
+			u32 sp = sctx_w(j, SCTX_BUF(b)), st = sctx_w(j, SCTX_BUF(b) + 4);
+			o += snprintf(line + o, sizeof line - o, " %d/%x", sp >= 0x08800000 && sp < 0x0C000000 ? (int)LW(sp + 0x20) : 0, st);
+		}
+	}
+	if (strcmp(line, last)) { strcpy(last, line); LOGI("contexts:%s", line); }
+}
+
 // put racer r back on the course: a third of the way into section s's path, facing like racer `like`
 static bool racer_to_section(Ctx *c, u32 r, int s, u32 like) {
 	u32 arr = LW(WORLD_SLOT(s) + 0x444), nodes[4096]; int n = 0;
-	if (arr < 0x08800000 || arr >= 0x0A000000) return false;
-	for (; n < 4096; n++) { u32 nd = LW(arr + n * 4); if (nd < 0x08800000 || nd >= 0x0A000000) break; nodes[n] = nd; }
+	if (arr < 0x08800000 || arr >= 0x0C000000) return false;
+	for (; n < 4096; n++) { u32 nd = LW(arr + n * 4); if (nd < 0x08800000 || nd >= 0x0C000000) break; nodes[n] = nd; }
 	if (!n) return false;
 	float t[4]; memcpy(t, PTR(nodes[n / 3]), 16); t[2] += 1; t[3] = 1;
 	racer_place_at(c, r, t, like);
@@ -1820,10 +2214,10 @@ static bool below_section(u32 r) {   // fallen through (its floor went away unde
 	float lo = 1e9f, z, v[3];
 	for (int s = 0; s < 16; s++) {
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (!section_live(s) || arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (!section_live(s) || arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 nd = LW(arr + i * 4);
-			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			if (nd < 0x08800000 || nd >= 0x0C000000) break;
 			memcpy(&z, PTR(nd + 8), 4); if (z < lo) lo = z;
 		}
 	}
@@ -1862,10 +2256,10 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 	for (int s = 0; s < 16; s++) {   // its nearest node on the path, of a live section
 		if (!section_live(s)) continue;
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 nd = LW(arr + i * 4);
-			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			if (nd < 0x08800000 || nd >= 0x0C000000) break;
 			float q[3]; memcpy(q, PTR(nd), sizeof q);
 			float d = (q[0] - at[0]) * (q[0] - at[0]) + (q[1] - at[1]) * (q[1] - at[1]) + (q[2] - at[2]) * (q[2] - at[2]);
 			if (d < bd) { bd = d; best = nd; memcpy(&from, PTR(nd + 0x34), 4); }
@@ -1880,10 +2274,10 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 	for (int s = 0; s < 16; s++) {
 		if (!section_live(s)) continue;
 		u32 arr = LW(WORLD_SLOT(s) + 0x444);
-		if (arr < 0x08800000 || arr >= 0x0A000000) continue;
+		if (arr < 0x08800000 || arr >= 0x0C000000) continue;
 		for (int i = 0; i < 4096; i++) {
 			u32 nd = LW(arr + i * 4);
-			if (nd < 0x08800000 || nd >= 0x0A000000) break;
+			if (nd < 0x08800000 || nd >= 0x0C000000) break;
 			float d; memcpy(&d, PTR(nd + 0x34), 4);
 			if (d >= want && d < to_d) to = nd, to_d = d;
 			if (d > last_d) last = nd, last_d = d;
@@ -1901,7 +2295,142 @@ static void bot_unstick(Ctx *c, u32 r, int k) {
 	*c = save;
 	LOGI("unstick: player %d had no headway, on to %.0f along the course", k + 1, to_d);
 }
+// The world update (F_15aafc) runs the objects of the sections in its active list, player 1's, in a row of passes.
+// Those live only in other players' contexts get the same passes here, once a frame, in the first such context
+// with its racer as the one the world follows: their ground pieces, springs and rings come to life for them.
+static u32 sec_obj(int sec, u32 j, u32 *info);
+static u32 sec_obj(int sec, u32 j, u32 *info) {   // object j of a section: the first set, then the second
+	u32 base = WORLD + sec * 1216, n8 = LW(base + 0x4c8), o;
+	if (j < n8) { *info = LW(base + 0x4a0) + 112 * j; o = LW(base + 0x160 + 4 * j); }
+	else { *info = LW(base + 0x4a4) + 112 * (j - n8); o = LW(base + 0x260 + 4 * (j - n8)); }
+	if (o && (o < 0x08800000 || o >= 0x0C000000 || LW(o) < 0x08980000 || LW(o) >= 0x089b0000)) {
+		static int said; if (said++ < 4) LOGI("sections: section %d object %u at %08x is not one (table %08x, context %d)", sec, j, o, LW(o), sctx_in + 1);
+		return 0;
+	}
+	return o;
+}
+static u32 obj_call(Ctx *c, u32 fn, u32 a0, u32 a1, u32 a2) {
+	if (fn < 0x08804000 || fn >= 0x08980000) { static int said; if (said++ < 8) LOGI("sections: object %08x has no function there (%08x)", a0, fn); return 0; }
+	Ctx t = *c; t.r[4] = a0; t.r[5] = a1; t.r[6] = a2; rt_call(&t, fn); return t.r[2];
+}
+static void sctx_section_passes(Ctx *c, int sec) {
+	u32 base = WORLD + sec * 1216, n8 = LW(base + 0x4c8), n = n8 + LW(base + 0x4cc), info, o;
+	if (ENV_ON("SR2_CTX_DEBUG")) {
+		static u64 last; u64 t = mono_us();
+		if (t - last > 3000000) {
+			last = t; int act = 0; for (u32 j = 0; j < n; j++) if (sec_obj(sec, j, &info) && (LW(info + 8) & 1)) act++;
+			LOGI("ctx debug: passes for section %d in %d: %u objects (%u first), %d on", sec, sctx_in + 1, n, n8, act);
+		}
+	}
+	#define BIT(x, b) (((x) >> (b)) & 1)
+	#define FLAGS(o) LW(LW((o) + 4) + 8)
+	for (u32 j = 0; j < n; j++)   // waking (F_1699d0)
+		if ((o = sec_obj(sec, j, &info)) && (LW(info + 8) & 0x20900) && !obj_call(c, 0x08800000 + 0x1699d0, o, sec, 0)) break;
+	for (u32 j = 0; j < n; j++) {   // F_16c0b0, or a reset for those so marked
+		if (!(o = sec_obj(sec, j, &info)) || !(LW(info + 4) & 0xf02) || !BIT(LW(info + 8), 10)) continue;
+		u32 f = LW(o + 4);
+		if (BIT(LW(f + 8), 7)) {
+			SW(f + 8, LW(f + 8) & 0xfffdfcffu);
+			if (obj_call(c, LW(LW(o) + 16), o, 0, 0)) { u32 v = obj_call(c, LW(LW(o) + 16), o, 0, 0); SW(v + 8, LW(v + 8) & ~2u); }
+			f = LW(o + 4); SW(f + 8, LW(f + 8) & ~3u);
+		} else if (!BIT(LW(f + 4), 3)) obj_call(c, 0x08800000 + 0x16c0b0, o, 1, 2);
+	}
+	u32 sp = c->r[29] + 0x40;   // as in F_15aafc's frame: a flag byte, the time step (the caller keeps room above sp)
+	SW(sp, 0); memcpy(PTR(sp + 4), PTR(WORLD + 0x5d14), 4);
+	for (u32 j = 0; j < n8; j++)
+		if ((o = sec_obj(sec, j, &info)) && (LW(info + 8) & 1) && !obj_call(c, 0x08800000 + 0x1691b4, o, sec, sp)) {
+			if (LW(sp) & 0xff) LOGI("sections: an object of section %d ends the race for another player (ignored)", sec);
+			break;
+		}
+	for (u32 j = 0; j < n; j++)
+		if ((o = sec_obj(sec, j, &info)) && (LW(info + 8) & 1) && !obj_call(c, 0x08800000 + 0x169828, o, sec, sp + 4)) break;
+	for (u32 j = 0; j < n; j++)
+		if ((o = sec_obj(sec, j, &info)) && (LW(info + 8) & 1) && BIT(FLAGS(o), 15)) obj_call(c, 0x08800000 + 0x14888, o, 0, 0);
+	for (u32 j = 0; j < n8; j++) {   // those with physics of their own
+		if (!(o = sec_obj(sec, j, &info)) || !BIT(LW(info + 4), 3) || !(LW(info + 8) & 1)) continue;
+		if (BIT(LW(LW(o + 4) + 4), 3) && (LW(o + 744) & 0x1000000)) continue;
+		obj_call(c, 0x08800000 + 0x15c0a4, o, 0, 0);
+		obj_call(c, 0x08800000 + 0xa5828, o, 0, 0);
+		obj_call(c, 0x08800000 + 0x15c0a4, o, 0, 0);
+		memcpy(PTR(o + 0x20), PTR(LW(o + 4) + 0x20), 16);
+	}
+	for (int q = 0; q < 2; q++) {   // the section's own two (F_15aafc asks F_160724 whether the section is live)
+		Ctx t = *c; t.r[4] = LW(base + 0x4a8 + 4 * q); memcpy(&t.f[12], PTR(WORLD + 0x5d14), 4);
+		u32 fn = t.r[4] ? LW(LW(t.r[4]) + 16) : 0;
+		if (fn >= 0x08804000 && fn < 0x08980000) rt_call(&t, fn);
+	}
+	for (u32 j = 0; j < n8; j++) {   // the step and the after-step of each
+		if (!(o = sec_obj(sec, j, &info)) || !BIT(LW(info + 4), 2) || !(LW(info + 8) & 1)) continue;
+		if (BIT(FLAGS(o), 15)) obj_call(c, 0x08800000 + 0x14888, o, 0, 0);
+		Ctx t = *c; t.r[4] = o; memcpy(&t.f[12], PTR(o + 48), 4);
+		u32 fn = LW(LW(o) + 108);
+		if (fn >= 0x08804000 && fn < 0x08980000) rt_call(&t, fn);
+		if (!(FLAGS(o) & 0x4000000)) obj_call(c, LW(LW(o) + 68), o, 0, 0);
+	}
+	for (u32 j = n8; j < n; j++) {
+		if (!(o = sec_obj(sec, j, &info)) || !BIT(LW(info + 4), 6) || !(LW(info + 8) & 1)) continue;
+		if (!(FLAGS(o) & 0x4000000)) obj_call(c, LW(LW(o) + 68), o, 0, 0);
+	}
+	#undef BIT
+	#undef FLAGS
+}
+static void sctx_passes(Ctx *c0) {
+	Ctx cc = *c0, *c = &cc; c->r[29] = (c0->r[29] - 0x100) & ~15u;
+	u32 f24 = LW(WORLD + 0x5024), f28 = LW(WORLD + 0x5028);
+	for (int k = 1; k <= sec_n; k++) {
+		if (sctx_state(0, k) == 32) continue;
+		for (int j = 1; j <= n_extra; j++) {
+			if (sctx_state(j, k) != 32 || extra_pending[j - 1] || !extra_racer[j - 1]) continue;
+			bool view = LW(CAM_MAIN) && view_cur < 0 && !ENV_ON("SR2_PASS_NOVIEW");   // with their camera: objects wake and act by it
+			int was = view ? -1 : sctx_use(j);
+			if (view) view_enter(j - 1);
+			SW(WORLD + 0x5024, extra_racer[j - 1]); SW(WORLD + 0x5028, extra_racer[j - 1]);
+			sctx_section_passes(c, k);
+			SW(WORLD + 0x5028, f28);
+			if (view) view_leave(j - 1); else { SW(WORLD + 0x5024, f24); sctx_use(was); }
+			break;
+		}
+	}
+}
+static void sctx_dump(Ctx *c, u32 r, int k, const char *what) {   // SR2_CTX_DEBUG: the context in the world, with what collision reads
+	char line[700]; int o = 0;
+	for (int b = 0; b < 4; b++) {
+		u32 m = LW(WORLD + 0x5d8c + 4 * b), m84 = m ? LW(m + 84) : 0;
+		o += snprintf(line + o, sizeof line - o, " [%08x %x %08x %08x %08x %08x]", LW(SCTX_LO + 16 * b), LW(SCTX_LO + 16 * b + 4), LW(WORLD + 0x5d7c + 4 * b), m, m84, m84 ? LW(m84 + 28) : 0);
+	}
+	u32 cs = LW(WORLD + 0x5d9c);
+	o += snprintf(line + o, sizeof line - o, " cur %08x (%d)", cs, cs ? (int)LW(cs + 0x20) : -1);
+	if (cs) for (int i = 0; i < 6; i++) o += snprintf(line + o, sizeof line - o, " %x", LW(cs + 0x24 + 4 * i));
+	u32 body = LW(r + 4);
+	if (body) {   // a ray straight down through the racer against the live sections (F_1636d0)
+		Ctx t = *c; u32 sp = (c->r[29] - 0x800) & ~15u;
+		float a[4], b[4]; memcpy(a, PTR(body + 0x20), 12); a[3] = 1; a[2] += 10; b[0] = 0; b[1] = 0; b[2] = -50; b[3] = 0;
+		memcpy(PTR(sp + 0x100), a, 16); memcpy(PTR(sp + 0x110), b, 16); memset(PTR(sp + 0x200), 0, 0x100);
+		t.r[29] = sp; t.r[4] = WORLD; t.r[5] = sp + 0x100; t.r[6] = sp + 0x110; t.r[7] = sp + 0x200; t.r[8] = 0; t.r[9] = 0;
+		rt_call(&t, 0x08800000 + 0x1636d0);
+		float h[4]; memcpy(h, PTR(sp + 0x200), 16);
+		o += snprintf(line + o, sizeof line - o, " ray z %.1f: %u at %.1f %.1f %.1f", a[2] - 10, t.r[2], h[0], h[1], h[2]);
+	}
+	LOGI("ctx debug: p%d %s in %d:%s", k + 1, what, sctx_in + 1, line);
+}
+static void sctx_keep_up(Ctx *c, u32 r, int k) {   // with a context each: only one who fell through the course
+	if (finish_place[k]) { stream_out_since[k] = 0; return; }
+	int was = sctx_use(k);
+	if (ENV_ON("SR2_CTX_DEBUG")) { static u64 last[MAX_EXTRA + 1]; u64 t = mono_us(); if (t - last[k] > 5000000) { last[k] = t; sctx_dump(c, r, k, "now"); } }
+	if (!below_section(r)) { stream_out_since[k] = 0; sctx_use(was); return; }
+	u64 now = mono_us();
+	if (!stream_out_since[k]) stream_out_since[k] = now;
+	else if (now - stream_out_since[k] >= STREAM_OUT_US) {
+		stream_out_since[k] = 0;
+		int sec = racer_section(c, r), to = sec;
+		for (int d = 1; d < 4 && !section_live(to); d++) to = section_live(sec - d) ? sec - d : sec + d;
+		if (ENV_ON("SR2_CTX_DEBUG")) sctx_dump(c, r, k, "falls");
+		if (section_live(to) && racer_to_section(c, r, to, r)) LOGI("sections: player %d fell through section %d: back on the course in %d", k + 1, sec, to);
+	}
+	sctx_use(was);
+}
 static void stream_keep_up(Ctx *c, u32 r, int k) {   // from the move step of player k's racer
+	if (sctx_on && k >= 0 && k <= n_extra) { sctx_keep_up(c, r, k); return; }
 	int f = (s32)LW(STREAM_CUR);
 	if (k < 0 || k > n_extra || !stream_mp() || !stream_leader || f < 1 || finish_place[k]) { if (k >= 0 && k <= MAX_EXTRA) stream_out_since[k] = 0; return; }
 	int sec = stream_sec[k];
@@ -2048,8 +2577,53 @@ static void racer_step(Ctx *c, void (*orig)(Ctx *c), u32 r) {
 	if (t) SW(WORLD + 0x5024, lp);
 }
 
+// A player put down in a section their context has not got in yet (a warp, or the streaming behind) would drop
+// through it, and on through the course below: they are held still until it is live, and its neighbours too
+// (the ground a step on may be the next one's), as the game holds player 1 while it loads.
+static bool sctx_settle(int k, u32 s) {   // whether player k waits; s: the section their racer is in
+	if (!sctx_on || (s32)s < 1 || (s32)s > sec_n) return false;
+	if (sctx_state(k, s) != 0x20) sctx_settling[k] = true;
+	else if (sctx_settling[k]) {
+		u32 sl = WORLD_SLOT(s);
+		bool all = true;
+		for (int i = 0; i < 3; i++) {
+			s32 n = (s32)LW(sl + 0x24 + 4 * i);
+			if (n >= 1 && n <= sec_n && LW(sl + 0x30 + 4 * i) && sctx_state(k, n) != 0x20) all = false;
+		}
+		if (all) sctx_settling[k] = false;
+	}
+	if (sctx_settling[k]) { static u32 said; if (g_vblank_count - said > 120) { said = g_vblank_count; u32 sl = WORLD_SLOT(s);
+		LOGI("sections: player %d waits for section %d (%x) and around it: %d %x %x, %d %x %x, %d %x %x", k + 1, s, sctx_state(k, s),
+		     (s32)LW(sl + 0x24), LW(sl + 0x30), sctx_state(k, (s32)LW(sl + 0x24)), (s32)LW(sl + 0x28), LW(sl + 0x34), sctx_state(k, (s32)LW(sl + 0x28)),
+		     (s32)LW(sl + 0x2c), LW(sl + 0x38), sctx_state(k, (s32)LW(sl + 0x2c))); } }
+	return sctx_settling[k];
+}
+#define RACER_RIVAL  0x230   // racer: 1 for the second seat's (the CPU rival in a single player race)
+#define RACER_MAX_DT (1.0f / 20)   // the longest step of a racer's physics and move (slower than the race on a slow host)
 void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	if (!game_is_sr2()) { orig(c); return; }
+	if (sctx_on && (id == HOOK_RACER_MOVE || id == HOOK_RACER_UPDATE || id == HOOK_RACER_STEP || id == HOOK_ENTITY_DT
+	                || id == HOOK_RACER_CORE || id == HOOK_RACER_PHYS)) {   // a player's racer:
+		int k = player_index(A(0));                                                                   // in their context
+		if (ENV_ON("SR2_CTX_DEBUG")) { static u8 seen[128][5]; int kk = k < 0 ? 4 : k; if (id < 128 && !seen[id][kk]) { seen[id][kk] = 1; LOGI("ctx debug: hook %u racer %08x player %d, context in %d", id, A(0), k + 1, sctx_in + 1); } }
+		if (id == HOOK_RACER_PHYS && k >= 1 && LW(A(0) + RACER_RIVAL) == 1 && !ENV_ON("SR2_RIVAL_PHYS")) {
+			// the second seat's racer is the CPU rival's, whose landing (F_9f0ac: F_9d118 with t1 = 1, F_9d63c) only
+			// works near the local player: it went through floors in sections only that player had. Not for a player
+			SW(A(0) + RACER_RIVAL, 0); rt_hookcall(c, id, orig); SW(A(0) + RACER_RIVAL, 1); return;
+		}
+		if ((id == HOOK_RACER_PHYS || id == HOOK_RACER_MOVE) && c->f[12] > RACER_MAX_DT && !ENV_ON("SR2_NO_DT_CAP"))
+			c->f[12] = RACER_MAX_DT;   // a long frame (the game's time step goes up to 1/8 s): a racer falling fast went through a floor between two checks
+		if (id == HOOK_RACER_PHYS && k >= 1 && sctx_settle(k, LW(LW(A(0) + 4) + 12))) return;   // held still meanwhile
+		if ((id == HOOK_RACER_PHYS || (id == HOOK_RACER_MOVE && ENV_ON("SR2_MOVE_FOCUS"))) && k >= 1 && LW(WORLD + 0x5024) != A(0) && !ENV_ON("SR2_NO_PHYS_FOCUS")) {   // and as the one the world follows: the
+			u32 f = LW(WORLD + 0x5024), f28 = LW(WORLD + 0x5028);   // ground checks take only that racer anywhere, the others only inside a live
+			SW(WORLD + 0x5024, A(0));     // section's bounds (F_1605f4), which leave out some of the course
+			if (ENV_ON("SR2_F28")) SW(WORLD + 0x5028, A(0));
+			rt_hookcall(c, id, orig);
+			SW(WORLD + 0x5024, f); SW(WORLD + 0x5028, f28);
+			return;
+		}
+		if (k >= 0 && k != sctx_in) { int was = sctx_use(k); rt_hookcall(c, id, orig); sctx_use(was); return; }
+	}
 	switch (id) {
 	case HOOK_BUILD_RACER_SLOT: {   // F_16208c(loader, slot)
 		u32 loader = A(0), slot = A(1);
@@ -2094,12 +2668,18 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			Ctx save = *c;
 			orig(c);
 			*c = save;
-			u32 p1 = LW(WORLD + 0x5024);   // the camera reads the local player (where it stands, its path) too
 			bool lead_view = n_views() == 3;   // (the fourth quarter may follow a computer player)
+			static int diff = -1;
+			if (diff < 0) diff = ENV_ON("SR2_VIEW_DIFF");
+			static int steps;   // (a few seconds into the race)
+			bool diff_now = diff && ++steps > 600;
 			for (int k = 0; k < n_extra; k++) {   // the players' cameras (computer players need none)
-				if (extra_cpu[k] && !lead_view) continue;
-				cam_swap(k); SW(WORLD + 0x5024, extra_racer[k]); orig(c); SW(WORLD + 0x5024, p1); cam_swap(k); *c = save;
+				if (extra_cpu[k] && !lead_view && !ENV_ON("SR2_BOT_VIEWS")) continue;
+				if (diff_now) view_diff(c, orig, k);
+				else { view_enter(k); orig(c); view_leave(k); }   // (the camera reads the local player: where it stands, its path)
+				*c = save;
 			}
+			if (diff_now) view_diff(c, orig, -1), *c = save;   // and player 1's step again, for comparison
 			return;
 		}
 		break;
@@ -2107,7 +2687,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_SHADOW_DRAW:    // F_31300
 	case HOOK_EFFECT_DRAW:    // F_30414
 	case HOOK_ALPHA_DRAW:     // F_24064
-		if (split_view_on()) { split_draw_views(c, orig); return; }
+		if (split_view_on()) { split_draw_views(c, orig, id == HOOK_ALPHA_DRAW); return; }
 		break;
 	case HOOK_RACE_STATE: {   // F_592cc(race, state)
 		if (ENV_ON("SR2_EV_TRACE")) LOGI("race %08x state %u (was %u) from %08x vb %llu", A(0), A(1), LW(A(0) + 0x24), c->r[31], (unsigned long long)g_vblank_count);
@@ -2188,14 +2768,30 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			u32 p1 = LW(WORLD + 0x5024);
 			for (int k = 0; k < n_extra; k++) {
 				if (extra_pending[k]) continue;
+				int was = sctx_use(k + 1);
 				*c = save; SW(WORLD + 0x5024, extra_racer[k]); orig(c);
+				sctx_use(was);
 			}
 			SW(WORLD + 0x5024, p1);
+			if (sctx_on && !ENV_ON("SR2_NO_PASSES")) sctx_passes(c);
 			*c = out;
 			return;
 		}
 		break;
 	case HOOK_FOCUS_RACER_STEP:   // F_15e4a8(world, racer): loads the sections around the current one, nearest to it first
+		if (sctx_wanted() != sctx_on && sections_own()) { if (sctx_on) sctx_stop(c); else sctx_start(); }
+		if (sctx_on) {   // player 1's context, then everyone else's
+			int was = sctx_use(0);
+			u32 st[4]; for (int b = 0; b < 4; b++) st[b] = LW(SCTX_LO + SCTX_BUF(b) + 4);
+			orig(c);
+			sctx_note_reads(0, st);
+			Ctx out = *c;
+			sctx_stream(c);
+			*c = out;
+			sctx_trace();
+			sctx_use(was);
+			return;
+		}
 		if (stream_mp() && stream_leader) c->r[5] = stream_leader;
 		if (n_extra && ENV_ON("SR2_FOCUS_STEP")) {
 			Ctx save = *c;
@@ -2209,11 +2805,25 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			return;
 		}
 		break;
+	case HOOK_RACER_STATE_STEP: {   // F_b9b2c(racer, state): 0 hands over to the next state, then F_b8720 steps again
+		static u32 who, n;
+		u32 r = A(0);
+		orig(c);
+		if (c->r[2]) { n = 0; return; }
+		if (r != who) { who = r; n = 0; }
+		if (++n >= 64) {   // round and round: done for this frame
+			static int said; if (said++ < 8) LOGI("racer %08x: no state settles (now %08x), on to the next frame", r, LW(r + 0x4b4));
+			c->r[2] = 1; n = 0;
+		}
+		return;
+	}
 	case HOOK_SLOT_ACTIVE: {   // F_160724(world, slot): whether a load slot is live (14, 15 and 63 always). Sounds
 		// start and keep playing only for what is in a live slot; for the sound code an extra racer's slot counts as
 		// live, so players 2-4 are heard, voices too. Only there: other callers take a live slot for a loaded course
 		// section (and stop drawing the racer).
 		u32 ra = c->r[31];
+		if (sctx_on && ra == 0x0895b040 && (s32)A(1) >= 1 && sctx_state(0, A(1)) != 32) { c->r[2] = 0; return; }   // (sctx_passes)
+		if (sctx_on && (s32)A(1) >= 1 && (s32)A(1) <= sec_n && sctx_live(A(1))) { c->r[2] = 1; return; }   // live for someone
 		if (voice_trace) for (int k = 0; k < n_extra; k++)
 			if (!extra_pending[k] && A(1) == LW(LW(extra_racer[k] + 4) + 0x10)) { static u32 seen[64]; int i = 0; while (i < 64 && seen[i] && seen[i] != ra) i++; if (i < 64 && !seen[i]) { seen[i] = ra; LOGI("slot check: slot %u (p%d) from %08x", A(1), k + 2, ra); } }
 		if (ra != 0x0883d15c && ra != 0x0883d330 && ra != 0x0883d564   // the play calls (F_3d0xx, F_3d294, F_3d48c)
@@ -2374,6 +2984,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		break;
 	case HOOK_HUD_DRAW:   // F_12ad44(hud)
 		if (split_view_on()) {   // one HUD per view, scaled into it like the view
+			views_compose();   // (in case the frame had no see-through pass)
 			Ctx save = *c;
 			bool own = bt_mp() && hudv_ok;   // the battles: each view's own HUD
 			static u8 canon[HUD_SIZE];
@@ -2456,16 +3067,20 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 	case HOOK_RACER_STEP: {   // F_b2e48(racer), from the seat loop: seat 0, then seat 1
 		u32 r = A(0), s0 = LW(WORLD + 0x502c), s1 = LW(WORLD + 0x5030);
 		if (!n_extra) break;
-		if (r != (s1 ? s1 : s0)) { racer_step(c, orig, r); return; }
+		int was = sctx_use(sctx_racer(r));
+		if (r != (s1 ? s1 : s0)) { racer_step(c, orig, r); sctx_use(was); return; }
 		Ctx save = *c;
 		racer_step(c, orig, r);
+		sctx_use(was);
 		Ctx out = *c;
 		for (int k = 0; k < n_extra; k++) {   // then the extra racers that have no seat
 			u32 e = extra_racer[k];
 			if (e == s0 || e == s1 || extra_pending[k]) continue;
 			u32 i0 = LW(WORLD + 0x4f84);
 			SW(WORLD + 0x502c, e); SW(WORLD + 0x4f84, e);   // it borrows seat 0 meanwhile
+			was = sctx_use(k + 1);
 			*c = save; racer_step(c, orig, e);
+			sctx_use(was);
 			SW(WORLD + 0x502c, s0); SW(WORLD + 0x4f84, i0);
 		}
 		*c = out;
@@ -2477,9 +3092,11 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if ((extra_index(A(0)) >= 0 && !extra_seated[extra_index(A(0))]) || (stream_mp() && A(0) == p1_racer)) {
 			u32 e = A(0), body = LW(e + 4);
 			Ctx save = *c;
+			int was = sctx_use(player_index(e));   // among the sections of their own context
 			c->r[4] = WORLD; c->r[5] = e; c->r[6] = 0; c->r[7] = 0;
 			rt_call(c, 0x08800000 + 0x15e0e8);
 			s32 sec = c->r[2];
+			sctx_use(was);
 			*c = save;
 			if (sec > 0 && sec <= (s32)LW(WORLD + 0x4d10)) { SW(body + 0xc, sec); if (ENV_ON("SR2_OLD_SEC")) SW(body + 0x10, sec); }   // +0x10 stays its slot, as a racer's
 			c->r[2] = 1;
@@ -2548,8 +3165,8 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 			LOGI("extra racer %d: switched on %08x (body %08x), player body %08x, input %08x, racers in race: %u", k, r, eb, pb, in, PTR(0x08A7C69C)[0]);
 		}
 		if (in_race) {   // human racers only: this move step also runs for other moving objects
-			int ri = A(0) == LW(WORLD + 0x5024) ? 0 : -1;
-			for (int k = 0; k < n_extra && ri < 0; k++) if (A(0) == extra_racer[k]) ri = k + 1;
+			int ri = A(0) == (p1_racer ? p1_racer : LW(WORLD + 0x5024)) ? 0 : -1;   // (not +0x5024 alone: an extra
+			for (int k = 0; k < n_extra && ri < 0; k++) if (A(0) == extra_racer[k]) ri = k + 1;   // racer is it in its physics)
 			if (ri >= 0) path_resnap(c, A(0), ri);
 			if (ri >= 0) stream_keep_up(c, A(0), ri);
 			if (ri >= 0 && (ri ? extra_cpu[ri - 1] : ENV_ON("SR2_P1_CPU"))) bot_unstick(c, A(0), ri);
@@ -2568,6 +3185,33 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		}
 		if (in_race && g_cfg.fps > 60) { racer_move(c, orig); return; }
 		break;
+	case HOOK_SEC_INIT: {   // F_15ea70(world, slot): made already for another context: only this one's bookkeeping
+		int k = (s32)LW(A(1) + 0x20), b = (k - 1) & 3;
+		if (!sctx_held(k, sctx_in)) { sec_lights_for(b, k); break; }
+		SW(WORLD + 0x5d20 + 16 * b, 0x20); SB(WORLD + 0x5d24 + 16 * b, 1);
+		SW(WORLD + 0x5d7c + 4 * b, LW(WORLD + 0x4c90 + 4 * k)); SW(WORLD + 0x5d8c + 4 * b, LW(WORLD + 0x4cd0 + 4 * k));
+		return;
+	}
+	case HOOK_SEC_RELEASE: {   // F_15f274(world, buffer, flag): another context still has it: only this one's bookkeeping
+		u32 e = WORLD + 0x5d1c + 16 * A(1), sp = LW(e), st = LW(e + 4);
+		if (A(1) <= 3 && sp) sec_lights_for(A(1), (s32)LW(sp + 0x20));
+		if (A(1) > 3 || !sp || (st != 0x20 && st != 2) || !sctx_held((s32)LW(sp + 0x20), sctx_in)) break;
+		SW(e + 4, 1); SB(e + 8, 0); SW(e, 0);
+		return;
+	}
+	case HOOK_SEC_READ_DONE: {   // F_159128(?, ?, section): into the context that asked for the read
+		int k = (s32)A(2), j = -1;
+		if (!sctx_on || k < 1 || k > MAX_SECTIONS) break;
+		while (sctx_nrd[k] && j < 0) {
+			int q = sctx_rd[k][0];
+			memmove(sctx_rd[k], sctx_rd[k] + 1, --sctx_nrd[k] * sizeof sctx_rd[k][0]);
+			if (q <= n_extra && (sctx_state(q, k) == 8 || sctx_state(q, k) == 0x100)) j = q;
+		}
+		for (int q = 0; q <= n_extra && j < 0; q++) if (sctx_state(q, k) == 8 || sctx_state(q, k) == 0x100) j = q;
+		if (j < 0) break;
+		int was = sctx_use(j); orig(c); sctx_use(was);
+		return;
+	}
 	case HOOK_STREAM_SECTION:   // F_15e0e8(world, focus racer, 0), from F_15f97c: the section to stream around
 		if (!stream_mp()) { stream_leader = 0; if (stream4) stream_links(false); break; }
 		stream_links(true);
@@ -2585,7 +3229,7 @@ void rt_hookcall(Ctx *c, u32 id, void (*orig)(Ctx *c)) {
 		if (ENV_ON("SR2_STREAM_TRACE")) {
 			static u32 seen[4][2];
 			for (int b = 0; b < 4; b++) {
-				u32 e = STREAM_BUFS + b * 16, sp = LW(e + 4), st = LW(e + 8), sn = sp >= 0x08800000 && sp < 0x0A000000 ? LW(sp + 0x20) : 0;
+				u32 e = STREAM_BUFS + b * 16, sp = LW(e + 4), st = LW(e + 8), sn = sp >= 0x08800000 && sp < 0x0C000000 ? LW(sp + 0x20) : 0;
 				if (seen[b][0] != sn || seen[b][1] != st) { seen[b][0] = sn; seen[b][1] = st; LOGI("stream: buffer %d section %d state %x (cur %d)", b, sn, st, (int)LW(STREAM_CUR)); }
 			}
 		}
@@ -2664,7 +3308,7 @@ static void mp_trace(void) {
 		LOGI("mp:%s spring %08x cam target %08x seats %08x %08x", line, LW(0x08AB4B90), cam ? LW(cam + CAM_TARGET) : 0, LW(WORLD + 0x502c), LW(WORLD + 0x5030));
 		o = 0;
 		for (int k = 0; k <= n_extra; k++) { u32 r = rs[k]; o += snprintf(line + o, sizeof line - o, " p%d sec %d", k + 1, r && LW(r + 4) ? (int)LW(LW(r + 4) + 0xc) : -9); }
-		for (u32 i = 0; i < LW(0x0899FF4C) && i < 8; i++) { u32 e = WORLD + 0x5d18 + i * 16, sp = LW(e + 4); o += snprintf(line + o, sizeof line - o, " buf%u st %x slot %d", i, LW(e + 8), sp >= 0x08800000 && sp < 0x0A000000 ? (int)LW(sp + 0x20) : -1); }
+		for (u32 i = 0; i < LW(0x0899FF4C) && i < 8; i++) { u32 e = WORLD + 0x5d18 + i * 16, sp = LW(e + 4); o += snprintf(line + o, sizeof line - o, " buf%u st %x slot %d", i, LW(e + 8), sp >= 0x08800000 && sp < 0x0C000000 ? (int)LW(sp + 0x20) : -1); }
 		LOGI("mp sections: cur %d n %d%s", LW(WORLD + 0x5da0), LW(WORLD + 0x4d10), line);
 	}
 }

@@ -11,7 +11,7 @@ case "$($CC -dumpmachine)" in
   *apple*|*darwin*) TARGET=macos;;
   *) TARGET=linux;;
 esac
-EXE=; PLAT_CFLAGS=; PLAT_LIBS="-lpthread"
+EXE=; PLAT_CFLAGS=; PLAT_LIBS="-lpthread -ldl"
 case $TARGET in
   windows)
     EXE=.exe
@@ -52,6 +52,7 @@ build() { # src obj compiler flags...
   local src=$1 obj=$2; shift 2
   local dep=runtime/kernel.h
   case $src in gen/*) dep=runtime/rt.h;; esac
+  case $src in runtime/ngpu/*) dep=$(ls -t runtime/ngpu/*.h | head -1);; esac
   local dep2=runtime/config.h
   case $src in gen/*) dep2=runtime/rt.h;; esac
   if [ ! -f $obj ] || [ $src -nt $obj ] || [ runtime/rt.h -nt $obj ] || [ runtime/interp_list.h -nt $obj ] || [ $dep -nt $obj ] || [ $dep2 -nt $obj ]; then "$@" -c $src -o $obj || exit 1; fi
@@ -67,12 +68,16 @@ done
 support=(gen/modules.c gen/nidnames.c); [ "$1" = --check ] && support=()
 for f in "${support[@]}" runtime/*.c; do
   o=build/obj/$(basename ${f%.c}).o; objs+=($o)
-  build $f $o $CC $CFLAGS $SDL_CFLAGS $(pkg-config --cflags libpng zlib) -Wall -Wno-unused-function -Wno-unused-variable &
+  build $f $o $CC $CFLAGS $SDL_CFLAGS $(pkg-config --cflags libpng zlib libavcodec libavutil) -Wall -Wno-unused-function -Wno-unused-variable &
   pids+=($!)
 done
 for f in runtime/*.cpp runtime/imgui/*.cpp; do
   o=build/obj/cxx_$(basename ${f%.cpp}).o; objs+=($o)
   build $f $o $CXX -std=c++17 -O2 -g -Iruntime $PLAT_CFLAGS $SDL_CFLAGS -w & pids+=($!)
+done
+for f in runtime/ngpu/*.cpp; do
+  o=build/obj/ngpu_$(basename ${f%.cpp}).o; objs+=($o)
+  build $f $o $CXX -std=c++17 -O2 -g -Iruntime $PLAT_CFLAGS $(pkg-config --cflags libpng) -Wall -Wno-unused-function & pids+=($!)
 done
 for f in runtime/vfpu/*.cpp; do
   o=build/obj/vfpu_$(basename ${f%.cpp}).o; objs+=($o)
@@ -83,13 +88,12 @@ if [ -n "$fail" ]; then echo "build FAILED (compile errors above)"; exit 1; fi
 [ "$1" = --check ] && { echo "compile check passed ($TARGET)"; exit 0; }
 [ -f build/libpspgpu.a ] || runtime/gpu/build.sh lib
 [ -f build/libpspaudio.a ] || runtime/audio/build.sh lib
-[ -f build/libpspmpeg.a ] || runtime/mpeg/build.sh lib
 [ -f build/libpsputility.a ] || runtime/utility/build.sh lib
 SDL_LIBS=$(pkg-config --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
 # Windows: SDL2 linked in statically, so the .exe needs no DLLs
 [ "$WIN_STATIC" = 1 ] && SDL_LIBS=$(pkg-config --static --libs sdl2 | sed 's/-lSDL2main//g; s/-mwindows//g; s/-lmingw32//g')
-$CXX -o build/sr2recomp$EXE "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspmpeg.a build/libpspaudio.a \
-  $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil) $SDL_LIBS $(pkg-config --libs libpng zlib) $PLAT_LIBS -lm
+$CXX -o build/sr2recomp$EXE "${objs[@]}" build/libpsputility.a build/libpspgpu.a build/libpspaudio.a \
+  $(pkg-config --libs libavcodec libavutil) $SDL_LIBS $(pkg-config --libs libpng zlib) $PLAT_LIBS -lm
 if [ $TARGET = windows ] && [ "$WIN_STATIC" != 1 ] && command -v ldd >/dev/null; then
   # MSYS2: copy the MinGW DLLs (SDL2, FFmpeg, ...) next to the .exe, so it also starts outside the MSYS2 shell
   ldd build/sr2recomp$EXE | awk '$3 ~ /\/(ucrt64|mingw64|clang64)\/bin\// {print $3}' | sort -u | while read -r d; do cp -u "$d" build/; done

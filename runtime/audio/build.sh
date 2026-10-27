@@ -2,7 +2,7 @@
 # Builds PPSSPP's SAS mixer and ATRAC3/ATRAC3+ decoder with their HLE layers (GPL-2.0+, see
 # LICENSE.TXT) into build/libpspaudio.a, plus the standalone test build/test_audio.
 #
-#   runtime/audio/build.sh          build libpspaudio.a and test_audio
+#   runtime/audio/build.sh          build libpspaudio.a, test_audio and test_native
 #   runtime/audio/build.sh lib      library only
 #   runtime/audio/build.sh clean
 #
@@ -101,3 +101,12 @@ echo "built $OUT/libpspaudio.a"
 compile test_audio.cpp strong
 $CXX -o "$OUT/test_audio" "$(objname test_audio.cpp)" "$OUT/libpspaudio.a" -lpthread
 echo "built $OUT/test_audio"
+
+# test_native: the runtime's own SAS and Atrac (runtime/sas.c, atrac.c) against PPSSPP's, call for call
+compile test_native.cpp strong
+CC="${CC:-gcc}"
+for c in sas atrac media; do
+	$CC -O2 -g0 -std=gnu11 $PICFLAG -fno-strict-aliasing -I"$ROOT/runtime" $(pkg-config --cflags libavcodec) -c "$ROOT/runtime/$c.c" -o "$OBJ/native_$c.o"
+done
+$CXX -o "$OUT/test_native" "$(objname test_native.cpp)" "$OBJ"/native_{sas,atrac,media}.o "$OUT/libpspaudio.a" $(pkg-config --libs libavcodec libavutil) -lpthread
+echo "built $OUT/test_native"

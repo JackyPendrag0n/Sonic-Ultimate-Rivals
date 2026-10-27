@@ -30,7 +30,6 @@
 #include "utility_hle.h"
 #include "../gpu/ge_soft.h"
 #include "../audio/audio_hle.h"
-#include "../mpeg/mpeg_hle.h"
 #include "../audio/stubs/kernel_bridge.h"  // last: short macros
 
 // ================================================================= minimal kernel stand-ins
@@ -385,7 +384,6 @@ int main(int argc, char **argv) {
 	// The runtime's order: GE, audio, movies, then the utility (all four libraries in one binary).
 	ge_soft_init();
 	audio_hle_init();
-	mpeg_hle_init();
 	const size_t before = hle.size();
 	utility_hle_init();
 	CHECK(hle.size() - before >= 100, "utility registered %zu functions", hle.size() - before);

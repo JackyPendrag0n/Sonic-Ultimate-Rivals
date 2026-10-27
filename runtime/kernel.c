@@ -927,6 +927,8 @@ static void h_GetBlockHeadAddr(Ctx *c) { RET(mem_block_addr(A(0))); }
 static void h_MaxFreeMemSize(Ctx *c) { RET(mem_max_free()); }
 static void h_TotalFreeMemSize(Ctx *c) { RET(mem_total_free()); }
 static void h_Ok(Ctx *c) { RET(0); }
+u32 g_sdk_version;   // the SDK the game was built with (the save data encryption depends on it)
+static void h_SetCompiledSdkVersion(Ctx *c) { g_sdk_version = A(0); RET(0); }
 // sceDmacMemcpy(dst, src, size): Sonic Rivals (1) copies its menu textures with it
 static void h_DmacMemcpy(Ctx *c) { if (A(2)) memmove(PTR(A(0)), PTR(A(1)), A(2)); RET(0); }
 static void h_DevkitVersion(Ctx *c) { RET(0x02070110); }
@@ -1098,7 +1100,7 @@ static const HleEnt kernel_ents[] = {
 	{0x9D9A5BA1, "sceKernelGetBlockHeadAddr", h_GetBlockHeadAddr},
 	{0xA291F107, "sceKernelMaxFreeMemSize", h_MaxFreeMemSize},
 	{0xF919F628, "sceKernelTotalFreeMemSize", h_TotalFreeMemSize},
-	{0x7591C7DB, "sceKernelSetCompiledSdkVersion", h_Ok},
+	{0x7591C7DB, "sceKernelSetCompiledSdkVersion", h_SetCompiledSdkVersion},
 	{0xF77D77CB, "sceKernelSetCompilerVersion", h_Ok},
 	{0x3FC9AE6A, "sceKernelDevkitVersion", h_DevkitVersion},
 	{0x977DE386, "sceKernelLoadModule", h_LoadModule},

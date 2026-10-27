@@ -316,9 +316,20 @@ void module_apply_patches(LoadedModule *m) {
 	apply_patch_spec(m, key, getenv("SR2_PATCH"));
 }
 
+static LoadedModule *module_load_from(const char *psp_path, const char *hp, s32 *err);
 LoadedModule *module_load(const char *psp_path, s32 *err) {
-	char hp[1024];
+	char hp[1024], own[1024];
 	if (io_host_path(psp_path, hp, sizeof hp) < 0) { *err = SCE_ERROR_FILE_NOT_FOUND; return NULL; }
+	LoadedModule *m = module_load_from(psp_path, hp, err);
+	// a mod's copy of a program (made for PPSSPP, where code can be patched) can't run here: the code is the
+	// recompiled one. Use the game's own copy
+	if (!m && io_game_path(psp_path, own, sizeof own) == 0 && strcmp(own, hp)) {
+		LOGE("module_load: ignoring a mod's %s (%s): this build can only run the game's own code", psp_path, hp);
+		m = module_load_from(psp_path, own, err);
+	}
+	return m;
+}
+static LoadedModule *module_load_from(const char *psp_path, const char *hp, s32 *err) {
 	FILE *f = fopen(hp, "rb");
 	if (!f) { LOGE("module_load: cannot open %s (%s)", psp_path, hp); *err = SCE_ERROR_FILE_NOT_FOUND; return NULL; }
 	fseek(f, 0, SEEK_END);
@@ -328,7 +339,7 @@ LoadedModule *module_load(const char *psp_path, s32 *err) {
 	if (fread(file, 1, sz, f) != (size_t)sz) { fclose(f); free(file); *err = SCE_ERROR_FILE_NOT_FOUND; return NULL; }
 	fclose(f);
 	if (rd32(file) != 0x464C457F) {
-		LOGE("module_load: %s is not a plain ELF (encrypted ~PSP module?) magic %08x", psp_path, rd32(file));
+		LOGE("module_load: %s (%s) is not a plain ELF (encrypted ~PSP module?) magic %08x", psp_path, hp, rd32(file));
 		free(file); *err = 0x80020148; return NULL;
 	}
 	u32 crc = crc32(0, file, sz);
@@ -336,7 +347,25 @@ LoadedModule *module_load(const char *psp_path, s32 *err) {
 	for (int i = 0; i < g_recomp_module_count; i++)
 		if (g_recomp_modules[i]->crc == crc && g_recomp_modules[i]->file_size == (u32)sz) rm = g_recomp_modules[i];
 	if (!rm) {
-		LOGE("module_load: %s (crc %08x size %ld) has no recompiled code linked in. Recompile it and rebuild.", psp_path, crc, sz);
+		// another dump of the same program (decrypters differ in the section headers and padding they keep):
+		// what gets loaded is all the recompiled code depends on
+		u32 lcrc = 0;
+		u32 phoff = rd32(file + 28);
+		u16 phentsize = rd16(file + 42), phnum = rd16(file + 44);
+		bool ok = phoff + (u32)phnum * phentsize <= (u32)sz;
+		for (int i = 0; ok && i < phnum; i++) {
+			const u8 *ph = file + phoff + i * phentsize;
+			u32 off = rd32(ph + 4), fsz = rd32(ph + 16);
+			if (rd32(ph) != 1) continue;
+			if (off > (u32)sz || fsz > (u32)sz - off) ok = false;
+			else lcrc = crc32(lcrc, file + off, fsz);
+		}
+		for (int i = 0; ok && i < g_recomp_module_count; i++)
+			if (g_recomp_modules[i]->load_crc && g_recomp_modules[i]->load_crc == lcrc) rm = g_recomp_modules[i];
+		if (rm) LOGI("module_load: %s is another dump of %s (same loaded segments)", psp_path, rm->name);
+	}
+	if (!rm) {
+		LOGE("module_load: %s (%s, crc %08x size %ld) has no recompiled code linked in. Recompile it and rebuild.", psp_path, hp, crc, sz);
 		free(file); *err = 0x80020148; return NULL;
 	}
 	// segments
@@ -570,12 +599,20 @@ int main(int argc, char **argv) {
 	extern void ge_soft_init(void);
 	fe_preinit();   // loads settings, picks the GPU backend
 	ge_soft_init();
-	extern void audio_hle_init(void);
-	audio_hle_init();
-	extern void mpeg_hle_init(void);
-	mpeg_hle_init();
-	extern void utility_hle_init(void);
-	utility_hle_init();
+	extern void audio_hle_init(void), sas_init(void), atrac_init(void);
+	if (getenv("SR2_PPSSPP_AUDIO") && atoi(getenv("SR2_PPSSPP_AUDIO"))) {
+		audio_hle_init();
+	} else {
+		sas_init();
+		atrac_init();
+	}
+	extern void utility_hle_init(void), utility_nickname_from_env(void), sysdlg_init(void);
+	if (getenv("SR2_PPSSPP_DIALOGS") && atoi(getenv("SR2_PPSSPP_DIALOGS"))) {
+		utility_hle_init();
+		utility_nickname_from_env();
+	} else {
+		sysdlg_init();
+	}
 	extern void audio_ch_init(void);
 	audio_ch_init();
 	extern void net_init(void);

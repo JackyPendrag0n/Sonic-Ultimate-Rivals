@@ -8,7 +8,7 @@ extern "C" {
 
 typedef struct GameConfig {
 	// graphics
-	int renderer;          // 0 software, 1 OpenGL            (restart required)
+	int renderer;          // 0 software, 1 PPSSPP's OpenGL renderer, 2 OpenGL, 3 Vulkan (2 and 3: the runtime's own; restart required)
 	int internal_scale;    // 1..8 (OpenGL)
 	int tex_filter;        // 0 auto, 1 nearest, 2 linear
 	int anisotropy;        // 0,2,4,8,16
@@ -33,6 +33,7 @@ typedef struct GameConfig {
 	int mp_bots;           // the computer players: bit k for player k (2-4)
 	bool mp_smart_ai;      // experimental: computer players race the leader instead of waiting for player 1
 	bool unlock_outfits;   // debug: every character's outfits can be picked
+	int settings_version;  // 1: the renderer default moved to 2 (a saved 1 was the old default, and becomes 2 once)
 } GameConfig;
 
 extern GameConfig g_cfg;

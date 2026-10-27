@@ -372,8 +372,8 @@ static void h_WlanSwitch(Ctx *c) { RET(1); }        // WLAN switch on
 static void h_AdhocctlInit(Ctx *c) {
 	net_open();
 	ctl_state = 0;
-	extern const char *utility_nickname(void);
-	snprintf(self_nick, sizeof self_nick, "%s", utility_nickname());
+	extern const char *sysdlg_nickname(void);
+	snprintf(self_nick, sizeof self_nick, "%s", sysdlg_nickname());
 	ensure_ev_thread(0x30);
 	RET(0);
 }
@@ -650,8 +650,6 @@ static const HleEnt net_ents[] = {
 void net_adhoc_connected(void) { if (!ctl_state) { ctl_state = 1; ctl_event_pending = 1; } }
 
 void net_init(void) {
-	extern void utility_nickname_from_env(void);
-	utility_nickname_from_env();
 	hle_register(net_ents, sizeof net_ents / sizeof net_ents[0]);
 	netconf_get_status = hle_lookup(0x6332AA39);
 	if (netconf_get_status) {

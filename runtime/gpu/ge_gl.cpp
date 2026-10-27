@@ -31,6 +31,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GLES/RcsmLight.h"
 
 #include "stubs/kernel_bridge.h"  // last: short macros
@@ -62,13 +63,15 @@ static int g_outW, g_outH;
 static bool g_outValid;
 
 int ge_backend(void) { return g_backend; }
+GeNativeHooks g_ge_native;
+#define NATIVE (g_backend == GE_BACKEND_NATIVE)
 
 extern "C" void ge_select_backend(int backend) {
 	if (g_backendLocked) {
 		LOGE("GE: ge_select_backend(%d) after the GPU was created - ignored", backend);
 		return;
 	}
-	g_backend = backend == GE_BACKEND_OPENGL ? GE_BACKEND_OPENGL : GE_BACKEND_SOFTWARE;
+	g_backend = backend == GE_BACKEND_OPENGL ? GE_BACKEND_OPENGL : backend == GE_BACKEND_NATIVE && g_ge_native.init ? GE_BACKEND_NATIVE : GE_BACKEND_SOFTWARE;
 	// The settings PPSSPP's hardware backends use (the software renderer ignores most of them).
 	g_Config.bSoftwareRendering = g_backend == GE_BACKEND_SOFTWARE;
 	g_Config.bHardwareTransform = g_backend == GE_BACKEND_OPENGL;
@@ -177,16 +180,26 @@ static void BeginHostFrame() {
 	g_frameOpen = true;
 }
 
+extern void (*g_rcsm_unknown_op)(u32 op);  // GPUCommon.cpp
+static void ViewOp(u32 op);
+static void ViewsNewFrame();
+
+
 GPUCommon *ge_gl_create_gpu(void) {
 	if (!g_draw)
 		return nullptr;
 	g_backendLocked = true;
 	gpu = new GPU_GLES(nullptr, g_draw);
+	g_rcsm_unknown_op = ViewOp;
 	BeginHostFrame();
 	return gpu;
 }
 
 extern "C" void ge_gl_init(void *(*get_proc)(const char *), int internal_scale) {
+	if (NATIVE || g_ge_native.shadow) {
+		if (g_ge_native.gl_init(get_proc, internal_scale) == 0 && NATIVE) g_glLoaded = true;
+		if (NATIVE) return;
+	}
 	if (!g_glLoaded) {
 		int missing = rcsm_gl_load(get_proc);
 		if (!rcsm_glGetString || !glGetString(GL_VERSION)) {
@@ -215,10 +228,15 @@ extern "C" void ge_gl_init(void *(*get_proc)(const char *), int internal_scale) 
 }
 
 // texture replacements changed: drop every cached texture so they are looked up again
-extern "C" void ge_tex_cache_clear(void) { g_pendingTexClear = true; }
+extern "C" void ge_tex_cache_clear(void) {
+	if (g_ge_native.tex_cache_clear) g_ge_native.tex_cache_clear();
+	g_pendingTexClear = true;
+}
 
 extern "C" void ge_gl_set_internal_scale(int scale) {
 	scale = std::max(1, std::min(scale, 8));
+	if (NATIVE || g_ge_native.shadow) g_ge_native.set_internal_scale(scale);
+	if (NATIVE) return;
 	if (g_backend != GE_BACKEND_OPENGL || !g_draw) {
 		g_scale = scale;
 		return;
@@ -228,6 +246,8 @@ extern "C" void ge_gl_set_internal_scale(int scale) {
 }
 
 extern "C" void ge_gl_set_options(int texture_filtering, int anisotropy, int msaa) {
+	if (NATIVE || g_ge_native.shadow) g_ge_native.set_options(texture_filtering, anisotropy);
+	if (NATIVE) return;
 	// PPSSPP: 1 = auto, 2 = nearest, 3 = linear.
 	g_Config.iTexFiltering = texture_filtering == 1 ? TEX_FILTER_FORCE_NEAREST : texture_filtering == 2 ? TEX_FILTER_FORCE_LINEAR : TEX_FILTER_AUTO;
 	// PPSSPP stores the anisotropy level as log2(samples).
@@ -351,10 +371,109 @@ static void PresentSoftware() {
 	g_outValid = true;
 }
 
+// ================================================================= split views (ge_soft.h)
+// Each view draws into a framebuffer of its own, the size of the game's (so at the internal resolution): the
+// game's framebuffer keeps its PPSSPP bookkeeping, and only its host framebuffer is swapped for the view's while
+// the view draws. The first time a view draws in a frame it starts with the depth and stencil of the game's
+// framebuffer (as the game cleared them) and the colour of the first view, so that a view that draws nothing (a
+// player whose camera isn't set up yet) shows the first view, as the screen did when the views shared it. After each draw pass the views are copied, scaled, into their parts
+// of the game's framebuffer, depth too, and the game's own drawing (its post-processing, the HUD) goes on from
+// there. The commands come in the display list (GE_VIEW_DRAW / GE_VIEW_COMPOSE in game.c), since the GE runs
+// the list after the game has built it.
+#define MAX_VIEWS 4
+static Draw::Framebuffer *g_viewFb[MAX_VIEWS];
+static bool g_viewFresh[MAX_VIEWS];   // drawn into this frame
+static int g_viewDst[MAX_VIEWS][4], g_viewSrc[MAX_VIEWS][4], g_viewN;
+static VirtualFramebuffer *g_viewVfb;   // the game's framebuffer while a view draws, and its own host framebuffer
+static Draw::Framebuffer *g_viewMainFbo;
+
+extern "C" int ge_views_available(void) {
+	static int off = -1;
+	if (off < 0) { const char *e = getenv("SR2_VIEW_TARGETS"); off = e && !strcmp(e, "0"); }
+	if (NATIVE) return !off && g_ge_native.views_available();
+	return g_backend == GE_BACKEND_OPENGL && gpu && g_draw && !off;
+}
+
+extern "C" void ge_views_layout(int n, const int *dst, const int *src) {
+	if (NATIVE || g_ge_native.shadow) g_ge_native.views_layout(n, dst, src);
+	g_viewN = std::max(0, std::min(n, MAX_VIEWS));
+	memcpy(g_viewDst, dst, sizeof(int) * 4 * g_viewN);
+	memcpy(g_viewSrc, src, sizeof(int) * 4 * g_viewN);
+}
+
+static bool ViewRestore() {   // the game's framebuffer draws into its own host framebuffer again
+	if (!g_viewVfb)
+		return false;
+	g_viewVfb->fbo = g_viewMainFbo;
+	g_viewVfb = nullptr;
+	return true;
+}
+
+static void ViewsNewFrame() {
+	ViewRestore();
+	for (bool &f : g_viewFresh)
+		f = false;
+}
+
+static void ViewOp(u32 op) {
+	if ((op >> 24) != 0xFA || !gpu || !g_draw)
+		return;
+	FramebufferManagerCommon *fbm = gpu->GetFramebufferManagerCommon();
+	if (!fbm)
+		return;
+	gpu->Flush();   // the draws so far, into the framebuffer they were meant for
+	const bool was = ViewRestore();
+	VirtualFramebuffer *vfb = fbm->GetCurrentRenderVFB();
+	const int kind = op & 0xFF, arg = (op >> 8) & 0xFF;
+	if (vfb && vfb->fbo && vfb->bufferWidth && vfb->bufferHeight) {
+		const int w = vfb->fbo->Width(), h = vfb->fbo->Height();
+		const float sx = (float)vfb->renderWidth / vfb->bufferWidth, sy = (float)vfb->renderHeight / vfb->bufferHeight;
+		if (kind == 1 && arg < MAX_VIEWS) {   // draw into view arg's framebuffer
+			Draw::Framebuffer *&fb = g_viewFb[arg];
+			if (fb && (fb->Width() != w || fb->Height() != h)) { fb->Release(); fb = nullptr; }
+			if (!fb) fb = g_draw->CreateFramebuffer(Draw::FramebufferDesc{w, h, 1, 1, 0, true, "rcsm_view"});
+			if (fb) {
+				if (!g_viewFresh[arg]) {   // depth and stencil as the game cleared them; the colour of the first view
+					Draw::Framebuffer *from = arg && g_viewFresh[0] && g_viewFb[0] ? g_viewFb[0] : vfb->fbo;
+					g_draw->BlitFramebuffer(vfb->fbo, 0, 0, w, h, fb, 0, 0, w, h, Draw::Aspect::DEPTH_BIT | Draw::Aspect::STENCIL_BIT, Draw::FB_BLIT_NEAREST, "rcsm_view_start");
+					g_draw->BlitFramebuffer(from, 0, 0, w, h, fb, 0, 0, w, h, Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_NEAREST, "rcsm_view_start");
+				}
+				g_viewFresh[arg] = true;
+				g_viewVfb = vfb;
+				g_viewMainFbo = vfb->fbo;
+				vfb->fbo = fb;
+			}
+		} else if (kind == 2) {   // the first arg views, into their parts of the game's framebuffer
+			for (int v = 0; v < std::min(arg, g_viewN); v++) {
+				// a view not drawn yet this frame (a player just joining) shows the first view, so that no part of
+				// the screen is left as it was: the game measures the screen's brightness for its exposure
+				const int from = g_viewFb[v] && g_viewFresh[v] ? v : 0;
+				if (!g_viewFb[from] || !g_viewFresh[from])
+					continue;
+				const int *s = g_viewSrc[from == v ? v : 0], *d = g_viewDst[v];
+				const int s0 = (int)(s[0] * sx), s1 = (int)(s[1] * sy), s2 = (int)((s[0] + s[2]) * sx), s3 = (int)((s[1] + s[3]) * sy);
+				const int d0 = (int)(d[0] * sx), d1 = (int)(d[1] * sy), d2 = (int)((d[0] + d[2]) * sx), d3 = (int)((d[1] + d[3]) * sy);
+				g_draw->BlitFramebuffer(g_viewFb[from], s0, s1, s2, s3, vfb->fbo, d0, d1, d2, d3, Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_LINEAR, "rcsm_view_compose");
+				g_draw->BlitFramebuffer(g_viewFb[from], s0, s1, s2, s3, vfb->fbo, d0, d1, d2, d3, Draw::Aspect::DEPTH_BIT | Draw::Aspect::STENCIL_BIT, Draw::FB_BLIT_NEAREST, "rcsm_view_compose_depth");
+			}
+		}
+	}
+	if (was || g_viewVfb || kind == 2) {
+		fbm->DiscardFramebufferCopy();   // (a copy for texturing from the framebuffer is of the one drawn into before)
+		fbm->RebindFramebuffer("rcsm_view");   // the game's framebuffer, with whichever host framebuffer it has now
+		gstate_c.Dirty(DIRTY_ALL);
+	}
+}
+
 // ================================================================= frontend API
 extern "C" void ge_present(int fb_x, int fb_y, int fb_w, int fb_h) {
+	if (NATIVE) {
+		g_ge_native.present(fb_x, fb_y, fb_w, fb_h);
+		return;
+	}
 	if (!g_glLoaded)
 		return;
+	ViewsNewFrame();
 	if (g_backend == GE_BACKEND_OPENGL)
 		PresentGL();
 	else
@@ -366,9 +485,13 @@ extern "C" void ge_present(int fb_x, int fb_y, int fb_w, int fb_h) {
 		g_renderManager->ForgetBoundFramebuffers();
 	if (g_backend == GE_BACKEND_OPENGL)
 		BeginHostFrame();
+	if (g_ge_native.shadow && g_ge_native.shadow_present)
+		g_ge_native.shadow_present();
 }
 
 extern "C" int ge_read_display(uint8_t *rgba, int w, int h) {
+	if (NATIVE)
+		return g_ge_native.read_display(rgba, w, h);
 	if (!g_glLoaded || !g_outValid || w <= 0 || h <= 0)
 		return -1;
 	GLuint fbo = 0, tex = 0;
@@ -399,5 +522,5 @@ extern "C" int ge_read_display(uint8_t *rgba, int w, int h) {
 // sr2recomp frame ripper (rip.cpp): called at every display flip
 void rip_flip(TextureCacheCommon *tc);
 extern "C" void ge_rip_flip(void) {
-	if (gpu) rip_flip(gpu->GetTextureCacheCommon());
+	if (gpu && !NATIVE) rip_flip(gpu->GetTextureCacheCommon());
 }
